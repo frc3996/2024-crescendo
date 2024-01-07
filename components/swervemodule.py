@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-import phoenix6
+import phoenix5
 import ntcore
 from wpimath.controller import PIDController
 
@@ -15,9 +15,9 @@ class SwerveModuleConfig:
 
 class SwerveModule:
     # Vas chercher moteur, encodeur et configuration par injection
-    driveMotor: phoenix6.hardware.TalonFX
-    rotateMotor: phoenix6.hardware.TalonFX
-    encoder: phoenix6.hardware.CANcoder
+    driveMotor: phoenix5.WPI_TalonFX
+    rotateMotor: phoenix5.WPI_TalonFX
+    encoder: phoenix5._ctre.sensors.WPI_CANCoder
     cfg: SwerveModuleConfig
 
     def setup(self):

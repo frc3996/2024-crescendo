@@ -9,7 +9,7 @@ Presser le bouton A va également refaire son zéro.
 """
 
 
-import phoenix6
+import phoenix5
 import ntcore  # Outils pour les NetworkTables
 import wpilib
 from common import gamepad_helper as gh  # Outil pour faciliter l'utilisation des contrôleurs
@@ -24,10 +24,10 @@ class MyRobot(MagicRobot):
     pour injecter des objets au composant.
 
     ex.:
-    Après avoir créer dans 'components' un fichier intake_driver.py, utiliser une variable nommée "intake_beltMotor: phoenix6.hardware.TalonFX" déclare le type de la variable.
+    Après avoir créer dans 'components' un fichier intake_driver.py, utiliser une variable nommée "intake_beltMotor: phoenix5.WPI_TalonFX" déclare le type de la variable.
     Quand 'beltMotor' sera appelée depuis 'intake', ce sera un objet de type 'WPI_TalonFX'.
 
-    Utiliser un signe égale (=) pendant la déclaration des variables tel que "intake_beltMotor = phoenix6.hardware.TalonFX(11)" crée l'objet.
+    Utiliser un signe égale (=) pendant la déclaration des variables tel que "intake_beltMotor = phoenix5.WPI_TalonFX(11)" crée l'objet.
     Quand 'beltMotor' est appelé depuis le composant 'intake' et ce sera un WPI_TalonFX avec un ID CAN de 11.
 
     Utilisez le signe = dans la fonction 'createObjects' pour vous assurer que les données sont biens transmises à leur composantes.
@@ -76,30 +76,30 @@ class MyRobot(MagicRobot):
             base_width=10.5, base_length=19, enable_debug=False
         )
 
-        self.frontLeftModule_driveMotor = phoenix6.hardware.TalonFX(26)
-        self.frontLeftModule_rotateMotor = phoenix6.hardware.TalonFX(25)
-        self.frontLeftModule_encoder = phoenix6.hardware.CANcoder(11)
+        self.frontLeftModule_driveMotor = phoenix5.WPI_TalonFX(26)
+        self.frontLeftModule_rotateMotor = phoenix5.WPI_TalonFX(25)
+        self.frontLeftModule_encoder = phoenix5._ctre.sensors.WPI_CANCoder(11)
         self.frontLeftModule_cfg = swervemodule.SwerveModuleConfig(
             nt_name="frontLeftModule", inverted=False, allow_reverse=True
         )
 
-        self.frontRightModule_driveMotor = phoenix6.hardware.TalonFX(28)
-        self.frontRightModule_rotateMotor = phoenix6.hardware.TalonFX(27)
-        self.frontRightModule_encoder = phoenix6.sense .sensors.WPI_CANCoder(14)
+        self.frontRightModule_driveMotor = phoenix5.WPI_TalonFX(28)
+        self.frontRightModule_rotateMotor = phoenix5.WPI_TalonFX(27)
+        self.frontRightModule_encoder = phoenix5._ctre.sensors.WPI_CANCoder(14)
         self.frontRightModule_cfg = swervemodule.SwerveModuleConfig(
             nt_name="frontRightModule", inverted=True, allow_reverse=True
         )
 
-        self.rearLeftModule_driveMotor = phoenix6.hardware.TalonFX(24)
-        self.rearLeftModule_rotateMotor = phoenix6.hardware.TalonFX(23)
-        self.rearLeftModule_encoder = phoenix6.hardware.TalonFX.WPI_CANCoder(12)
+        self.rearLeftModule_driveMotor = phoenix5.WPI_TalonFX(24)
+        self.rearLeftModule_rotateMotor = phoenix5.WPI_TalonFX(23)
+        self.rearLeftModule_encoder = phoenix5._ctre.sensors.WPI_CANCoder(12)
         self.rearLeftModule_cfg = swervemodule.SwerveModuleConfig(
             nt_name="rearLeftModule", inverted=True, allow_reverse=True
         )
 
-        self.rearRightModule_driveMotor = phoenix6.hardware.TalonFX(21)
-        self.rearRightModule_rotateMotor = phoenix6.hardware.TalonFX(22)
-        self.rearRightModule_encoder = phoenix6.sensors.WPI_CANCoder(13)
+        self.rearRightModule_driveMotor = phoenix5.WPI_TalonFX(21)
+        self.rearRightModule_rotateMotor = phoenix5.WPI_TalonFX(22)
+        self.rearRightModule_encoder = phoenix5._ctre.sensors.WPI_CANCoder(13)
         self.rearRightModule_cfg = swervemodule.SwerveModuleConfig(
             nt_name="rearRightModule", inverted=False, allow_reverse=True
         )
