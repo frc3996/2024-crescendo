@@ -1,7 +1,7 @@
 import math
 from dataclasses import dataclass
 import ntcore
-from components import swervemodule
+from subsystems import swervemodule
 from navx import AHRS
 from wpimath.controller import PIDController
 
