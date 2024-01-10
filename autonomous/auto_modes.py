@@ -1,5 +1,5 @@
 import ntcore
-from components import swervedrive
+from subsystems import swervedrive
 from magicbot.state_machine import timed_state
 
 from .base_auto import BaseAuto

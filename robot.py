@@ -37,11 +37,11 @@ import phoenix6
 import ntcore  # Outils pour les NetworkTables
 import wpilib
 from common import gamepad_helper as gh  # Outil pour faciliter l'utilisation des contrôleurs
-from components import swervedrive  # Nos composantes logiciels. Permet de grouper les composantes par fonctionalitée
+from subsystems import swervedrive  # Nos composantes logiciels. Permet de grouper les composantes par fonctionalitée
 from magicbot import MagicRobot
 from navx import AHRS
 
-from subsystems import swervemodule  # Gyro NAVX
+from components import swervemodule  # Gyro NAVX
 
 
 class MyRobot(MagicRobot):
@@ -132,6 +132,7 @@ class MyRobot(MagicRobot):
 
         # Le ShuffleBoard est utilisé afin d'ajuster le zéro des roues.
         # Un fois testé, les valeurs peuvent-être modifiées ici.
+        self.nt.putNumber("config/zero_calibration_mode", 0)
         self.nt.putNumber("frontLeftModule/rotation_zero", 0)
         self.nt.putNumber("frontRightModule/rotation_zero", 0)
         self.nt.putNumber("rearLeftModule/rotation_zero", 0)
