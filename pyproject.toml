@@ -6,7 +6,7 @@
 [tool.robotpy]
 
 # Version of robotpy this project depends on
-robotpy_version = "2024.1.1.1"
+robotpy_version = "2024.1.1.2"
 
 # Which extra RobotPy components should be installed
 # -> equivalent to `pip install robotpy[extra1, ...]
@@ -28,3 +28,37 @@ robotpy_extras = [
 
 # Other pip packages to install
 requires = ["phoenix6"]
+
+[tool.poetry]
+name = "2024-crescendo"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.13"
+robotpy = "^2024.1.1.2"
+robotpy-apriltag = "^2024.1.1.1"
+robotpy-cscore = "^2024.1.1.1"
+robotpy-hal = "^2024.1.1.1"
+robotpy-halsim-ds-socket = "^2024.1.1.1"
+robotpy-halsim-gui = "^2024.1.1.1"
+robotpy-halsim-ws = "^2024.1.1.1"
+robotpy-installer = "^2024.0.2"
+robotpy-navx = "^2024.1.0"
+robotpy-pathplannerlib = "^2024.1.1"
+robotpy-rev = "^2024.2.0"
+robotpy-wpilib-utilities = "^2024.0.0"
+robotpy-wpimath = "^2024.1.1.1"
+robotpy-wpinet = "^2024.1.1.1"
+robotpy-wpiutil = "^2024.1.1.1"
+wpilib = "^2024.1.1.1"
+phoenix6 = "^24.1.0"
+numpy = "^1.26.3"
+
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
