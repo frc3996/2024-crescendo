@@ -99,7 +99,7 @@ class MyRobot(MagicRobot):
         # Il est important d'utiliser le logiciel de la compagnie pour trouver (ou configurer) les CAN id
         # On utilise également les encodeurs absolues CAN pour orienter la roue
         self.drive_cfg = swervedrive.SwerveDriveConfig(
-            base_width=10.5, base_length=19, enable_debug=False
+            field_centric=True, base_width=10.5, base_length=19, enable_debug=False
         )
 
         self.frontLeftModule_driveMotor = phoenix6.hardware.TalonFX(26)
@@ -163,7 +163,7 @@ class MyRobot(MagicRobot):
         # Reset navx zero
         if self.gamepad1.getRawButton(gh.BUTTON_A):
             self.drive.navx_zero_angle()
-            
+
         if self.gamepad1.getRawButton(gh.BUTTON_B):
             self.drive.request_wheel_lock = True
         else:

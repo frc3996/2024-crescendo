@@ -121,7 +121,7 @@ class SwerveModule:
         Appelé à chaque itération/boucle
         """
         # Calcul de l'angle avec le PID
-        
+
         if self.calibration_mode == 1:
             self._requested_degree = 0
         error = self.rotation_pid.calculate(
