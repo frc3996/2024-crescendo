@@ -38,6 +38,7 @@ import wpimath
 import wpilib.drive
 import wpimath.filter
 import wpimath.controller
+import phoenix6
 from common import gamepad_helper as gh  # Outil pour faciliter l'utilisation des contrôleurs
 from magicbot import MagicRobot
 
@@ -90,6 +91,11 @@ class MyRobot(MagicRobot):
         self.xspeedLimiter = wpimath.filter.SlewRateLimiter(3)
         self.yspeedLimiter = wpimath.filter.SlewRateLimiter(3)
         self.rotLimiter = wpimath.filter.SlewRateLimiter(3)
+
+        # Phoenix6 can log error message to an external usb drive
+
+        # phoenix6.signal_logger.SignalLogger.set_path("path/to/usb")
+        # phoenix6.signal_logger.SignalLogger.start()
 
     # def disabledPeriodic(self):
     #     """Mets à jours le dashboard, même quand le robot est désactivé"""

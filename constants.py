@@ -8,12 +8,6 @@ import math
 import wpilib
 
 # Motors
-
-# pneumatic control module (pcm) 30
-# power distribution panel (pdp) 21
-# sparkmax right 1, 2
-# sparkmax right 3, 4
-
 kLeftMotor1Port = 1
 kLeftMotor1Inverted = False
 kLeftMotor2Port = 2
@@ -27,8 +21,7 @@ kRightMotor2Inverted = True
 kP = 5e-5
 kI = 1e-6
 kD = 0
-kIz = 0
-kFF = 0.000156
+kV = 0.000156
 kMaxOutput = 1
 kMinOutput = -1
 max_rpm = 5700

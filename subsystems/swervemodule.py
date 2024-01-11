@@ -11,16 +11,20 @@ import wpimath.geometry
 import wpimath.controller
 import wpimath.trajectory
 import phoenix6
+import constants
+from typing import cast
 
-kWheelRadius = 2.5
+kWheelRadius = 0.025
 kModuleMaxAngularVelocity = math.pi
 kModuleMaxAngularAcceleration = math.tau
 
-
 class RikiCANcoder(phoenix6.hardware.CANcoder):
     dpr: float
-    def __init__(self, device_id: int, canbus: str = ""):
+    def __init__(self, device_id: int, canbus: str = "", name = ""):
         super().__init__(device_id, canbus)
+        self.name = name
+        cancoder_config = phoenix6.configs.CANcoderConfiguration()
+        self.configurator.apply(cancoder_config)
 
     def setDistancePerRotation(self, dpr: float):
         self.dpr = dpr 
@@ -38,11 +42,74 @@ class RikiCANcoder(phoenix6.hardware.CANcoder):
         distance = self.get_position().value * self.dpr
         # print(f"RikiCANcoder {self.name}  distance {current_position} {self.previous_position} {distance}")
         return distance
+
+class RikiTalonFXConfiguration(phoenix6.configs.TalonFXConfiguration, phoenix6.configs.config_groups.SupportsSerialization):
+    def __init__(self, inverted=False, name=""):
+        super().__init__()
         
+        self.name = name
+        self.feedback.feedback_sensor_source = phoenix6.configs.talon_fx_configs.FeedbackSensorSourceValue.ROTOR_SENSOR
+        self.feedback.feedback_remote_sensor_id = 0
+
+        wpilib.SmartDashboard.putNumber("P Gain", constants.kP)
+        wpilib.SmartDashboard.putNumber("I Gain", constants.kI)
+        wpilib.SmartDashboard.putNumber("D Gain", constants.kD)
+        wpilib.SmartDashboard.putNumber("Feed Forward", constants.kV)
+
+        self.open_loop_ramps = phoenix6.configs.OpenLoopRampsConfigs()
+        self.open_loop_ramps.with_duty_cycle_open_loop_ramp_period(0.1)
+
+        motor_config = phoenix6.configs.MotorOutputConfigs()
+        if inverted:
+            motor_config.inverted = phoenix6.signals.InvertedValue.COUNTER_CLOCKWISE_POSITIVE
+        else:
+            motor_config.inverted = phoenix6.signals.InvertedValue.CLOCKWISE_POSITIVE
+
+        self.motor_output = motor_config
+
+    def updateConfigs(self):
+        """
+        That's a bit ugly, but we don't want to apply the config every 20ms
+        """
+        p = cast(float, wpilib.SmartDashboard.getNumber(f"{self.name} P Gain", 0))
+        i = cast(float, wpilib.SmartDashboard.getNumber(f"{self.name} I Gain", 0))
+        d = cast(float, wpilib.SmartDashboard.getNumber(f"{self.name} D Gain", 0))
+        v = cast(float, wpilib.SmartDashboard.getNumber(f"{self.name} Feed Forward", 0))
+
+        apply = False
+        if p != self.slot0.k_p:
+            # Proportional Gain
+            self.slot0.k_p = p
+            apply = True
+        if i != self.slot0.k_i:
+            # Integral Gain
+            self.slot0.k_i = i
+            apply = True
+        if d != self.slot0.k_d:
+            # Derivative Gain
+            self.slot0.k_d = d
+            apply = True
+        if v != self.slot0.k_v:
+            # Velocity Feedforward Gain
+            self.slot0.k_v = v
+            apply = True
+
+        # Static Feedforward Gain
+        self.slot0.k_s = 0
+        # Acceleration Feedforward Gain
+        self.slot0.k_a = 0
+        # Gravity Feedforward Gain
+        self.slot0.k_g = 0
+
+        return apply
+
+
 class RikiTalonFX(phoenix6.hardware.TalonFX):
     dpr: float
-    def __init__(self, device_id: int, canbus: str = ""):
+    def __init__(self, device_id: int, canbus: str = "", name = ""):
         super().__init__(device_id, canbus)
+        self.name = name
+        self.config = RikiTalonFXConfiguration(inverted=False, name=name)
 
     def setDistancePerRotation(self, dpr: float):
         self.dpr = dpr 
@@ -65,7 +132,17 @@ class RikiTalonFX(phoenix6.hardware.TalonFX):
         self.set_control(phoenix6.controls.VoltageOut(voltage))
         self.set_control(phoenix6.controls.VoltageOut(voltage))
 
-        
+    def setVelocity(self, velocity):
+        "Convert from velocity in m/s to rot/s"
+        self.set_control(phoenix6.controls.VelocityVoltage(velocity/self.dpr))
+
+    def setRotation(self, angle):
+        "Convert from angle (in rad) to rotation"
+        self.set_control(phoenix6.controls.PositionVoltage(angle/self.dpr))
+
+    def updateConfigs(self): 
+        if self.config.updateConfigs():
+            self.configurator.apply(self.config)
 
 class SwerveModule:
     def __init__(
@@ -82,19 +159,18 @@ class SwerveModule:
         :param driveEncoderChannel
         :param turningEncoderChannel
         """
-        self.driveMotor = RikiTalonFX(driveMotorChannel)
-        self.driveMotor.name = name
+
+        # Setting up motors
+        self.driveMotor = RikiTalonFX(driveMotorChannel, name=f"{name} drive")
+        self.driveMotor.set_position(0)
+
+        self.turningMotor = RikiTalonFX(turningMotorChannel, name=f"{name} turning")
+
+        # Seting up encoders
         self.driveEncoder = self.driveMotor
 
-        self.turningMotor = RikiTalonFX(turningMotorChannel)
-        self.turningMotor.name = name
-
-        self.turningEncoder = RikiCANcoder(turningEncoderChannel)
-        self.turningEncoder.name = name
-
-        self.init_driveMotor(self.driveMotor)
-        self.init_turningMotor(self.turningMotor)
-        self.init_cancoder(self.turningEncoder)
+        self.turningEncoder = RikiCANcoder(turningEncoderChannel, name=name)
+        self.turningEncoder.set_position(0)
 
 
         # # Gains are for example purposes only - must be determined for your own robot!
@@ -127,38 +203,6 @@ class SwerveModule:
         # to be continuous.
         # self.turningPIDController.enableContinuousInput(-math.pi, math.pi)
 
-
-    def init_cancoder(self, cancoder: phoenix6.hardware.CANcoder):
-        cancoder_config = phoenix6.configs.CANcoderConfiguration()
-        cancoder.configurator.apply(cancoder_config)
-        cancoder.set_position(0)
-
-    def init_driveMotor(self, motor: phoenix6.hardware.TalonFX):
-        config = phoenix6.configs.TalonFXConfiguration()
-
-        config.open_loop_ramps = phoenix6.configs.OpenLoopRampsConfigs()
-        config.open_loop_ramps.with_duty_cycle_open_loop_ramp_period(0.1)
-
-        motor_config = phoenix6.configs.MotorOutputConfigs()
-        motor_config.inverted = phoenix6.signals.InvertedValue.COUNTER_CLOCKWISE_POSITIVE
-
-        config.motor_output = motor_config
-        motor.set_position(0)
-        motor.configurator.apply(config)
-
-    def init_turningMotor(self, motor: phoenix6.hardware.TalonFX):
-        config = phoenix6.configs.TalonFXConfiguration()
-
-        config.open_loop_ramps = phoenix6.configs.OpenLoopRampsConfigs()
-        config.open_loop_ramps.with_duty_cycle_open_loop_ramp_period(0.01)
-
-        motor_config = phoenix6.configs.MotorOutputConfigs()
-        motor_config.inverted = phoenix6.signals.InvertedValue.CLOCKWISE_POSITIVE
-
-        config.motor_output = motor_config
-        motor.set_position(0)
-        motor.configurator.apply(config)
-
     def getState(self) -> wpimath.kinematics.SwerveModuleState:
         """Returns the current state of the module.
 
@@ -186,6 +230,10 @@ class SwerveModule:
 
         :param desiredState: Desired state with speed and angle.
         """
+        
+        # Update the pid from network tables
+        self.driveMotor.updateConfigs()
+        self.turningMotor.updateConfigs()
 
         encoderRotation = wpimath.geometry.Rotation2d(self.turningEncoder.getDistance())
 
@@ -218,6 +266,5 @@ class SwerveModule:
         # self.driveMotor.setVoltage(driveOutput + driveFeedforward)
         # self.turningMotor.setVoltage(turnOutput + turnFeedforward)
 
-        print(f"state.speed {state.speed}, state.angle.rad {state.angle.radians()}")
-        self.driveMotor.set_control(phoenix6.controls.DutyCycleOut(state.speed))
-        self.turningMotor.set_control(phoenix6.controls.PositionDutyCycle(state.angle.radians(), 1))
+        self.driveMotor.setVelocity(state.speed)
+        self.turningMotor.setRotation(state.angle.radians())
