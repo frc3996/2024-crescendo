@@ -133,10 +133,10 @@ class MyRobot(MagicRobot):
         # Le ShuffleBoard est utilisé afin d'ajuster le zéro des roues.
         # Un fois testé, les valeurs peuvent-être modifiées ici.
         self.nt.putNumber("config/zero_calibration_mode", 0)
-        self.nt.putNumber("frontLeftModule/rotation_zero", 0)
-        self.nt.putNumber("frontRightModule/rotation_zero", 0)
-        self.nt.putNumber("rearLeftModule/rotation_zero", 0)
-        self.nt.putNumber("rearRightModule/rotation_zero", 0)
+        self.nt.putNumber("frontLeftModule/rotation_zero", 15.56)
+        self.nt.putNumber("frontRightModule/rotation_zero", 256.89)
+        self.nt.putNumber("rearLeftModule/rotation_zero", 38.22)
+        self.nt.putNumber("rearRightModule/rotation_zero", 136.44)
 
         # Et le navx nécessaire pour un control "Field Centric"
         self.navx = AHRS.create_spi(update_rate_hz=50)
@@ -163,6 +163,11 @@ class MyRobot(MagicRobot):
         # Reset navx zero
         if self.gamepad1.getRawButton(gh.BUTTON_A):
             self.drive.navx_zero_angle()
+            
+        if self.gamepad1.getRawButton(gh.BUTTON_B):
+            self.drive.request_wheel_lock = True
+        else:
+            self.drive.request_wheel_lock = False
 
         self.drive.controller_move(
             self.gamepad1.getRawAxis(gh.AXIS_LEFT_Y),

@@ -293,6 +293,7 @@ class SwerveDrive:
             )  # On remets à zéro la vitesse, mais pas l'angle
 
             if self.request_wheel_lock:
+                print("Lock")
                 # Place les roues à 45 degrées, utile pour la défense
                 self._requested_angles["front_left"] = 45
                 self._requested_angles["front_right"] = -45

@@ -29,7 +29,7 @@ class SwerveModule:
         config = phoenix6.configs.TalonFXConfiguration()
         config.open_loop_ramps = phoenix6.configs.OpenLoopRampsConfigs().with_duty_cycle_open_loop_ramp_period(0.1)
         motor_config = phoenix6.configs.MotorOutputConfigs()
-        motor_config.inverted = phoenix6.signals.InvertedValue.COUNTER_CLOCKWISE_POSITIVE
+        motor_config.inverted = phoenix6.signals.InvertedValue.CLOCKWISE_POSITIVE
         config.motor_output = motor_config
         self.driveMotor.configurator.apply(config)
 
@@ -121,6 +121,9 @@ class SwerveModule:
         Appelé à chaque itération/boucle
         """
         # Calcul de l'angle avec le PID
+        
+        if self.calibration_mode == 1:
+            self._requested_degree = 0
         error = self.rotation_pid.calculate(
             self.get_encoder_abs_position(), self._requested_degree
         )
@@ -130,7 +133,8 @@ class SwerveModule:
         # Commande de vitesse au moteur
         self.driveMotor_control.output = self._requested_speed
         if self.calibration_mode == 1:
-            self.driveMotor_control.output *= 0.1
+            self.driveMotor_control.output = 0.05
+        self.driveMotor_control.output *= 0.2
         self.driveMotor.set_control(self.driveMotor_control)
 
         self.update_nt()
