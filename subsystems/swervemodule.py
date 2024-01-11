@@ -12,8 +12,7 @@ import wpimath.controller
 import wpimath.trajectory
 import phoenix6
 
-kWheelRadius = 0.0508
-kEncoderResolution = 4096
+kWheelRadius = 2.5
 kModuleMaxAngularVelocity = math.pi
 kModuleMaxAngularAcceleration = math.tau
 
@@ -22,29 +21,59 @@ class RikiCANcoder(phoenix6.hardware.CANcoder):
     dpr: float
     def __init__(self, device_id: int, canbus: str = ""):
         super().__init__(device_id, canbus)
-        self.previous_position = 0
 
     def setDistancePerRotation(self, dpr: float):
         self.dpr = dpr 
 
     def getRate(self):
+        """
+        Get the current rate of the encoder. Units are distance per second as scaled by the value from setDistancePerRotation().
+        """
         return self.dpr * self.get_velocity().value
 
     def getDistance(self):
-        current_position = self.get_position().value
-        distance = (current_position - self.previous_position) * self.dpr
-        self.previous_position = current_position
+        """
+        Get the distance the robot has driven since the last reset as scaled by the value from setDistancePerRotation(double).
+        """
+        distance = self.get_position().value * self.dpr
+        # print(f"RikiCANcoder {self.name}  distance {current_position} {self.previous_position} {distance}")
         return distance
         
+class RikiTalonFX(phoenix6.hardware.TalonFX):
+    dpr: float
+    def __init__(self, device_id: int, canbus: str = ""):
+        super().__init__(device_id, canbus)
 
+    def setDistancePerRotation(self, dpr: float):
+        self.dpr = dpr 
+
+    def getRate(self):
+        """
+        Get the current rate of the encoder. Units are distance per second as scaled by the value from setDistancePerRotation().
+        """
+        return self.dpr * self.get_rotor_velocity().value
+
+    def getDistance(self):
+        """
+        Get the distance the robot has driven since the last reset as scaled by the value from setDistancePerRotation(double).
+        """
+        distance = self.dpr * self.get_rotor_position().value
+        # print(f"RikiTalonFX {self.name} distance {current_position} {self.previous_position} {distance}")
+        return distance
+    
+    def setVoltage(self, voltage):
+        self.set_control(phoenix6.controls.VoltageOut(voltage))
+        self.set_control(phoenix6.controls.VoltageOut(voltage))
+
+        
 
 class SwerveModule:
     def __init__(
         self,
         driveMotorChannel: int,
         turningMotorChannel: int,
-        driveEncoderChannel: int,
         turningEncoderChannel: int,
+        name: str,
     ) -> None:
         """Constructs a SwerveModule with a drive motor, turning motor, drive encoder and turning encoder.
 
@@ -53,57 +82,56 @@ class SwerveModule:
         :param driveEncoderChannel
         :param turningEncoderChannel
         """
-        self.driveMotor = phoenix6.hardware.TalonFX(driveMotorChannel)
-        self.turningMotor = phoenix6.hardware.TalonFX(turningMotorChannel)
-        self.driveEncoder = RikiCANcoder(driveEncoderChannel)
+        self.driveMotor = RikiTalonFX(driveMotorChannel)
+        self.driveMotor.name = name
+        self.driveEncoder = self.driveMotor
+
+        self.turningMotor = RikiTalonFX(turningMotorChannel)
+        self.turningMotor.name = name
+
         self.turningEncoder = RikiCANcoder(turningEncoderChannel)
+        self.turningEncoder.name = name
 
         self.init_driveMotor(self.driveMotor)
         self.init_turningMotor(self.turningMotor)
-
-        self.init_cancoder(self.driveEncoder)
         self.init_cancoder(self.turningEncoder)
 
 
-        # Gains are for example purposes only - must be determined for your own robot!
-        self.drivePIDController = wpimath.controller.PIDController(1, 0, 0)
+        # # Gains are for example purposes only - must be determined for your own robot!
+        # self.drivePIDController = wpimath.controller.PIDController(-0.008, 0, 0)
 
-        # Gains are for example purposes only - must be determined for your own robot!
-        self.turningPIDController = wpimath.controller.ProfiledPIDController(
-            1,
-            0,
-            0,
-            wpimath.trajectory.TrapezoidProfile.Constraints(
-                kModuleMaxAngularVelocity,
-                kModuleMaxAngularAcceleration,
-            ),
-        )
+        # # Gains are for example purposes only - must be determined for your own robot!
+        # self.turningPIDController = wpimath.controller.ProfiledPIDController(
+        #     -0.008,
+        #     0,
+        #     0,
+        #     wpimath.trajectory.TrapezoidProfile.Constraints(
+        #         kModuleMaxAngularVelocity,
+        #         kModuleMaxAngularAcceleration,
+        #     ),
+        # )
 
-        # Gains are for example purposes only - must be determined for your own robot!
-        self.driveFeedforward = wpimath.controller.SimpleMotorFeedforwardMeters(1, 3)
-        self.turnFeedforward = wpimath.controller.SimpleMotorFeedforwardMeters(1, 0.5)
+        # # Gains are for example purposes only - must be determined for your own robot!
+        # self.driveFeedforward = wpimath.controller.SimpleMotorFeedforwardMeters(1, 0)
+        # self.turnFeedforward = wpimath.controller.SimpleMotorFeedforwardMeters(1, 0)
 
-        # Set the distance per pulse for the drive encoder. We can simply use the
-        # distance traveled for one rotation of the wheel divided by the encoder
-        # resolution.
-        self.driveEncoder.setDistancePerRotation(
+        # Set the distance per rotation for the drive encoder.
+        self.driveMotor.setDistancePerRotation(
             math.tau * kWheelRadius
         )
 
         # Set the distance (in this case, angle) in radians per pulse for the turning encoder.
-        # This is the the angle through an entire rotation (2 * pi) divided by the
-        # encoder resolution.
         self.turningEncoder.setDistancePerRotation(math.tau)
 
         # Limit the PID Controller's input range between -pi and pi and set the input
         # to be continuous.
-        self.turningPIDController.enableContinuousInput(-math.pi, math.pi)
+        # self.turningPIDController.enableContinuousInput(-math.pi, math.pi)
 
 
     def init_cancoder(self, cancoder: phoenix6.hardware.CANcoder):
         cancoder_config = phoenix6.configs.CANcoderConfiguration()
         cancoder.configurator.apply(cancoder_config)
-
+        cancoder.set_position(0)
 
     def init_driveMotor(self, motor: phoenix6.hardware.TalonFX):
         config = phoenix6.configs.TalonFXConfiguration()
@@ -115,10 +143,7 @@ class SwerveModule:
         motor_config.inverted = phoenix6.signals.InvertedValue.COUNTER_CLOCKWISE_POSITIVE
 
         config.motor_output = motor_config
-
-        # self.driveMotor_control = phoenix6.controls.DutyCycleOut(0)
-        # self.rotateMotor_control = phoenix6.controls.DutyCycleOut(0)
-
+        motor.set_position(0)
         motor.configurator.apply(config)
 
     def init_turningMotor(self, motor: phoenix6.hardware.TalonFX):
@@ -131,7 +156,7 @@ class SwerveModule:
         motor_config.inverted = phoenix6.signals.InvertedValue.CLOCKWISE_POSITIVE
 
         config.motor_output = motor_config
-
+        motor.set_position(0)
         motor.configurator.apply(config)
 
     def getState(self) -> wpimath.kinematics.SwerveModuleState:
@@ -174,22 +199,25 @@ class SwerveModule:
         # driving.
         state.speed *= (state.angle - encoderRotation).cos()
 
-        # Calculate the drive output from the drive PID controller.
-        driveOutput = self.drivePIDController.calculate(
-            self.driveEncoder.getRate(), state.speed
-        )
+        # # Calculate the drive output from the drive PID controller.
+        # driveOutput = self.drivePIDController.calculate(
+        #     self.driveEncoder.getRate(), state.speed
+        # )
 
-        driveFeedforward = self.driveFeedforward.calculate(state.speed)
+        # driveFeedforward = self.driveFeedforward.calculate(state.speed)
 
         # Calculate the turning motor output from the turning PID controller.
-        turnOutput = self.turningPIDController.calculate(
-            self.turningEncoder.getDistance(), state.angle.radians()
-        )
+        # turnOutput = self.turningPIDController.calculate(
+        #     self.turningEncoder.getDistance(), state.angle.radians()
+        # )
 
-        turnFeedforward = self.turnFeedforward.calculate(
-            self.turningPIDController.getSetpoint().velocity
-        )
+        # turnFeedforward = self.turnFeedforward.calculate(
+        #     self.turningPIDController.getSetpoint().velocity
+        # )
 
-        self.driveMotor.setVoltage(driveOutput + driveFeedforward)
-        self.turningMotor.setVoltage(turnOutput + turnFeedforward)
+        # self.driveMotor.setVoltage(driveOutput + driveFeedforward)
+        # self.turningMotor.setVoltage(turnOutput + turnFeedforward)
 
+        print(f"state.speed {state.speed}, state.angle.rad {state.angle.radians()}")
+        self.driveMotor.set_control(phoenix6.controls.DutyCycleOut(state.speed))
+        self.turningMotor.set_control(phoenix6.controls.PositionDutyCycle(state.angle.radians(), 1))

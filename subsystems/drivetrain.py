@@ -10,7 +10,7 @@ import wpimath.kinematics
 import subsystems.swervemodule as swervemodule
 from navx import AHRS
 
-kMaxSpeed = 3.0  # 3 meters per second
+kMaxSpeed = 1.0  # 3 meters per second
 kMaxAngularSpeed = math.pi  # 1/2 rotation per second
 
 
@@ -20,17 +20,18 @@ class Drivetrain:
     """
     gyro: AHRS
 
-    def __init__(self) -> None:
+    def __init__(self, gyro) -> None:
+        self.gyro = gyro
+
         self.frontLeftLocation = wpimath.geometry.Translation2d(0.381, 0.381)
         self.frontRightLocation = wpimath.geometry.Translation2d(0.381, -0.381)
         self.backLeftLocation = wpimath.geometry.Translation2d(-0.381, 0.381)
         self.backRightLocation = wpimath.geometry.Translation2d(-0.381, -0.381)
 
-        # No idea what are 15,16,17,18
-        self.frontLeft = swervemodule.SwerveModule(26, 25, 11, 15)
-        self.frontRight = swervemodule.SwerveModule(28, 27, 14, 18)
-        self.backLeft = swervemodule.SwerveModule(24, 23, 12, 16)
-        self.backRight = swervemodule.SwerveModule(21, 22, 13, 17)
+        self.frontLeft = swervemodule.SwerveModule(26, 25, 11, "front left")
+        self.frontRight = swervemodule.SwerveModule(28, 27, 14, "front right")
+        self.backLeft = swervemodule.SwerveModule(24, 23, 12, "back left")
+        self.backRight = swervemodule.SwerveModule(21, 22, 13, "back right")
 
         self.kinematics = wpimath.kinematics.SwerveDrive4Kinematics(
             self.frontLeftLocation,

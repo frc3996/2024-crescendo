@@ -1,4 +1,5 @@
-from subsystems import swervedrive
+
+from subsystems.drivetrain import Drivetrain
 from magicbot.state_machine import AutonomousStateMachine, state
 
 
@@ -9,7 +10,7 @@ class BaseAuto(AutonomousStateMachine):
     """
 
     # driver.flush() permet de réduire des problèmes potentiel sur la drive.
-    drive: swervedrive.SwerveDrive
+    swerve: Drivetrain
 
     @state
     def failed(self):
@@ -20,5 +21,5 @@ class BaseAuto(AutonomousStateMachine):
 
     @state
     def finish(self):
-        self.drive.flush()
+        # self.drive.flush()
         self.done()

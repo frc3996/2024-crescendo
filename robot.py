@@ -34,11 +34,15 @@ INDICATEUR LUMINEUX
 
 import ntcore  # Outils pour les NetworkTables
 import wpilib
+import wpimath
+import wpilib.drive
+import wpimath.filter
+import wpimath.controller
 from common import gamepad_helper as gh  # Outil pour faciliter l'utilisation des contrôleurs
 from magicbot import MagicRobot
 
 from navx import AHRS
-from subsystems.drivetrain import Drivetrain
+from subsystems.drivetrain import Drivetrain, kMaxAngularSpeed, kMaxSpeed
 
 
 class MyRobot(MagicRobot):
@@ -59,7 +63,9 @@ class MyRobot(MagicRobot):
     """
 
     # Networktables pour de la configuration et retour d'information
+    swerve: Drivetrain
     nt: ntcore.NetworkTable
+    gyro: AHRS
 
     def createObjects(self):
         """
@@ -69,49 +75,96 @@ class MyRobot(MagicRobot):
         # NetworkTable
         self.nt = ntcore.NetworkTableInstance.getDefault().getTable("robotpy")
 
-        # Configuration de la base swerve
-        self.drive = Drivetrain()
-
-        # General
-        self.gamepad1 = wpilib.Joystick(0)
-        self.pdp = wpilib.PowerDistribution()
-
         # Et le navx nécessaire pour un control "Field Centric"
         self.gyro = AHRS.create_spi(update_rate_hz=50)
 
-    def disabledPeriodic(self):
-        """Mets à jours le dashboard, même quand le robot est désactivé"""
-        self.update_nt()
+        # Configuration de la base swerve
+        self.swerve = Drivetrain(self.gyro)
 
-    def autonomousInit(self):
-        """Cette fonction est appelée une seule fois lorsque le robot entre en mode autonome."""
-        pass
+        # General
+        self.controller = wpilib.XboxController(0)
+        self.pdp = wpilib.PowerDistribution()
 
-    def autonomous(self):
-        """Pour les modes auto de MagicBot, voir le dossier ./autonomous"""
-        super().autonomous()
 
-    def teleopInit(self):
-        """Cette fonction est appelée une seule fois lorsque le robot entre en mode téléopéré."""
-        pass
+        # Slew rate limiters to make joystick inputs more gentle; 1/3 sec from 0 to 1.
+        self.xspeedLimiter = wpimath.filter.SlewRateLimiter(3)
+        self.yspeedLimiter = wpimath.filter.SlewRateLimiter(3)
+        self.rotLimiter = wpimath.filter.SlewRateLimiter(3)
 
-    def teleopPeriodic(self):
-        """Cette fonction est appelée de façon périodique lors du mode téléopéré."""
-        self.update_nt()
-        # Reset navx zero
-        if self.gamepad1.getRawButton(gh.BUTTON_A):
-            self.gyro.reset()
+    # def disabledPeriodic(self):
+    #     """Mets à jours le dashboard, même quand le robot est désactivé"""
+    #     self.update_nt()
 
-        self.drive.controller_move(
-            self.gamepad1.getRawAxis(gh.AXIS_LEFT_Y),
-            self.gamepad1.getRawAxis(gh.AXIS_LEFT_X),
-            self.gamepad1.getRawAxis(gh.AXIS_RIGHT_X),
-            self.gamepad1.getRawAxis(gh.AXIS_RIGHT_Y),
+    # def autonomousInit(self):
+    #     """Cette fonction est appelée une seule fois lorsque le robot entre en mode autonome."""
+    #     pass
+
+    # def autonomous(self):
+    #     """Pour les modes auto de MagicBot, voir le dossier ./autonomous"""
+    #     super().autonomous()
+
+    # def teleopInit(self):
+    #     """Cette fonction est appelée une seule fois lorsque le robot entre en mode téléopéré."""
+    #     pass
+
+    # def teleopPeriodic(self):
+    #     """Cette fonction est appelée de façon périodique lors du mode téléopéré."""
+    #     self.update_nt()
+    #     # Reset navx zero
+    #     if self.gamepad1.getRawButton(gh.BUTTON_A):
+    #         self.gyro.reset()
+
+    #     self.drive.drive(
+    #         0,
+    #         0,
+    #         0,
+    #         False,
+    #         0.020,
+    #     )
+
+    # def update_nt(self):
+    #     """Affiche les données sur le ShuffleBoard"""
+    #     pass
+
+    def autonomousPeriodic(self) -> None:
+        self.driveWithJoystick(False)
+        self.swerve.updateOdometry()
+
+    def teleopPeriodic(self) -> None:
+        self.driveWithJoystick(True)
+
+    def driveWithJoystick(self, fieldRelative: bool) -> None:
+        # Get the x speed. We are inverting this because Xbox controllers return
+        # negative values when we push forward.
+        xSpeed = (
+            -self.xspeedLimiter.calculate(
+                wpimath.applyDeadband(self.controller.getLeftY(), 0.1)
+            )
+            * kMaxSpeed
         )
 
-    def update_nt(self):
-        """Affiche les données sur le ShuffleBoard"""
-        pass
+        # Get the y speed or sideways/strafe speed. We are inverting this because
+        # we want a positive value when we pull to the left. Xbox controllers
+        # return positive values when you pull to the right by default.
+        ySpeed = (
+            -self.yspeedLimiter.calculate(
+                wpimath.applyDeadband(self.controller.getLeftX(), 0.1)
+            )
+            * kMaxSpeed
+        )
+
+        # Get the rate of angular rotation. We are inverting this because we want a
+        # positive value when we pull to the left (remember, CCW is positive in
+        # mathematics). Xbox controllers return positive values when you pull to
+        # the right by default.
+        rot = (
+            -self.rotLimiter.calculate(
+                wpimath.applyDeadband(self.controller.getRightX(), 0.1)
+            )
+            * kMaxSpeed
+        )
+
+        self.swerve.drive(xSpeed, ySpeed, rot, fieldRelative, 0.020)
 
 
 if __name__ == "__main__":
