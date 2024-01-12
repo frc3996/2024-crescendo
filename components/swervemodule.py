@@ -134,7 +134,6 @@ class SwerveModule:
         self.driveMotor_control.output = self._requested_speed
         if self.calibration_mode == 1:
             self.driveMotor_control.output = 0.05
-        self.driveMotor_control.output *= 0.2
         self.driveMotor.set_control(self.driveMotor_control)
 
         self.update_nt()

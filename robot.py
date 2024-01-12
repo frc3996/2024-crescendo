@@ -99,7 +99,7 @@ class MyRobot(MagicRobot):
         # Il est important d'utiliser le logiciel de la compagnie pour trouver (ou configurer) les CAN id
         # On utilise également les encodeurs absolues CAN pour orienter la roue
         self.drive_cfg = swervedrive.SwerveDriveConfig(
-            field_centric=True, base_width=19, base_length=27, enable_debug=False
+            field_centric=True, base_width=27, base_length=19, enable_debug=False
         )
 
         self.frontLeftModule_driveMotor = phoenix6.hardware.TalonFX(26)
@@ -133,10 +133,10 @@ class MyRobot(MagicRobot):
         # Le ShuffleBoard est utilisé afin d'ajuster le zéro des roues.
         # Un fois testé, les valeurs peuvent-être modifiées ici.
         self.nt.putNumber("config/zero_calibration_mode", 0)
-        self.nt.putNumber("frontLeftModule/rotation_zero", 124)
-        self.nt.putNumber("frontRightModule/rotation_zero", 309)
-        self.nt.putNumber("rearLeftModule/rotation_zero", 199)
-        self.nt.putNumber("rearRightModule/rotation_zero", 324)
+        self.nt.putNumber("frontLeftModule/rotation_zero", 106)
+        self.nt.putNumber("frontRightModule/rotation_zero", 183)
+        self.nt.putNumber("rearLeftModule/rotation_zero", 177)
+        self.nt.putNumber("rearRightModule/rotation_zero", 0)
 
         # Et le navx nécessaire pour un control "Field Centric"
         self.navx = AHRS.create_spi(update_rate_hz=50)

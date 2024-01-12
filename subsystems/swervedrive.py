@@ -9,7 +9,7 @@ import wpimath.kinematics
 import wpimath.filter
 
 
-MAX_WHEEL_SPEED = 3  # meter per second
+MAX_WHEEL_SPEED = 0.5  # meter per second
 
 
 @dataclass
@@ -339,8 +339,8 @@ class SwerveDrive:
             self.request_wheel_lock = False
             return
 
-        xSpeed = self._requested_vectors["strafe"]
-        ySpeed = self._requested_vectors["fwd"]
+        ySpeed = self._requested_vectors["strafe"]
+        xSpeed = -self._requested_vectors["fwd"]
         if abs(self._requested_vectors["rcw"]) <= 0.02:
             self._requested_vectors["rcw"] = 0
         rot = self._requested_vectors["rcw"]/(1/0.15)
@@ -364,10 +364,10 @@ class SwerveDrive:
         # self.backLeft.setDesiredState(swerveModuleStates[2])
         # self.backRight.setDesiredState(swerveModuleStates[3])
 
-        self._requested_speeds["front_left"] = swerveModuleStates[0].speed
-        self._requested_speeds["front_right"] = swerveModuleStates[1].speed
-        self._requested_speeds["rear_left"] = swerveModuleStates[2].speed
-        self._requested_speeds["rear_right"] = swerveModuleStates[3].speed
+        self._requested_speeds["front_left"] = swerveModuleStates[0].speed * 0.5
+        self._requested_speeds["front_right"] = swerveModuleStates[1].speed * 0.5
+        self._requested_speeds["rear_left"] = swerveModuleStates[2].speed * 0.5
+        self._requested_speeds["rear_right"] = swerveModuleStates[3].speed * 0.5
 
         self._requested_angles["front_left"] = swerveModuleStates[0].angle.degrees()
         self._requested_angles["front_right"] = swerveModuleStates[1].angle.degrees()
