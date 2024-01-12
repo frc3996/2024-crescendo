@@ -15,6 +15,7 @@ class Intake:
     def intake(self):
         # TODO
         # Si appelé, intake disque, sauf si beam sensor activé
+        pass
 
     def output(self, fire=False):
         # TODO

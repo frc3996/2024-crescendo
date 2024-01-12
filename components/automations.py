@@ -27,3 +27,4 @@ class Automations:
             #
 
     def auto_shoot_speaker(self):
+        pass

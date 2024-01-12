@@ -18,11 +18,13 @@ class LoBras:
     def __set_positions(self, head_position, arm_position):
         # TODO
         # Move the head and arm to a position
+        pass
 
     def intake_mode(self):
         # TODO
         # Place la tête et le bras en position intake
         self.__set_positions(xx, yy)
+
 
     def speaker_mode(self, fire=False):
         # TODO
@@ -37,12 +39,15 @@ class LoBras:
     def amp_mode(self):
         # TODO
         # Place la tête et le bras en position amp
+        pass
 
 
 
     def note_trap_mode(self):
         # TODO
         # Place la tête et le bras en position note_trap
+        pass
 
     def execute(self):
         # TODO
+        pass
