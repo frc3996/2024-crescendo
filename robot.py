@@ -37,11 +37,10 @@ import phoenix6
 import ntcore  # Outils pour les NetworkTables
 import wpilib
 from common import gamepad_helper as gh  # Outil pour faciliter l'utilisation des contrôleurs
-from subsystems import swervedrive  # Nos composantes logiciels. Permet de grouper les composantes par fonctionalitée
 from magicbot import MagicRobot
 from navx import AHRS
 
-from components import swervemodule  # Gyro NAVX
+from components import swervemodule, swervedrive, lobra, intake, robot_actions
 
 
 class MyRobot(MagicRobot):
@@ -71,7 +70,10 @@ class MyRobot(MagicRobot):
     frontRightModule: swervemodule.SwerveModule
     rearLeftModule: swervemodule.SwerveModule
     rearRightModule: swervemodule.SwerveModule
+    lobras: lobra.LoBras
+    intake: intake.Intake
     navx: AHRS
+    robot_actions: robot_actions.RobotActions
 
     # Networktables pour de la configuration et retour d'information
     nt: ntcore.NetworkTable
@@ -86,6 +88,8 @@ class MyRobot(MagicRobot):
 
         # Configuration de la base swerve
         self.initSwerve()
+        self.initIntake()
+        self.initLobras()
 
         # General
         self.gamepad1 = wpilib.Joystick(0)
@@ -141,6 +145,17 @@ class MyRobot(MagicRobot):
         # Et le navx nécessaire pour un control "Field Centric"
         self.navx = AHRS.create_spi(update_rate_hz=50)
 
+    def initIntake(self):
+        self.intake_input_motor = phoenix6.hardware.TalonFX(101)
+        self.intake_output_motor = phoenix6.hardware.TalonFX(102)
+        self.intake_beam_sensor = wpilib.DigitalInput(1)
+
+    def initLobras(self):
+        self.lobras_head_motor = phoenix6.hardware.TalonFX(103)
+        self.lobras_arm_motor = phoenix6.hardware.TalonFX(104)
+        self.lobras_arm_limit_switch = wpilib.DigitalInput(2)
+        self.lobras_pneumatic_brake = wpilib.Solenoid(10, wpilib.PneumaticsModuleType.CTREPCM, 1)
+
     def disabledPeriodic(self):
         """Mets à jours le dashboard, même quand le robot est désactivé"""
         self.update_nt()
@@ -160,6 +175,14 @@ class MyRobot(MagicRobot):
     def teleopPeriodic(self):
         """Cette fonction est appelée de façon périodique lors du mode téléopéré."""
         self.update_nt()
+
+        self.drive.set_controller_values(
+            self.gamepad1.getRawAxis(gh.AXIS_LEFT_Y),
+            self.gamepad1.getRawAxis(gh.AXIS_LEFT_X),
+            self.gamepad1.getRawAxis(gh.AXIS_RIGHT_X),
+            self.gamepad1.getRawAxis(gh.AXIS_RIGHT_Y),
+        )
+
         # Reset navx zero
         if self.gamepad1.getRawButton(gh.BUTTON_A):
             self.drive.navx_zero_angle()
@@ -169,12 +192,16 @@ class MyRobot(MagicRobot):
         else:
             self.drive.request_wheel_lock = False
 
-        self.drive.controller_move(
-            self.gamepad1.getRawAxis(gh.AXIS_LEFT_Y),
-            self.gamepad1.getRawAxis(gh.AXIS_LEFT_X),
-            self.gamepad1.getRawAxis(gh.AXIS_RIGHT_X),
-            self.gamepad1.getRawAxis(gh.AXIS_RIGHT_Y),
-        )
+        if self.gamepad1.getRawButtonPressed(gh.BUTTON_X):
+            self.robot_actions.autoshoot_amp()
+        if self.gamepad1.getRawButtonReleased(gh.BUTTON_X):
+            self.robot_actions.retract()
+
+        if self.gamepad1.getRawButtonPressed(gh.BUTTON_Y):
+            self.robot_actions.pixie_intake()
+        if self.gamepad1.getRawButtonReleased(gh.BUTTON_Y):
+            self.robot_actions.retract()
+
 
     def update_nt(self):
         """Affiche les données sur le ShuffleBoard"""

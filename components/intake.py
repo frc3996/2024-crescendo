@@ -8,9 +8,7 @@ class Intake:
     beam_sensor: wpilib.DigitalInput
 
     def setup(self):
-        self.input_motor = phoenix6.hardware.TalonFX(2)
-        self.output_motor = phoenix6.hardware.TalonFX(3)
-        self.output_motor = wpilib.DigitalInput(0)
+        pass
 
     def intake(self):
         # TODO

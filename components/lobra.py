@@ -6,12 +6,10 @@ class LoBras:
     head_motor: phoenix6.hardware.TalonFX
     arm_motor: phoenix6.hardware.TalonFX
     arm_limit_switch: wpilib.DigitalInput
-    pneumatic_brake: wpilib.PneumaticHub # TODO, je sais pas c quoi le bon
+    pneumatic_brake: wpilib.Solenoid
 
     def setup(self):
-        self.head_motor = phoenix6.hardware.TalonFX
-        self.arm_motor = phoenix6.hardware.TalonFX
-
+        pass
         # TODO
         # Aller chercher l'encoder absolue des 2 moteurs
 

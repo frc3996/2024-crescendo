@@ -11,6 +11,13 @@ import wpimath.kinematics
 MAX_WHEEL_SPEED = 3  # meter per second
 
 
+def rotate_vector(vector, angle):
+    rad = math.radians(angle)
+    x = vector[0] * math.cos(rad) - vector[1] * math.sin(rad)
+    y = vector[0] * math.sin(rad) + vector[1] * math.cos(rad)
+    return (x, y)
+
+
 @dataclass
 class SwerveDriveConfig:
     field_centric: bool
@@ -74,8 +81,15 @@ class SwerveDrive:
 
         self.lost_navx = False
 
+        self.controller_forward = 0
+        self.controller_strafe = 0
+        self.controller_angle_stick_x = 0
+        self.controller_angle_stick_y = 0
         self.target_angle = 0
         self.request_wheel_lock = False
+        self.automove_forward = 0
+        self.automove_strafe = 0
+        self.automove_strength = 0
 
         self.angle_pid = PIDController(1, 0, 0)
         self.angle_pid.enableContinuousInput(0, 360)
@@ -96,6 +110,8 @@ class SwerveDrive:
             self.backLeftLocation,
             self.backRightLocation,
         )
+
+        self.navx_zero_angle()
 
         # self.odometry = wpimath.kinematics.SwerveDrive4Odometry(
         #     self.kinematics,
@@ -235,30 +251,51 @@ class SwerveDrive:
         self.set_fwd(forward)
         self.set_strafe(strafe)
 
-    def controller_move(self, forward, strafe, angle_stick_x, angle_stick_y):
+    def set_relative_automove_value(self, forward, strafe, strength=0.2):
+        vector = rotate_vector([forward, strafe], self.get_angle())
+        self.automove_forward = vector[0]
+        self.automove_strafe = vector[1]
+        self.automove_strength = strength
+
+    def set_controller_values(self, forward, strafe, angle_stick_x, angle_stick_y):
+        self.controller_forward = forward
+        self.controller_strafe = strafe
+        self.controller_angle_stick_x = angle_stick_x
+        self.controller_angle_stick_y = angle_stick_y
+
+        self.compute_look_at_stick_angle()
+
+    def compute_move(self):
         """Fait bouger le robot avec un contrôleur"""
-        forward = self.square_input(-forward)
-        strafe = self.square_input(strafe)
+        forward = self.square_input(-self.controller_forward)
+        strafe = self.square_input(self.controller_strafe)
 
         if abs(forward) < self.lower_input_thresh:
             forward = 0
-
         if abs(strafe) < self.lower_input_thresh:
             strafe = 0
+
+
 
         self.set_fwd(forward)
         self.set_strafe(strafe)
 
-        if self.field_centric:
-            # Élimite la zone morte du joystick (petits déplacements)
-            if math.sqrt(angle_stick_x**2 + angle_stick_y**2) > 0.5:
-                angle = (math.degrees(math.atan2(angle_stick_y, angle_stick_x)) + 360) % 360
-                angle += 270
-                angle %= 360
-                self.set_angle(angle)
-        else:
-            rotate = self.square_input(angle_stick_x)
-            self._rotate_robot(rotate)
+    def controller_relative_rotate(self):
+        """Fait bouger le robot avec un contrôleur"""
+        angle_stick_x = self.controller_angle_stick_x
+        rotate = self.square_input(angle_stick_x)
+        self._rotate_robot(rotate)
+
+    def compute_look_at_stick_angle(self):
+        angle_stick_x = self.controller_angle_stick_x
+        angle_stick_y = self.controller_angle_stick_y
+
+        # Élimite la zone morte du joystick (petits déplacements)
+        if math.sqrt(angle_stick_x**2 + angle_stick_y**2) > 0.5:
+            angle = (math.degrees(math.atan2(angle_stick_y, angle_stick_x)) + 360) % 360
+            angle += 270
+            angle %= 360
+            self.set_angle(angle)
 
     def snap_angle_nearest_180(self):
         """Force le robot à regarder vers l'avant ou l'arrière"""
@@ -412,6 +449,16 @@ class SwerveDrive:
         """
         Calcul et transmet la commande de vitesse et d'angle à chaque swerve module.
         """
+        # Évaluation de la commande selon le mode d'opération
+        self.compute_move()
+        self.controller_forward = 0
+        self.controller_strafe = 0
+        self.controller_angle_stick_x = 0
+        self.controller_angle_stick_y = 0
+        self.automove_forward = 0
+        self.automove_strafe = 0
+        self.automove_strength = 0
+
         # Calcul des vecteurs
         self._calculate_vectors()
 
