@@ -6,9 +6,10 @@ from navx import AHRS
 from wpimath.controller import PIDController
 import wpimath.geometry
 import wpimath.kinematics
+import wpimath.filter
 
 
-MAX_WHEEL_SPEED = 3  # meter per second
+MAX_WHEEL_SPEED = 0.5  # meter per second
 
 
 def rotate_vector(vector, angle):
@@ -100,10 +101,10 @@ class SwerveDrive:
         self.nt.putNumber("swerve/angle_pid/Ki", 0)
         self.nt.putNumber("swerve/angle_pid/Kd", 0)
 
-        self.frontLeftLocation = wpimath.geometry.Translation2d(-self.cfg.base_width/2, self.cfg.base_length/2)
-        self.frontRightLocation = wpimath.geometry.Translation2d(self.cfg.base_width/2, self.cfg.base_length/2)
-        self.backLeftLocation = wpimath.geometry.Translation2d(-self.cfg.base_width/2, -self.cfg.base_length/2)
-        self.backRightLocation = wpimath.geometry.Translation2d(self.cfg.base_width/2, -self.cfg.base_length/2)
+        self.frontLeftLocation = wpimath.geometry.Translation2d(self.cfg.base_width/2, self.cfg.base_length/2)
+        self.frontRightLocation = wpimath.geometry.Translation2d(self.cfg.base_width/2, -self.cfg.base_length/2)
+        self.backLeftLocation = wpimath.geometry.Translation2d(-self.cfg.base_width/2, self.cfg.base_length/2)
+        self.backRightLocation = wpimath.geometry.Translation2d(-self.cfg.base_width/2, -self.cfg.base_length/2)
         self.kinematics = wpimath.kinematics.SwerveDrive4Kinematics(
             self.frontLeftLocation,
             self.frontRightLocation,
@@ -357,7 +358,7 @@ class SwerveDrive:
                     self._requested_vectors["rcw"]
                 ]
             )
-        print(self._requested_vectors)
+
         # Ne fais rien si les vecteurs sont trop petits
         if (self._requested_vectors["strafe"] == 0
             and self._requested_vectors["fwd"] == 0
@@ -375,9 +376,11 @@ class SwerveDrive:
             self.request_wheel_lock = False
             return
 
-        xSpeed = self._requested_vectors["strafe"]
-        ySpeed = self._requested_vectors["fwd"]
-        rot = self._requested_vectors["rcw"]
+        ySpeed = self._requested_vectors["strafe"]
+        xSpeed = -self._requested_vectors["fwd"]
+        if abs(self._requested_vectors["rcw"]) <= 0.02:
+            self._requested_vectors["rcw"] = 0
+        rot = self._requested_vectors["rcw"]/(1/0.15)
 
         swerveModuleStates = self.kinematics.toSwerveModuleStates(
             wpimath.kinematics.ChassisSpeeds.discretize(
@@ -398,16 +401,15 @@ class SwerveDrive:
         # self.backLeft.setDesiredState(swerveModuleStates[2])
         # self.backRight.setDesiredState(swerveModuleStates[3])
 
-        self._requested_speeds["front_left"] = swerveModuleStates[0].speed
-        self._requested_speeds["front_right"] = swerveModuleStates[1].speed
-        self._requested_speeds["rear_left"] = swerveModuleStates[2].speed
-        self._requested_speeds["rear_right"] = swerveModuleStates[3].speed
+        self._requested_speeds["front_left"] = swerveModuleStates[0].speed * 0.5
+        self._requested_speeds["front_right"] = swerveModuleStates[1].speed * 0.5
+        self._requested_speeds["rear_left"] = swerveModuleStates[2].speed * 0.5
+        self._requested_speeds["rear_right"] = swerveModuleStates[3].speed * 0.5
 
         self._requested_angles["front_left"] = swerveModuleStates[0].angle.degrees()
         self._requested_angles["front_right"] = swerveModuleStates[1].angle.degrees()
         self._requested_angles["rear_left"] = swerveModuleStates[2].angle.degrees()
         self._requested_angles["rear_right"] = swerveModuleStates[3].angle.degrees()
-
 
         # Remise à zéro des valeurs demandées par sécurité
         self._requested_vectors["fwd"] = 0.0
@@ -467,7 +469,7 @@ class SwerveDrive:
             self.modules[key].move(
                 self._requested_speeds[key], self._requested_angles[key]
             )
-        print([f"{round(self._requested_angles[a])};{round(self._requested_speeds[a],1)}" for a in self._requested_angles], self.target_angle)
+
         # Remets les vitesse à zéro
         self._requested_speeds = dict.fromkeys(self._requested_speeds, 0)
 
