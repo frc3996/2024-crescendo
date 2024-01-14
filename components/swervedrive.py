@@ -253,12 +253,15 @@ class SwerveDrive:
         self.set_strafe(strafe)
 
     def set_absolute_automove_value(self, forward, strafe, strength=0.2):
-        self.automove_forward = forward
+        self.automove_forward = -forward
         self.automove_strafe = strafe
         self.automove_strength = strength
 
+    def relative_rotate(self, rotation):
+        self.target_angle = (self.get_angle() + rotation + 360) % 360
+
     def set_relative_automove_value(self, forward, strafe, strength=0.2):
-        vector = rotate_vector([forward, strafe], self.get_angle())
+        vector = rotate_vector([-forward, strafe], self.get_angle())
         self.automove_forward = vector[0]
         self.automove_strafe = vector[1]
         self.automove_strength = strength
@@ -389,11 +392,11 @@ class SwerveDrive:
             self.request_wheel_lock = False
             return
 
-        ySpeed = self._requested_vectors["strafe"]
-        xSpeed = -self._requested_vectors["fwd"]
+        ySpeed = -self._requested_vectors["strafe"]
+        xSpeed = self._requested_vectors["fwd"]
         if abs(self._requested_vectors["rcw"]) <= 0.02:
             self._requested_vectors["rcw"] = 0
-        rot = self._requested_vectors["rcw"]/(1/0.15)
+        rot = -self._requested_vectors["rcw"]/(1/0.15)
 
         swerveModuleStates = self.kinematics.toSwerveModuleStates(
             wpimath.kinematics.ChassisSpeeds.discretize(

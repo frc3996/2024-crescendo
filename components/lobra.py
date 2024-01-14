@@ -1,10 +1,10 @@
 
 import wpilib
-import phoenix6
+import rev
 
 class LoBras:
-    head_motor: phoenix6.hardware.TalonFX
-    arm_motor: phoenix6.hardware.TalonFX
+    head_motor: rev.CANSparkMax
+    arm_motor: rev.CANSparkMax
     arm_limit_switch: wpilib.DigitalInput
     pneumatic_brake: wpilib.Solenoid
 

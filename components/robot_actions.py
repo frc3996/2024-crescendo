@@ -1,7 +1,8 @@
 
+import wpilib
 from components import swervedrive, lobra, intake
 from wpimath.controller import PIDController
-from common import limelight
+from common import limelight, arduino_light
 import ntcore
 
 
@@ -21,6 +22,8 @@ class RobotActions:
     lobras: lobra.LoBras
     limelight_intake: limelight.Limelight
     limelight_shoot: limelight.Limelight
+    arduino_light: arduino_light.I2CArduinoLight
+    status_light: wpilib.Solenoid
     nt: ntcore.NetworkTable
 
     def setup(self):
@@ -29,7 +32,7 @@ class RobotActions:
         self.nt.putNumber("actions/shoot_limelight_adjust_pid/Kd", 0)
         self.shoot_limelight_adjust_pid = PIDController(0, 0, 0)
 
-        self.nt.putNumber("actions/intake_limelight_adjust_pid/Kp", 0.012)
+        self.nt.putNumber("actions/intake_limelight_adjust_pid/Kp", 0.7)
         self.nt.putNumber("actions/intake_limelight_adjust_pid/Ki", 0)
         self.nt.putNumber("actions/intake_limelight_adjust_pid/Kd", 0)
         self.intake_limelight_adjust_pid = PIDController(0, 0, 0)
@@ -77,13 +80,14 @@ class RobotActions:
         arm_angle = 20  # TODO calibrate all
         head_angle = 30  # TODO calibrate all
 
-        if self.intake.note_intaken() is True:
+        if self.intake.is_object_intaken() is True:
+            self.arduino_light.set_RGB(0, 0, 255)
+            self.status_light.set(1)
             self.retract()
             return
 
         self.intake.intake()
         self.lobras.set_angle(arm_angle, head_angle)
-
         if self.limelight_intake.is_target_in_view():
             offset = self.limelight_intake.get_tx()
             res = get_linear_damp_ratio(abs(offset), 50, 0)
@@ -96,7 +100,8 @@ class RobotActions:
             fwd = 0.5
             error = 0
 
-        self.drivetrain.set_relative_automove_value(fwd, error)
+        self.drivetrain.relative_rotate(-error)
+        self.drivetrain.set_relative_automove_value(fwd, 0)
 
     def execute(self):
         pass

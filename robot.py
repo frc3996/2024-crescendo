@@ -34,6 +34,7 @@ INDICATEUR LUMINEUX
 
 
 import phoenix6
+import rev
 import ntcore  # Outils pour les NetworkTables
 import wpilib
 from common import gamepad_helper as gh  # Outil pour faciliter l'utilisation des contrôleurs
@@ -86,8 +87,10 @@ class MyRobot(MagicRobot):
         """
         # NetworkTable
         self.nt = ntcore.NetworkTableInstance.getDefault().getTable("robotpy")
-        self.limelight_intake = limelight.Limelight("limelight_intake")
-        self.limelight_shoot = limelight.Limelight("limelight_shoot")
+        self.limelight_intake = limelight.Limelight("limelight")
+        self.limelight_shoot = limelight.Limelight("limelight-shoot")
+        self.arduino_light = arduino_light.I2CArduinoLight(wpilib.I2C.Port.kMXP, 0x42)
+        self.status_light = wpilib.Solenoid(10, wpilib.PneumaticsModuleType.CTREPCM, 1)
 
         # Configuration de la base swerve
         self.initSwerve()
@@ -140,24 +143,25 @@ class MyRobot(MagicRobot):
         # Le ShuffleBoard est utilisé afin d'ajuster le zéro des roues.
         # Un fois testé, les valeurs peuvent-être modifiées ici.
         self.nt.putNumber("config/zero_calibration_mode", 0)
-        self.nt.putNumber("frontLeftModule/rotation_zero", 106)
-        self.nt.putNumber("frontRightModule/rotation_zero", 183)
-        self.nt.putNumber("rearLeftModule/rotation_zero", 177)
-        self.nt.putNumber("rearRightModule/rotation_zero", 0)
+
+        self.nt.putNumber("frontLeftModule/rotation_zero", 193)
+        self.nt.putNumber("frontRightModule/rotation_zero", 76)
+        self.nt.putNumber("rearLeftModule/rotation_zero", 216)
+        self.nt.putNumber("rearRightModule/rotation_zero", 318)
 
         # Et le navx nécessaire pour un control "Field Centric"
         self.navx = AHRS.create_spi(update_rate_hz=50)
 
     def initIntake(self):
-        self.intake_input_motor = phoenix6.hardware.TalonFX(101)
-        self.intake_output_motor = phoenix6.hardware.TalonFX(102)
-        self.intake_beam_sensor = wpilib.DigitalInput(1)
+        self.intake_input_motor = rev.CANSparkMax(101, rev.CANSparkMax.MotorType.kBrushless)
+        self.intake_output_motor = rev.CANSparkMax(102, rev.CANSparkMax.MotorType.kBrushless)
+        self.intake_beam_sensor = wpilib.AnalogInput(2)
 
     def initLobras(self):
-        self.lobras_head_motor = phoenix6.hardware.TalonFX(103)
-        self.lobras_arm_motor = phoenix6.hardware.TalonFX(104)
-        self.lobras_arm_limit_switch = wpilib.DigitalInput(2)
-        self.lobras_pneumatic_brake = wpilib.Solenoid(10, wpilib.PneumaticsModuleType.CTREPCM, 1)
+        self.lobras_head_motor = rev.CANSparkMax(103, rev.CANSparkMax.MotorType.kBrushless)
+        self.lobras_arm_motor = rev.CANSparkMax(104, rev.CANSparkMax.MotorType.kBrushless)
+        self.lobras_arm_limit_switch = wpilib.DigitalInput(1)
+        self.lobras_pneumatic_brake = wpilib.Solenoid(10, wpilib.PneumaticsModuleType.CTREPCM, 0)
 
     def disabledPeriodic(self):
         """Mets à jours le dashboard, même quand le robot est désactivé"""
@@ -174,6 +178,8 @@ class MyRobot(MagicRobot):
     def teleopInit(self):
         """Cette fonction est appelée une seule fois lorsque le robot entre en mode téléopéré."""
         self.drivetrain.init()
+        self.arduino_light.set_RGB(0,0,0)
+        self.status_light.set(0)
 
     def teleopPeriodic(self):
         """Cette fonction est appelée de façon périodique lors du mode téléopéré."""
