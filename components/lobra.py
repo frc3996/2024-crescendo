@@ -13,7 +13,7 @@ class LoBras:
         # TODO
         # Aller chercher l'encoder absolue des 2 moteurs
 
-    def __set_positions(self, head_position, arm_position):
+    def set_angle(self, arm_position, head_position):
         # TODO
         # Move the head and arm to a position
         pass

@@ -1,5 +1,5 @@
 import ntcore
-from subsystems import swervedrive
+from components import swervedrive
 from magicbot.state_machine import timed_state
 
 from .base_auto import BaseAuto
@@ -10,7 +10,7 @@ class AvanceEtRecule(BaseAuto):
     DEFAULT = True
 
     # Injection
-    drive: swervedrive.SwerveDrive
+    drivetrain: swervedrive.SwerveDrive
 
     @timed_state(duration=1, next_state="avance", first=True)
     def init(self):
@@ -20,7 +20,7 @@ class AvanceEtRecule(BaseAuto):
 
     @timed_state(duration=1, next_state="recule")
     def avance(self):
-        self.drive.move(0.1, 0)
+        self.drivetrain.move(0.1, 0)
 
     @timed_state(duration=1, next_state="finish")
     def recule(self):
@@ -28,4 +28,4 @@ class AvanceEtRecule(BaseAuto):
             # Il est possible de forcer le changement immédiat vers un autre état avec:
             self.next_state("finish")
 
-        self.drive.move(-0.1, 0)
+        self.drivetrain.move(-0.1, 0)

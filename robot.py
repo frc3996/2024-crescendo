@@ -37,6 +37,7 @@ import phoenix6
 import ntcore  # Outils pour les NetworkTables
 import wpilib
 from common import gamepad_helper as gh  # Outil pour faciliter l'utilisation des contrôleurs
+from common import limelight, arduino_light
 from magicbot import MagicRobot
 from navx import AHRS
 
@@ -65,7 +66,7 @@ class MyRobot(MagicRobot):
     # `inverted` doit être ajusté si le moteur tourne dans la mauvaise direction
     # `allow_reverse` est utiliser pour changer la direction de rotation d'un moteur plutôt que de faire une rotation de plus de 180 degrée
     # `nt_name` sera le nom sous lequel sera groupé les données des modules dans les networktables
-    drive: swervedrive.SwerveDrive
+    drivetrain: swervedrive.SwerveDrive
     frontLeftModule: swervemodule.SwerveModule
     frontRightModule: swervemodule.SwerveModule
     rearLeftModule: swervemodule.SwerveModule
@@ -85,6 +86,8 @@ class MyRobot(MagicRobot):
         """
         # NetworkTable
         self.nt = ntcore.NetworkTableInstance.getDefault().getTable("robotpy")
+        self.limelight_intake = limelight.Limelight("limelight_intake")
+        self.limelight_shoot = limelight.Limelight("limelight_shoot")
 
         # Configuration de la base swerve
         self.initSwerve()
@@ -102,7 +105,7 @@ class MyRobot(MagicRobot):
         # On assigne nos moteurs à nos swerve
         # Il est important d'utiliser le logiciel de la compagnie pour trouver (ou configurer) les CAN id
         # On utilise également les encodeurs absolues CAN pour orienter la roue
-        self.drive_cfg = swervedrive.SwerveDriveConfig(
+        self.drivetrain_cfg = swervedrive.SwerveDriveConfig(
             field_centric=True, base_width=27, base_length=19, enable_debug=False
         )
 
@@ -162,7 +165,7 @@ class MyRobot(MagicRobot):
 
     def autonomousInit(self):
         """Cette fonction est appelée une seule fois lorsque le robot entre en mode autonome."""
-        self.drive.init()
+        self.drivetrain.init()
 
     def autonomous(self):
         """Pour les modes auto de MagicBot, voir le dossier ./autonomous"""
@@ -170,13 +173,13 @@ class MyRobot(MagicRobot):
 
     def teleopInit(self):
         """Cette fonction est appelée une seule fois lorsque le robot entre en mode téléopéré."""
-        self.drive.init()
+        self.drivetrain.init()
 
     def teleopPeriodic(self):
         """Cette fonction est appelée de façon périodique lors du mode téléopéré."""
         self.update_nt()
 
-        self.drive.set_controller_values(
+        self.drivetrain.set_controller_values(
             self.gamepad1.getRawAxis(gh.AXIS_LEFT_Y),
             self.gamepad1.getRawAxis(gh.AXIS_LEFT_X),
             self.gamepad1.getRawAxis(gh.AXIS_RIGHT_X),
@@ -184,22 +187,17 @@ class MyRobot(MagicRobot):
         )
 
         # Reset navx zero
+        if self.gamepad1.getRawButton(gh.BUTTON_X):
+            self.drivetrain.navx_zero_angle()
+
+        if self.gamepad1.getRawButton(gh.BUTTON_LEFT_BUMPER):
+            self.drivetrain.request_wheel_lock = True
+
         if self.gamepad1.getRawButton(gh.BUTTON_A):
-            self.drive.navx_zero_angle()
-
-        if self.gamepad1.getRawButton(gh.BUTTON_B):
-            self.drive.request_wheel_lock = True
-        else:
-            self.drive.request_wheel_lock = False
-
-        if self.gamepad1.getRawButtonPressed(gh.BUTTON_X):
+            self.robot_actions.autointake_with_limelight()
+        elif self.gamepad1.getRawButton(gh.BUTTON_B):
             self.robot_actions.autoshoot_amp()
-        if self.gamepad1.getRawButtonReleased(gh.BUTTON_X):
-            self.robot_actions.retract()
-
-        if self.gamepad1.getRawButtonPressed(gh.BUTTON_Y):
-            self.robot_actions.pixie_intake()
-        if self.gamepad1.getRawButtonReleased(gh.BUTTON_Y):
+        else:
             self.robot_actions.retract()
 
 

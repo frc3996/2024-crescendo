@@ -252,6 +252,11 @@ class SwerveDrive:
         self.set_fwd(forward)
         self.set_strafe(strafe)
 
+    def set_absolute_automove_value(self, forward, strafe, strength=0.2):
+        self.automove_forward = forward
+        self.automove_strafe = strafe
+        self.automove_strength = strength
+
     def set_relative_automove_value(self, forward, strafe, strength=0.2):
         vector = rotate_vector([forward, strafe], self.get_angle())
         self.automove_forward = vector[0]
@@ -276,7 +281,15 @@ class SwerveDrive:
         if abs(strafe) < self.lower_input_thresh:
             strafe = 0
 
-
+        if self.automove_strength != 0:
+            new_fwd = self.automove_forward + (forward * (1 - self.automove_strength))
+            new_fwd = min(new_fwd, 1)
+            new_fwd = max(new_fwd, -1)
+            new_strafe = self.automove_strafe + (strafe * (1 - self.automove_strength))
+            new_strafe = min(new_strafe, 1)
+            new_strafe = max(new_strafe, -1)
+            forward = new_fwd
+            strafe = new_strafe
 
         self.set_fwd(forward)
         self.set_strafe(strafe)
@@ -308,7 +321,7 @@ class SwerveDrive:
             rounded_angle_deg = (angle_deg // 180 + 1) * 180
         self.set_angle(rounded_angle_deg % 360)
 
-    def _round_angle_nearest_90(self):
+    def snap_angle_nearest_90(self):
         """Force le robot à regarder vers le côté le plus prêt"""
         angle_deg = self.get_angle()
         remainder = angle_deg % 90
@@ -472,5 +485,6 @@ class SwerveDrive:
 
         # Remets les vitesse à zéro
         self._requested_speeds = dict.fromkeys(self._requested_speeds, 0)
+        self.request_wheel_lock = False
 
         self.update_nt()
