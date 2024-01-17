@@ -160,7 +160,8 @@ class MyRobot(MagicRobot):
 
     def initLobras(self):
         self.lobras_head_motor = rev.CANSparkMax(35, rev.CANSparkMax.MotorType.kBrushless)
-        self.lobras_arm_motor = rev.CANSparkMax(36, rev.CANSparkMax.MotorType.kBrushless)
+        self.lobras_arm_motor_left = rev.CANSparkMax(36, rev.CANSparkMax.MotorType.kBrushless)
+        self.lobras_arm_motor_right = rev.CANSparkMax(37, rev.CANSparkMax.MotorType.kBrushless)
         self.lobras_arm_limit_switch = wpilib.DigitalInput(1)
         self.lobras_pneumatic_brake = wpilib.Solenoid(10, wpilib.PneumaticsModuleType.CTREPCM, 0)
 

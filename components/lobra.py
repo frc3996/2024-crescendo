@@ -1,17 +1,45 @@
 
 import wpilib
 import rev
+import ntcore
+from wpimath.controller import PIDController
 
 class LoBras:
     head_motor: rev.CANSparkMax
-    arm_motor: rev.CANSparkMax
+    arm_motor_left: rev.CANSparkMax
+    arm_motor_right: rev.CANSparkMax
     arm_limit_switch: wpilib.DigitalInput
     pneumatic_brake: wpilib.Solenoid
+    nt: ntcore.NetworkTable
 
     def setup(self):
-        pass
-        # TODO
-        # Aller chercher l'encoder absolue des 2 moteurs
+        self.current_arm_target = 0
+        self.arm_motor_left.setIdleMode(rev.CANSparkMax.IdleMode.kCoast)
+        self.arm_motor_right.setIdleMode(rev.CANSparkMax.IdleMode.kCoast)
+        self.arm_motor_left.setOpenLoopRampRate(0.25)
+        self.arm_motor_right.setOpenLoopRampRate(0.25)
+        self.arm_motor_right.follow(self.arm_motor_left, invert=True)
+        self.arm_pid_controller = self.arm_motor_left.getPIDController()
+        self.arm_position_encoder = self.arm_motor_left.getEncoder()
+        self.arm_position_encoder.setPosition(0)
+        self.arm_pid = PIDController(0, 0, 0)
+        self.nt.putNumber("lobras/arm_pid/Kp", 0.057)
+        self.nt.putNumber("lobras/arm_pid/Ki", 0)
+        self.nt.putNumber("lobras/arm_pid/Kd", 0)
+
+        kP = 0.1
+        kI = 0.0001
+        kD = 1
+        kIz = 0
+        kFF = 0
+        kMaxOutput = 1
+        kMinOutput = -1
+        self.arm_pid_controller.setP(kP)
+        self.arm_pid_controller.setI(kI)
+        self.arm_pid_controller.setD(kD)
+        self.arm_pid_controller.setIZone(kIz)
+        self.arm_pid_controller.setFF(kFF)
+        self.arm_pid_controller.setOutputRange(kMinOutput, kMaxOutput)
 
     def set_angle(self, arm_position, head_position):
         # TODO
@@ -47,5 +75,6 @@ class LoBras:
         pass
 
     def execute(self):
-        # TODO
+        # self.arm_pid_controller.setReference(target_position, rev.CANSparkMax.ControlType.kPosition)
+        # self.arm_motor_left.set(value)
         pass
