@@ -27,7 +27,7 @@ class RobotActions:
     limelight_intake: limelight.Limelight
     limelight_shoot: limelight.Limelight
     arduino_light: arduino_light.I2CArduinoLight
-    # status_light: wpilib.Solenoid
+    status_light: wpilib.Solenoid
     nt: ntcore.NetworkTable
 
     def setup(self):
@@ -42,23 +42,23 @@ class RobotActions:
         self.intake_limelight_adjust_pid = PIDController(0, 0, 0)
 
         # Register Named Commands
-        NamedCommands.registerCommand('test_path_shoot', self.intake.remove_me_shoot_test())
+        # NamedCommands.registerCommand('test_path_shoot', self.intake.remove_me_shoot_test())
 
-        AutoBuilder.configureHolonomic(
-            self.drivetrain.getPose, # Robot pose supplier
-            self.drivetrain.resetPose, # Method to reset odometry (will be called if your auto has a starting pose)
-            self.drivetrain.getRobotRelativeSpeeds, # ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
-            self.drivetrain.driveRobotRelative, # Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
-            HolonomicPathFollowerConfig( # HolonomicPathFollowerConfig, this should likely live in your Constants class
-                PIDConstants(5.0, 0.0, 0.0), # Translation PID constants
-                PIDConstants(5.0, 0.0, 0.0), # Rotation PID constants
-                4.5, # Max module speed, in m/s
-                0.4, # Drive base radius in meters. Distance from robot center to furthest module.
-                ReplanningConfig() # Default path replanning config. See the API for the options here
-            ),
-            True,
-            self # Reference to this subsystem to set requirements
-        )
+        # AutoBuilder.configureHolonomic(
+        #     self.drivetrain.getPose, # Robot pose supplier
+        #     self.drivetrain.resetPose, # Method to reset odometry (will be called if your auto has a starting pose)
+        #     self.drivetrain.getRobotRelativeSpeeds, # ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
+        #     self.drivetrain.driveRobotRelative, # Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
+        #     HolonomicPathFollowerConfig( # HolonomicPathFollowerConfig, this should likely live in your Constants class
+        #         PIDConstants(5.0, 0.0, 0.0), # Translation PID constants
+        #         PIDConstants(5.0, 0.0, 0.0), # Rotation PID constants
+        #         4.5, # Max module speed, in m/s
+        #         0.4, # Drive base radius in meters. Distance from robot center to furthest module.
+        #         ReplanningConfig() # Default path replanning config. See the API for the options here
+        #     ),
+        #     True,
+        #     self # Reference to this subsystem to set requirements
+        # )
 
     def auto_test(self):
         PathPlannerAuto('test_auto')
@@ -72,7 +72,8 @@ class RobotActions:
 
         self.drivetrain.set_angle(0) # TODO GET PROPER ANGLE
         self.lobras.set_angle(arm_angle, head_angle)
-
+        fwd = 0
+        error = 0
         if self.limelight_intake.is_target_in_view():
             offset = self.limelight_intake.get_tx()
             if self.limelight_intake.get_ta() >= 1.5:  # TODO ADJUST SIZE TO ARRIVAL

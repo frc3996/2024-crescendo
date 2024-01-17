@@ -36,7 +36,7 @@ class Intake:
         self.input_motor_setpoint = INTAKE_SPEED
         return False
 
-    def shot(self, fire=False):
+    def shoot(self, fire=False):
         if self.shot_done:
             return True
 

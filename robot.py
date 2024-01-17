@@ -154,13 +154,13 @@ class MyRobot(MagicRobot):
         self.navx = AHRS.create_spi(update_rate_hz=50)
 
     def initIntake(self):
-        self.intake_input_motor = rev.CANSparkMax(101, rev.CANSparkMax.MotorType.kBrushless)
-        self.intake_output_motor = rev.CANSparkMax(102, rev.CANSparkMax.MotorType.kBrushless)
+        self.intake_input_motor = rev.CANSparkMax(33, rev.CANSparkMax.MotorType.kBrushless)
+        self.intake_output_motor = rev.CANSparkMax(34, rev.CANSparkMax.MotorType.kBrushless)
         self.intake_beam_sensor = wpilib.AnalogInput(2)
 
     def initLobras(self):
-        self.lobras_head_motor = rev.CANSparkMax(103, rev.CANSparkMax.MotorType.kBrushless)
-        self.lobras_arm_motor = rev.CANSparkMax(104, rev.CANSparkMax.MotorType.kBrushless)
+        self.lobras_head_motor = rev.CANSparkMax(35, rev.CANSparkMax.MotorType.kBrushless)
+        self.lobras_arm_motor = rev.CANSparkMax(36, rev.CANSparkMax.MotorType.kBrushless)
         self.lobras_arm_limit_switch = wpilib.DigitalInput(1)
         self.lobras_pneumatic_brake = wpilib.Solenoid(10, wpilib.PneumaticsModuleType.CTREPCM, 0)
 
