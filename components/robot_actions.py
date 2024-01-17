@@ -4,6 +4,10 @@ from components import swervedrive, lobra, intake
 from wpimath.controller import PIDController
 from common import limelight, arduino_light
 import ntcore
+from pathplannerlib.auto import AutoBuilder
+from pathplannerlib.config import HolonomicPathFollowerConfig, ReplanningConfig, PIDConstants
+from pathplannerlib.auto import NamedCommands
+from pathplannerlib.auto import PathPlannerAuto
 
 
 def get_linear_damp_ratio(current_value, minimum, maximum):
@@ -23,7 +27,7 @@ class RobotActions:
     limelight_intake: limelight.Limelight
     limelight_shoot: limelight.Limelight
     arduino_light: arduino_light.I2CArduinoLight
-    status_light: wpilib.Solenoid
+    # status_light: wpilib.Solenoid
     nt: ntcore.NetworkTable
 
     def setup(self):
@@ -36,6 +40,28 @@ class RobotActions:
         self.nt.putNumber("actions/intake_limelight_adjust_pid/Ki", 0)
         self.nt.putNumber("actions/intake_limelight_adjust_pid/Kd", 0)
         self.intake_limelight_adjust_pid = PIDController(0, 0, 0)
+
+        # Register Named Commands
+        NamedCommands.registerCommand('test_path_shoot', self.intake.remove_me_shoot_test())
+
+        AutoBuilder.configureHolonomic(
+            self.drivetrain.getPose, # Robot pose supplier
+            self.drivetrain.resetPose, # Method to reset odometry (will be called if your auto has a starting pose)
+            self.drivetrain.getRobotRelativeSpeeds, # ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
+            self.drivetrain.driveRobotRelative, # Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
+            HolonomicPathFollowerConfig( # HolonomicPathFollowerConfig, this should likely live in your Constants class
+                PIDConstants(5.0, 0.0, 0.0), # Translation PID constants
+                PIDConstants(5.0, 0.0, 0.0), # Rotation PID constants
+                4.5, # Max module speed, in m/s
+                0.4, # Drive base radius in meters. Distance from robot center to furthest module.
+                ReplanningConfig() # Default path replanning config. See the API for the options here
+            ),
+            True,
+            self # Reference to this subsystem to set requirements
+        )
+
+    def auto_test(self):
+        PathPlannerAuto('test_auto')
 
     def autoshoot_amp(self):
         arm_angle = 0  # TODO calibrate all
@@ -82,7 +108,7 @@ class RobotActions:
 
         if self.intake.is_object_intaken() is True:
             self.arduino_light.set_RGB(0, 0, 255)
-            self.status_light.set(1)
+            # self.status_light.set(1)
             self.retract()
             return
 

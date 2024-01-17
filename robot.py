@@ -42,6 +42,7 @@ from common import limelight, arduino_light
 from magicbot import MagicRobot
 from navx import AHRS
 
+
 from components import swervemodule, swervedrive, lobra, intake, robot_actions
 
 
@@ -67,11 +68,11 @@ class MyRobot(MagicRobot):
     # `inverted` doit être ajusté si le moteur tourne dans la mauvaise direction
     # `allow_reverse` est utiliser pour changer la direction de rotation d'un moteur plutôt que de faire une rotation de plus de 180 degrée
     # `nt_name` sera le nom sous lequel sera groupé les données des modules dans les networktables
-    drivetrain: swervedrive.SwerveDrive
     frontLeftModule: swervemodule.SwerveModule
     frontRightModule: swervemodule.SwerveModule
     rearLeftModule: swervemodule.SwerveModule
     rearRightModule: swervemodule.SwerveModule
+    drivetrain: swervedrive.SwerveDrive
     lobras: lobra.LoBras
     intake: intake.Intake
     navx: AHRS
@@ -203,6 +204,8 @@ class MyRobot(MagicRobot):
             self.robot_actions.autointake_with_limelight()
         elif self.gamepad1.getRawButton(gh.BUTTON_B):
             self.robot_actions.autoshoot_amp()
+        elif self.gamepad1.getRawButton(gh.BUTTON_Y):
+            self.robot_actions.auto_test()
         else:
             self.robot_actions.retract()
 

@@ -10,6 +10,7 @@ import wpimath.filter
 
 
 MAX_WHEEL_SPEED = 0.5  # meter per second
+MAX_MODULE_SPEED = 4.5
 
 
 def rotate_vector(vector, angle):
@@ -114,16 +115,16 @@ class SwerveDrive:
 
         self.navx_zero_angle()
 
-        # self.odometry = wpimath.kinematics.SwerveDrive4Odometry(
-        #     self.kinematics,
-        #     self.navx.getRotation2d(),
-        #     (
-        #         self.frontLeft.getPosition(),
-        #         self.frontRight.getPosition(),
-        #         self.backLeft.getPosition(),
-        #         self.backRight.getPosition(),
-        #     ),
-        # )
+        self.odometry = wpimath.kinematics.SwerveDrive4Odometry(
+            self.kinematics,
+            self.navx.getRotation2d(),
+            (
+                self.frontLeftModule.getPosition(),
+                self.frontRightModule.getPosition(),
+                self.rearLeftModule.getPosition(),
+                self.rearRightModule.getPosition(),
+            ),
+        )
 
     @staticmethod
     def square_input(input):
@@ -412,20 +413,20 @@ class SwerveDrive:
             swerveModuleStates, MAX_WHEEL_SPEED
         )
 
-        # self.frontLeft.setDesiredState(swerveModuleStates[0])
-        # self.frontRight.setDesiredState(swerveModuleStates[1])
-        # self.backLeft.setDesiredState(swerveModuleStates[2])
-        # self.backRight.setDesiredState(swerveModuleStates[3])
+        self.frontLeftModule.setTargetState(swerveModuleStates[0])
+        self.frontRightModule.setTargetState(swerveModuleStates[1])
+        self.rearLeftModule.setTargetState(swerveModuleStates[2])
+        self.rearRightModule.setTargetState(swerveModuleStates[3])
 
-        self._requested_speeds["front_left"] = swerveModuleStates[0].speed * 0.5
-        self._requested_speeds["front_right"] = swerveModuleStates[1].speed * 0.5
-        self._requested_speeds["rear_left"] = swerveModuleStates[2].speed * 0.5
-        self._requested_speeds["rear_right"] = swerveModuleStates[3].speed * 0.5
+        # self._requested_speeds["front_left"] = swerveModuleStates[0].speed * 0.5
+        # self._requested_speeds["front_right"] = swerveModuleStates[1].speed * 0.5
+        # self._requested_speeds["rear_left"] = swerveModuleStates[2].speed * 0.5
+        # self._requested_speeds["rear_right"] = swerveModuleStates[3].speed * 0.5
 
-        self._requested_angles["front_left"] = swerveModuleStates[0].angle.degrees()
-        self._requested_angles["front_right"] = swerveModuleStates[1].angle.degrees()
-        self._requested_angles["rear_left"] = swerveModuleStates[2].angle.degrees()
-        self._requested_angles["rear_right"] = swerveModuleStates[3].angle.degrees()
+        # self._requested_angles["front_left"] = swerveModuleStates[0].angle.degrees()
+        # self._requested_angles["front_right"] = swerveModuleStates[1].angle.degrees()
+        # self._requested_angles["rear_left"] = swerveModuleStates[2].angle.degrees()
+        # self._requested_angles["rear_right"] = swerveModuleStates[3].angle.degrees()
 
         # Remise à zéro des valeurs demandées par sécurité
         self._requested_vectors["fwd"] = 0.0
@@ -451,23 +452,101 @@ class SwerveDrive:
                 "debug/navx_angle_error", self.target_angle - self.get_angle()
             )
 
-    # def updateOdometry(self) -> None:
-    #     """Updates the field relative position of the robot."""
-    #     self.odometry.update(
-    #         self.navx.getRotation2d(),
-    #         (
-    #             self.frontLeft.getPosition(),
-    #             self.frontRight.getPosition(),
-    #             self.backLeft.getPosition(),
-    #             self.backRight.getPosition(),
-    #         ),
-    #     )
+    def updateOdometry(self) -> None:
+        """Updates the field relative position of the robot."""
+        self.odometry.update(
+            self.navx.getRotation2d(),
+            (
+                self.frontLeftModule.getPosition(),
+                self.frontRightModule.getPosition(),
+                self.rearLeftModule.getPosition(),
+                self.rearRightModule.getPosition(),
+            ),
+        )
+
+    def getPositions(self):
+        """
+        For PathPlannerLib
+        Return Swerve module positions
+        """
+        positions = [
+            self.frontLeftModule.getPosition(),
+            self.frontRightModule.getPosition(),
+            self.rearLeftModule.getPosition(),
+            self.rearRightModule.getPosition(),
+        ]
+        return positions
+
+    def getModuleStates(self):
+        """
+        For PathPlannerLib
+        Return Swerve module states
+        """
+        states = [
+            self.frontLeftModule.getState(),
+            self.frontRightModule.getState(),
+            self.rearLeftModule.getState(),
+            self.rearRightModule.getState(),
+        ]
+        return states
+
+    def getPose(self) -> wpimath.geometry.Pose2d:
+        """
+        For PathPlannerLib
+        Robot pose supplier
+        """
+        return self.odometry.getPose()
+
+    def resetPose(self, pose):
+        """
+        For PathPlannerLib
+        Method to reset odometry (will be called if your auto has a starting pose)
+        """
+        self.odometry.resetPosition(self.navx.getRotation2d(), self.getPositions(), pose)
+
+    def getRobotRelativeSpeeds(self):
+        """
+        For PathPlannerLib
+        ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
+        """
+        return self.kinematics.toChassisSpeeds(self.getModuleStates())
+
+
+    def driveFieldRelative(self, fieldRelativeSpeeds: wpimath.kinematics.ChassisSpeeds):
+        """
+        For PathPlannerLib
+        Method that will drive the robot given FIELD RELATIVE ChassisSpeeds
+        """
+        self.driveRobotRelative(wpimath.kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(fieldRelativeSpeeds, self.getPose().rotation()))
+
+    def driveRobotRelative(self, robotRelativeSpeeds: wpimath.kinematics.ChassisSpeeds):
+        """
+        For PathPlannerLib
+        Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
+        """
+        targetSpeeds = wpimath.kinematics.ChassisSpeeds.discretize(robotRelativeSpeeds, 0.02)
+
+        targetStates = self.kinematics.toSwerveModuleStates(targetSpeeds)
+        self.setStates(targetStates)
+
+
+    def setStates(self, targetStates: list[wpimath.kinematics.SwerveModuleState]):
+        """
+        For PathPlannerLib
+        Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
+        """
+        targetStates = wpimath.kinematics.SwerveDrive4Kinematics.desaturateWheelSpeeds(targetStates, MAX_MODULE_SPEED)
+        self.frontLeftModule.setTargetState(targetStates[0])
+        self.frontRightModule.setTargetState(targetStates[1])
+        self.rearLeftModule.setTargetState(targetStates[2])
+        self.rearRightModule.setTargetState(targetStates[3])
 
     def execute(self):
         """
         Calcul et transmet la commande de vitesse et d'angle à chaque swerve module.
         """
         # Évaluation de la commande selon le mode d'opération
+        self.updateOdometry()
         self.compute_move()
         self.controller_forward = 0
         self.controller_strafe = 0
@@ -481,10 +560,10 @@ class SwerveDrive:
         self._calculate_vectors()
 
         # Écrit le résultat dans chaque swerve module
-        for key in self.modules:
-            self.modules[key].move(
-                self._requested_speeds[key], self._requested_angles[key]
-            )
+        # for key in self.modules:
+        #     self.modules[key].move(
+        #         self._requested_speeds[key], self._requested_angles[key]
+        #     )
 
         # Remets les vitesse à zéro
         self._requested_speeds = dict.fromkeys(self._requested_speeds, 0)

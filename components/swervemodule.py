@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import phoenix6
 import ntcore
 from wpimath.controller import PIDController
+from wpimath import kinematics
 
 
 # Classe de configuration des swerve
@@ -24,6 +25,8 @@ class SwerveModule:
         """
         Appelé après l'injection
         """
+        self.currentPosition = kinematics.SwerveModulePosition()
+        self.currentState = kinematics.SwerveModuleState()
         self.lastPosition = 0
         self.debug = False
         config = phoenix6.configs.TalonFXConfiguration()
@@ -113,6 +116,45 @@ class SwerveModule:
         self._requested_degree = deg
         self._requested_speed = speed
 
+    def kinematic_move(self):
+        """
+        Spécifie la vitesse et l'angle requise.
+        :param speed: Vitesse de la roue, de -1 à 1
+        :param deg: Angle de la roue, de 0 à 359
+        """
+        deg = self.currentState.angle.degrees() + 360
+        speed = self.currentState.speed
+        deg %= 360  # Empêche les valeurs au dessus de 359 degrée
+
+        if self.cfg.allow_reverse:
+            # Si la différence d'angle est de plus de 90 degrée, on inverse la vitesse et pivote moins
+            offset = abs(deg - self.get_encoder_abs_position())
+            if offset > 90 and offset < 270:
+                speed *= -1
+                deg += 180
+                deg %= 360
+
+        self._requested_degree = deg
+        self._requested_speed = speed
+
+    def setTargetState(self, targetState):
+        self.currentState = kinematics.SwerveModuleState.optimize(targetState, self.currentState.angle)
+        self.currentPosition = kinematics.SwerveModulePosition(self.currentPosition.distance + (self.currentState.speed * 0.02), self.currentState.angle)
+
+    def getState(self):
+        """
+        For PathPlannerLib
+        Return Swerve module state
+        """
+        return self.currentState
+
+    def getPosition(self):
+        """
+        For PathPlannerLib
+        Return Swerve module position
+        """
+        return self.currentPosition
+
     def execute(self):
         """
         Utilise le PID pour se rendre à la position demandée.
@@ -121,6 +163,7 @@ class SwerveModule:
         Appelé à chaque itération/boucle
         """
         # Calcul de l'angle avec le PID
+        self.kinematic_move()
 
         if self.calibration_mode == 1:
             self._requested_degree = 0

@@ -18,6 +18,8 @@ class Intake:
         self.beam_sensor_last_detection.start()
         self.object_intaken = False
 
+    def remove_me_shoot_test(self):
+        print("JE SHOOT MAIS PAS VRAIMENT, EFFACEZ MOI!!!!!")
 
     def object_in_sensor(self):
         return self.beam_sensor.getValue() < 324
