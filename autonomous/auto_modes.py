@@ -20,7 +20,7 @@ class AvanceEtRecule(BaseAuto):
 
     @timed_state(duration=1, next_state="recule")
     def avance(self):
-        self.drivetrain.move(0.1, 0)
+        self.drivetrain.set_absolute_automove_value(0.1, 0)
 
     @timed_state(duration=1, next_state="finish")
     def recule(self):
@@ -28,4 +28,4 @@ class AvanceEtRecule(BaseAuto):
             # Il est possible de forcer le changement immédiat vers un autre état avec:
             self.next_state("finish")
 
-        self.drivetrain.move(-0.1, 0)
+        self.drivetrain.set_absolute_automove_value(-0.1, 0)

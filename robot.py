@@ -110,7 +110,7 @@ class MyRobot(MagicRobot):
         # Il est important d'utiliser le logiciel de la compagnie pour trouver (ou configurer) les CAN id
         # On utilise également les encodeurs absolues CAN pour orienter la roue
         self.drivetrain_cfg = swervedrive.SwerveDriveConfig(
-            field_centric=True, base_width=27, base_length=19, enable_debug=False
+            field_centric=True, base_width=27, base_length=19
         )
 
         self.frontLeftModule_driveMotor = phoenix6.hardware.TalonFX(26)

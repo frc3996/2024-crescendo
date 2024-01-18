@@ -3,13 +3,14 @@ from dataclasses import dataclass
 import ntcore
 from components import swervemodule
 from navx import AHRS
-from wpimath.controller import PIDController
 import wpimath.geometry
 import wpimath.kinematics
 import wpimath.filter
+import wpimath.controller
+import pathplannerlib.telemetry
 
 
-MAX_WHEEL_SPEED = 0.5  # meter per second
+MAX_WHEEL_SPEED = 4  # meter per second
 MAX_MODULE_SPEED = 4.5
 
 
@@ -25,7 +26,6 @@ class SwerveDriveConfig:
     field_centric: bool
     base_width: float
     base_length: float
-    enable_debug: bool
 
 
 class SwerveDrive:
@@ -43,7 +43,6 @@ class SwerveDrive:
     NavxPitchZero = 0
     NavxRollZero = 0
     zero_done = False
-    debug = False
 
     def setup(self):
         """
@@ -75,11 +74,9 @@ class SwerveDrive:
             "rear_right": 0,
         }
 
-        self.debug = self.cfg.enable_debug
+        self.debug = False
+        self.nt.putBoolean("swerve/debug", False)
         self.field_centric = self.cfg.field_centric
-
-        for key in self.modules:
-            self.modules[key].enable_debug(self.debug)
 
         self.lost_navx = False
 
@@ -93,7 +90,7 @@ class SwerveDrive:
         self.automove_strafe = 0
         self.automove_strength = 0
 
-        self.angle_pid = PIDController(1, 0, 0)
+        self.angle_pid = wpimath.controller.PIDController(1, 0, 0)
         self.angle_pid.enableContinuousInput(0, 360)
         self.angle_pid.setTolerance(-2, 2)
 
@@ -204,14 +201,15 @@ class SwerveDrive:
     def init(self):
         self.init_navx()
         self.flush()
-        self.get_nt_config()
+        self.refresh_nt_config()
         for key in self.modules:
-            self.modules[key].get_nt_config()
+            self.modules[key].refresh_nt_config()
 
-    def get_nt_config(self):
+    def refresh_nt_config(self):
         self.angle_pid.setP(self.nt.getNumber("swerve/angle_pid/Kp", 0))
         self.angle_pid.setI(self.nt.getNumber("swerve/angle_pid/Ki", 0))
         self.angle_pid.setD(self.nt.getNumber("swerve/angle_pid/Kd", 0))
+        self.debug = self.nt.getBoolean("swerve/debug", False)
 
     def get_angle(self):
         """
@@ -223,17 +221,17 @@ class SwerveDrive:
     def set_fwd(self, fwd):
         """
         Écrit le vecteur 'forward'
-        :param fwd: Valeur de -1 à 1
+        :param fwd: Valeur en m/s
         """
-        fwd *= self.xy_multiplier
+        # fwd *= self.xy_multiplier
         self._requested_vectors["fwd"] = fwd
 
     def set_strafe(self, strafe):
         """
         Écrit la valeur 'strafe'
-        :param strafe: Valeur de -1 to 1
+        :param strafe: Valeur en m/s
         """
-        strafe *= self.xy_multiplier
+        # strafe *= self.xy_multiplier
         self._requested_vectors["strafe"] = strafe
 
     def set_angle(self, angle):
@@ -247,11 +245,6 @@ class SwerveDrive:
         :param rcw: Valeur de -1 à 1
         """
         self._requested_vectors["rcw"] = rcw
-
-    def move(self, forward, strafe):
-        """Fait bouger le robot, utile pour les modes autonomes"""
-        self.set_fwd(forward)
-        self.set_strafe(strafe)
 
     def set_absolute_automove_value(self, forward, strafe, strength=0.2):
         self.automove_forward = -forward
@@ -285,13 +278,12 @@ class SwerveDrive:
         if abs(strafe) < self.lower_input_thresh:
             strafe = 0
 
+        forward *= MAX_WHEEL_SPEED
+        strafe *= MAX_WHEEL_SPEED
+
         if self.automove_strength != 0:
             new_fwd = self.automove_forward + (forward * (1 - self.automove_strength))
-            new_fwd = min(new_fwd, 1)
-            new_fwd = max(new_fwd, -1)
             new_strafe = self.automove_strafe + (strafe * (1 - self.automove_strength))
-            new_strafe = min(new_strafe, 1)
-            new_strafe = max(new_strafe, -1)
             forward = new_fwd
             strafe = new_strafe
 
@@ -352,29 +344,30 @@ class SwerveDrive:
             else:
                 self.lost_navx = True
                 return
-            (
-                self._requested_vectors["fwd"],
-                self._requested_vectors["strafe"],
-                self._requested_vectors["rcw"]
-            ) = self.normalize(
-                [
-                    self._requested_vectors["fwd"],
-                    self._requested_vectors["strafe"],
-                    angle_error
-                ]
-            )
-        else:
-            (
-                self._requested_vectors["fwd"],
-                self._requested_vectors["strafe"],
-                self._requested_vectors["rcw"]
-            ) = self.normalize(
-                [
-                    self._requested_vectors["fwd"],
-                    self._requested_vectors["strafe"],
-                    self._requested_vectors["rcw"]
-                ]
-            )
+            self._requested_vectors["rcw"] = angle_error
+        #     (
+        #         self._requested_vectors["fwd"],
+        #         self._requested_vectors["strafe"],
+        #         self._requested_vectors["rcw"]
+        #     ) = self.normalize(
+        #         [
+        #             self._requested_vectors["fwd"],
+        #             self._requested_vectors["strafe"],
+        #             angle_error
+        #         ]
+        #     )
+        # else:
+        #     (
+        #         self._requested_vectors["fwd"],
+        #         self._requested_vectors["strafe"],
+        #         self._requested_vectors["rcw"]
+        #     ) = self.normalize(
+        #         [
+        #             self._requested_vectors["fwd"],
+        #             self._requested_vectors["strafe"],
+        #             self._requested_vectors["rcw"]
+        #         ]
+        #     )
 
         # Ne fais rien si les vecteurs sont trop petits
         if (self._requested_vectors["strafe"] == 0
@@ -433,12 +426,6 @@ class SwerveDrive:
         self._requested_vectors["strafe"] = 0.0
         self._requested_vectors["rcw"] = 0.0
 
-    def enable_debug(self, enable_debug, debug_modules=False):
-        """
-        Affiche des information de débogage
-        """
-        self.debug = enable_debug
-
     def update_nt(self):
         """
         Affiche des informations de débogage
@@ -457,12 +444,14 @@ class SwerveDrive:
         self.odometry.update(
             self.navx.getRotation2d(),
             (
-                self.frontLeftModule.getPosition(),
-                self.frontRightModule.getPosition(),
-                self.rearLeftModule.getPosition(),
-                self.rearRightModule.getPosition(),
+                self.frontLeftModule.getActualPosition(),
+                self.frontRightModule.getActualPosition(),
+                self.rearLeftModule.getActualPosition(),
+                self.rearRightModule.getActualPosition(),
             ),
         )
+        current_post = self.odometry.getPose()
+        pathplannerlib.telemetry.PPLibTelemetry.setCurrentPose(current_post)
 
     def getPositions(self):
         """

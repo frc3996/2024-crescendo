@@ -7,13 +7,15 @@ import ntcore
 import os
 import math
 from pathplannerlib.path import PathPlannerPath
-# from pathplannerlib.auto import AutoBuilder
+import pathplannerlib.telemetry
 # from pathplannerlib.config import HolonomicPathFollowerConfig, ReplanningConfig, PIDConstants
 # from pathplannerlib.auto import NamedCommands
 # from pathplannerlib.auto import PathPlannerAuto
 import wpimath.kinematics
 import wpimath.geometry
 from components.swervedrive import rotate_vector
+import wpimath.controller
+import wpimath.trajectory
 
 def get_linear_damp_ratio(current_value, minimum, maximum):
     """Return a ratio from 1 to 0 based on a range"""
@@ -49,6 +51,13 @@ class RobotActions:
 
         self.path = PathPlannerPath.fromPathFile(os.path.join(os.path.dirname(__file__), '..', "deploy", "pathplanner", "paths", "test_path"))
         self.trajectory = self.path.getTrajectory(wpimath.kinematics.ChassisSpeeds(0,0,0), wpimath.geometry.Rotation2d())
+
+        self.controller = wpimath.controller.HolonomicDriveController(
+                wpimath.controller.PIDController(1, 0, 0),
+                wpimath.controller.PIDController(1, 0, 0),
+                wpimath.controller.ProfiledPIDControllerRadians(1, 0, 0, wpimath.trajectory.TrapezoidProfileRadians.Constraints(1, 0.2)),
+        )
+
         # Register Named Commands
 
         # AutoBuilder.configureHolonomic(
@@ -72,16 +81,20 @@ class RobotActions:
 
     def auto_test(self):
         now = wpilib.Timer.getFPGATimestamp() - self.auto_timer
-        current_pose = self.trajectory.sample(now)
-        next_pose = self.trajectory.sample(now + 0.02)
+        test_goal = self.trajectory.sample(now).getTargetHolonomicPose()
+        goal = self.trajectory.sample(now+0.02)
+        angle = wpimath.geometry.Rotation2d.fromDegrees(0)
+        adjustedSpeeds = self.controller.calculate(test_goal, goal.getTargetHolonomicPose(), 0, angle)
+        self.drivetrain.set_absolute_automove_value(adjustedSpeeds.vx, adjustedSpeeds.vy)
 
+        # pathplannerlib.telemetry.PPLibTelemetry.setCurrentPose(goal.getTargetHolonomicPose())
 
-        self.drivetrain.set_angle(current_pose.getTargetHolonomicPose().rotation().degrees()+180)
-        vectors = rotate_vector([current_pose.getTargetHolonomicPose().X(), current_pose.getTargetHolonomicPose().Y()], current_pose.heading.degrees())
-        x = vectors[0] / abs(math.sqrt(vectors[0]**2 + vectors[1]**2))
-        y = vectors[1] / abs(math.sqrt(vectors[0]**2 + vectors[1]**2))
-        self.drivetrain.set_absolute_automove_value(x * 0.2, y* 0.2)
-        print(round(now), x, y, current_pose.getTargetHolonomicPose().X(), current_pose.getTargetHolonomicPose().Y(), current_pose.heading.degrees())
+        # self.drivetrain.set_angle(goal.getTargetHolonomicPose().rotation().degrees()+180)
+        # vectors = rotate_vector([goal.getTargetHolonomicPose().X(), goal.getTargetHolonomicPose().Y()], goal.heading.degrees())
+        # x = vectors[0] / abs(math.sqrt(vectors[0]**2 + vectors[1]**2))
+        # y = vectors[1] / abs(math.sqrt(vectors[0]**2 + vectors[1]**2))
+        # self.drivetrain.set_absolute_automove_value(x * 0.2, y* 0.2)
+        # print(round(now), x, y, goal.getTargetHolonomicPose().X(), goal.getTargetHolonomicPose().Y(), goal.heading.degrees())
 
 
     def autoshoot_amp(self):

@@ -2,8 +2,10 @@ from dataclasses import dataclass
 
 import phoenix6
 import ntcore
+import wpimath
 from wpimath.controller import PIDController
-from wpimath import kinematics
+from wpimath import kinematics, units, geometry
+import math
 
 
 # Classe de configuration des swerve
@@ -25,54 +27,59 @@ class SwerveModule:
         """
         Appelé après l'injection
         """
+        # General
+        # meter_per_second = (rps / gear_ratio) * wheel_circumference_meter
+        # rps = meter_per_second * gear_ratio / wheel_circumference_meter
+        carpet_fudge_factor = 0.9238
+        gear_fudge_factor = 0.98
+        wheel_circumference_meter = math.pi * units.inchesToMeters(4.0) * carpet_fudge_factor
+        wheel_gear_ratio = 6.75 * gear_fudge_factor  # L1 gearing
+        self.velocity_to_rps_conversion_factor = wheel_gear_ratio / wheel_circumference_meter
         self.currentPosition = kinematics.SwerveModulePosition()
         self.currentState = kinematics.SwerveModuleState()
         self.lastPosition = 0
         self.debug = False
+        self.calibration_mode = 0
+
+        # Network Table
+        self.nt = ntcore.NetworkTableInstance.getDefault().getTable("robotpy")
+        self.nt.putBoolean(f"{self.cfg.nt_name}/debug", False)
+        self.nt.putNumber("swerve/rotation_pid/Kp", 0.008)
+        self.nt.putNumber("swerve/rotation_pid/Ki", 0)
+        self.nt.putNumber("swerve/rotation_pid/Kd", 0)
+
+        # Drive Motor
         config = phoenix6.configs.TalonFXConfiguration()
         config.open_loop_ramps = phoenix6.configs.OpenLoopRampsConfigs().with_duty_cycle_open_loop_ramp_period(0.1)
         motor_config = phoenix6.configs.MotorOutputConfigs()
         motor_config.inverted = phoenix6.signals.InvertedValue.CLOCKWISE_POSITIVE
         config.motor_output = motor_config
         self.driveMotor.configurator.apply(config)
+        self._requested_speed = 0
+        self.driveMotor_control = phoenix6.controls.VelocityDutyCycle(0, 500)
 
-
+        # Rotation Motor
         config = phoenix6.configs.TalonFXConfiguration()
         config.open_loop_ramps = phoenix6.configs.OpenLoopRampsConfigs().with_duty_cycle_open_loop_ramp_period(0.01)
         motor_config = phoenix6.configs.MotorOutputConfigs()
         motor_config.inverted = phoenix6.signals.InvertedValue.CLOCKWISE_POSITIVE
         config.motor_output = motor_config
         self.rotateMotor.configurator.apply(config)
-
-        # Accélération maximale du moteur de 0 à 100% en 0.1 seconde
         self._requested_degree = 0
-        self._requested_speed = 0
-
+        self.rotateMotor_control = phoenix6.controls.DutyCycleOut(0)
         self.rotation_pid = PIDController(0, 0, 0)  # PID configuré via le ShuffleBoard
         self.rotation_pid.enableContinuousInput(
             0, 360
         )  # 0 et 360 sont considérés comme la même valeur
-
-        self.driveMotor_control = phoenix6.controls.DutyCycleOut(0)
-        self.rotateMotor_control = phoenix6.controls.DutyCycleOut(0)
-
         cancoder_config = phoenix6.configs.CANcoderConfiguration()
         self.encoder.configurator.apply(cancoder_config)
-
-        self.calibration_mode = 0
         self.encoder_zero = 0
-        self.nt = ntcore.NetworkTableInstance.getDefault().getTable("robotpy")
-        self.nt.putNumber("swerve/rotation_pid/Kp", 0.008)
-        self.nt.putNumber("swerve/rotation_pid/Ki", 0)
-        self.nt.putNumber("swerve/rotation_pid/Kd", 0)
 
-    def enable_debug(self, enable_debug: bool):
-        self.debug = enable_debug
-
-    def get_nt_config(self):
+    def refresh_nt_config(self):
         self.rotation_pid.setP(self.nt.getNumber("swerve/rotation_pid/Kp", 0))
         self.rotation_pid.setI(self.nt.getNumber("swerve/rotation_pid/Ki", 0))
         self.rotation_pid.setD(self.nt.getNumber("swerve/rotation_pid/Kd", 0))
+        self.debug = self.nt.getBoolean(f"{self.cfg.nt_name}/debug", False)
         self.encoder_zero = self.nt.getNumber(f"{self.cfg.nt_name}/rotation_zero", 0)
         self.calibration_mode = self.nt.getNumber("config/zero_calibration_mode", 0)
 
@@ -96,25 +103,6 @@ class SwerveModule:
         abs_pos = (self.encoder.get_absolute_position().value + 0.5) * 360
         computed_value = (abs_pos + self.get_encoder_zero()) % 360
         return computed_value
-
-    def move(self, speed, deg):
-        """
-        Spécifie la vitesse et l'angle requise.
-        :param speed: Vitesse de la roue, de -1 à 1
-        :param deg: Angle de la roue, de 0 à 359
-        """
-        deg %= 360  # Empêche les valeurs au dessus de 359 degrée
-
-        if self.cfg.allow_reverse:
-            # Si la différence d'angle est de plus de 90 degrée, on inverse la vitesse et pivote moins
-            offset = abs(deg - self.get_encoder_abs_position())
-            if offset > 90 and offset < 270:
-                speed *= -1
-                deg += 180
-                deg %= 360
-
-        self._requested_degree = deg
-        self._requested_speed = speed
 
     def kinematic_move(self):
         """
@@ -148,38 +136,22 @@ class SwerveModule:
         """
         return self.currentState
 
+    def getActualPosition(self):
+        """
+        For PathPlannerLib
+        Return Swerve module position
+        """
+        current_position = self.driveMotor.get_position().value / self.velocity_to_rps_conversion_factor
+        current_angle = geometry.Rotation2d.fromDegrees(self.get_encoder_abs_position())
+        return kinematics.SwerveModulePosition(current_position, current_angle)
+
     def getPosition(self):
         """
         For PathPlannerLib
         Return Swerve module position
         """
+
         return self.currentPosition
-
-    def execute(self):
-        """
-        Utilise le PID pour se rendre à la position demandée.
-        Modifie la puissance des moteurs pour celle demandée.
-
-        Appelé à chaque itération/boucle
-        """
-        # Calcul de l'angle avec le PID
-        self.kinematic_move()
-
-        if self.calibration_mode == 1:
-            self._requested_degree = 0
-        error = self.rotation_pid.calculate(
-            self.get_encoder_abs_position(), self._requested_degree
-        )
-        self.rotateMotor_control.output = max(min(error, 1), -1)
-        self.rotateMotor.set_control(self.rotateMotor_control)
-
-        # Commande de vitesse au moteur
-        self.driveMotor_control.output = self._requested_speed
-        if self.calibration_mode == 1:
-            self.driveMotor_control.output = 0.05
-        self.driveMotor.set_control(self.driveMotor_control)
-
-        self.update_nt()
 
     def update_nt(self):
         """
@@ -199,3 +171,33 @@ class SwerveModule:
             self.nt.putNumber(
                 f"drive/{self.cfg.nt_name}/requested_speed", self._requested_speed
             )
+
+    def execute(self):
+        """
+        Utilise le PID pour se rendre à la position demandée.
+        Modifie la puissance des moteurs pour celle demandée.
+
+        Appelé à chaque itération/boucle
+        """
+        # Calcul de l'angle avec le PID
+        self.kinematic_move()
+
+        # Commande d'angle
+        if self.calibration_mode == 1:
+            self._requested_degree = 0
+        error = self.rotation_pid.calculate(
+            self.get_encoder_abs_position(), self._requested_degree
+        )
+        self.rotateMotor_control.output = max(min(error, 1), -1)
+        self.rotateMotor.set_control(self.rotateMotor_control)
+
+
+        # Commande de vitesse au moteur, conversion de la vitesse en RPM
+        if self.calibration_mode == 1:
+            self._requested_speed = 0.05
+        rps = self._requested_speed * self.velocity_to_rps_conversion_factor
+        self.driveMotor_control.output = rps
+        self.driveMotor.set_control(self.driveMotor_control)
+        self._requested_speed = 0
+
+        self.update_nt()
