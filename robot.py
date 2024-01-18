@@ -208,6 +208,7 @@ class MyRobot(MagicRobot):
         elif self.gamepad1.getRawButton(gh.BUTTON_Y):
             self.robot_actions.auto_test()
         else:
+            self.robot_actions.reset_auto()
             self.robot_actions.retract()
 
 

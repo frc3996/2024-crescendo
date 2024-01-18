@@ -56,7 +56,6 @@ class Intake:
 
 
     def execute(self):
-        print(self.object_in_sensor())
         if self.object_in_sensor():
             self.beam_sensor_last_detection.reset()
 

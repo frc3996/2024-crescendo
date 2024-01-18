@@ -98,7 +98,7 @@ class SwerveDrive:
         self.angle_pid.setTolerance(-2, 2)
 
         # Pid de rotation. Ajuster via le ShuffleBoard et écrire la nouvelle valeur ici
-        self.nt.putNumber("swerve/angle_pid/Kp", 0.008)
+        self.nt.putNumber("swerve/angle_pid/Kp", 0.002)
         self.nt.putNumber("swerve/angle_pid/Ki", 0)
         self.nt.putNumber("swerve/angle_pid/Kd", 0)
 

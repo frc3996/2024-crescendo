@@ -4,11 +4,16 @@ from components import swervedrive, lobra, intake
 from wpimath.controller import PIDController
 from common import limelight, arduino_light
 import ntcore
-from pathplannerlib.auto import AutoBuilder
-from pathplannerlib.config import HolonomicPathFollowerConfig, ReplanningConfig, PIDConstants
-from pathplannerlib.auto import NamedCommands
-from pathplannerlib.auto import PathPlannerAuto
-
+import os
+import math
+from pathplannerlib.path import PathPlannerPath
+# from pathplannerlib.auto import AutoBuilder
+# from pathplannerlib.config import HolonomicPathFollowerConfig, ReplanningConfig, PIDConstants
+# from pathplannerlib.auto import NamedCommands
+# from pathplannerlib.auto import PathPlannerAuto
+import wpimath.kinematics
+import wpimath.geometry
+from components.swervedrive import rotate_vector
 
 def get_linear_damp_ratio(current_value, minimum, maximum):
     """Return a ratio from 1 to 0 based on a range"""
@@ -41,8 +46,10 @@ class RobotActions:
         self.nt.putNumber("actions/intake_limelight_adjust_pid/Kd", 0)
         self.intake_limelight_adjust_pid = PIDController(0, 0, 0)
 
+
+        self.path = PathPlannerPath.fromPathFile(os.path.join(os.path.dirname(__file__), '..', "deploy", "pathplanner", "paths", "test_path"))
+        self.trajectory = self.path.getTrajectory(wpimath.kinematics.ChassisSpeeds(0,0,0), wpimath.geometry.Rotation2d())
         # Register Named Commands
-        # NamedCommands.registerCommand('test_path_shoot', self.intake.remove_me_shoot_test())
 
         # AutoBuilder.configureHolonomic(
         #     self.drivetrain.getPose, # Robot pose supplier
@@ -60,8 +67,22 @@ class RobotActions:
         #     self # Reference to this subsystem to set requirements
         # )
 
+    def reset_auto(self):
+        self.auto_timer = wpilib.Timer.getFPGATimestamp()
+
     def auto_test(self):
-        PathPlannerAuto('test_auto')
+        now = wpilib.Timer.getFPGATimestamp() - self.auto_timer
+        current_pose = self.trajectory.sample(now)
+        next_pose = self.trajectory.sample(now + 0.02)
+
+
+        self.drivetrain.set_angle(current_pose.getTargetHolonomicPose().rotation().degrees()+180)
+        vectors = rotate_vector([current_pose.getTargetHolonomicPose().X(), current_pose.getTargetHolonomicPose().Y()], current_pose.heading.degrees())
+        x = vectors[0] / abs(math.sqrt(vectors[0]**2 + vectors[1]**2))
+        y = vectors[1] / abs(math.sqrt(vectors[0]**2 + vectors[1]**2))
+        self.drivetrain.set_absolute_automove_value(x * 0.2, y* 0.2)
+        print(round(now), x, y, current_pose.getTargetHolonomicPose().X(), current_pose.getTargetHolonomicPose().Y(), current_pose.heading.degrees())
+
 
     def autoshoot_amp(self):
         arm_angle = 0  # TODO calibrate all
