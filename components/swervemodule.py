@@ -130,6 +130,9 @@ class SwerveModule:
         self._requested_degree = deg
         self._requested_speed = speed
 
+    def resetPose(self):
+        self.currentPosition = kinematics.SwerveModulePosition(0, self.currentPosition.angle)
+
     def setTargetState(self, targetState):
         self.currentState = kinematics.SwerveModuleState.optimize(targetState, self.currentState.angle)
         self.currentPosition = kinematics.SwerveModulePosition(self.currentPosition.distance + (self.currentState.speed * 0.02), self.currentState.angle)
@@ -147,7 +150,8 @@ class SwerveModule:
         Return Swerve module position
         """
         current_position = self.driveMotor.get_position().value / self.velocity_to_rps_conversion_factor
-        current_angle = geometry.Rotation2d.fromDegrees(self.get_encoder_abs_position())
+        current_angle = geometry.Rotation2d.fromDegrees(self.get_encoder_abs_position() - 180)
+        # print(f"{self.cfg.nt_name} rotation abs position: {self.get_encoder_abs_position()}")
         return kinematics.SwerveModulePosition(current_position, current_angle)
 
     def getPosition(self):

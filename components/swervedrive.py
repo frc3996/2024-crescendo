@@ -1,3 +1,13 @@
+"""
+X:      The component of speed in the x direction relative to the field.
+        Positive x is away from your alliance wall.
+Y:      The component of speed in the y direction relative to the field.
+        Positive y is to your left when standing behind the alliance wall.
+Angle:  The angle of the robot as measured by a gyroscope. The robot's angle
+        is considered to be zero when it is facing directly away from
+        your alliance station wall. Remember that this should be CCW positive.
+"""
+
 import math
 from dataclasses import dataclass
 import ntcore
@@ -91,7 +101,7 @@ class SwerveDrive:
         self.automove_strength = 0
 
         self.angle_pid = wpimath.controller.PIDController(1, 0, 0)
-        self.angle_pid.enableContinuousInput(0, 360)
+        self.angle_pid.enableContinuousInput(-180, 180)
         self.angle_pid.setTolerance(-2, 2)
 
         # Pid de rotation. Ajuster via le ShuffleBoard et écrire la nouvelle valeur ici
@@ -214,9 +224,9 @@ class SwerveDrive:
     def get_angle(self):
         """
         Retourne l'angle absolue basée sur le zéro
-        De 0 à 360 degrée
+        De -180 à 180 degrée
         """
-        return (self.navx.getYaw() + 180) % 360
+        return self.navx.getRotation2d().degrees()
 
     def set_fwd(self, fwd):
         """
@@ -247,12 +257,12 @@ class SwerveDrive:
         self._requested_vectors["rcw"] = rcw
 
     def set_absolute_automove_value(self, forward, strafe, strength=0.2):
-        self.automove_forward = -forward
+        self.automove_forward = forward
         self.automove_strafe = strafe
         self.automove_strength = strength
 
     def relative_rotate(self, rotation):
-        self.target_angle = (self.get_angle() + rotation + 360) % 360
+        self.target_angle = ((self.get_angle() + 180 + rotation + 360) % 360) - 180
 
     def set_relative_automove_value(self, forward, strafe, strength=0.2):
         vector = rotate_vector([-forward, strafe], self.get_angle())
@@ -305,27 +315,29 @@ class SwerveDrive:
             angle = (math.degrees(math.atan2(angle_stick_y, angle_stick_x)) + 360) % 360
             angle += 270
             angle %= 360
+            angle -= 180
+            angle = -angle
             self.set_angle(angle)
 
     def snap_angle_nearest_180(self):
         """Force le robot à regarder vers l'avant ou l'arrière"""
-        angle_deg = self.get_angle()
+        angle_deg = self.get_angle() + 180
         remainder = angle_deg % 180
         if remainder < 90:
             rounded_angle_deg = angle_deg // 180 * 180
         else:
             rounded_angle_deg = (angle_deg // 180 + 1) * 180
-        self.set_angle(rounded_angle_deg % 360)
+        self.set_angle((rounded_angle_deg % 360) - 180)
 
     def snap_angle_nearest_90(self):
         """Force le robot à regarder vers le côté le plus prêt"""
-        angle_deg = self.get_angle()
+        angle_deg = self.get_angle() + 180
         remainder = angle_deg % 90
         if remainder < 45:
             rounded_angle_deg = angle_deg // 90 * 90
         else:
             rounded_angle_deg = (angle_deg // 90 + 1) * 90
-        self.set_angle(rounded_angle_deg % 360)
+        self.set_angle((rounded_angle_deg % 360) - 180)
 
     def _calculate_vectors(self):
         """
@@ -345,7 +357,6 @@ class SwerveDrive:
                 self.lost_navx = True
                 return
             self._requested_vectors["rcw"] = angle_error
-            print(self.get_angle(), self.target_angle, angle_error)
         #     (
         #         self._requested_vectors["fwd"],
         #         self._requested_vectors["strafe"],
@@ -391,8 +402,8 @@ class SwerveDrive:
         xSpeed = self._requested_vectors["fwd"]
         if abs(self._requested_vectors["rcw"]) <= 0.02:
             self._requested_vectors["rcw"] = 0
-        rot = -self._requested_vectors["rcw"]
-        print(self.target_angle)
+        rot = self._requested_vectors["rcw"]
+        # print(round(xSpeed,3), round(ySpeed,3), round(rot,3), round(self.target_angle))
 
         if self.field_centric:
             swerveModuleStates = self.kinematics.toSwerveModuleStates(
@@ -495,12 +506,27 @@ class SwerveDrive:
         """
         return self.odometry.getPose()
 
-    def resetPose(self, pose):
+    def resetPose(self, pose: wpimath.geometry.Pose2d):
         """
         For PathPlannerLib
         Method to reset odometry (will be called if your auto has a starting pose)
         """
-        self.odometry.resetPosition(self.navx.getRotation2d(), self.getPositions(), pose)
+        self.frontLeftModule.resetPose()
+        self.frontRightModule.resetPose()
+        self.rearLeftModule.resetPose()
+        self.rearRightModule.resetPose()
+
+        self.odometry = wpimath.kinematics.SwerveDrive4Odometry(
+            self.kinematics,
+            self.navx.getRotation2d(),
+            (
+                self.frontLeftModule.getPosition(),
+                self.frontRightModule.getPosition(),
+                self.rearLeftModule.getPosition(),
+                self.rearRightModule.getPosition(),
+            ),
+            pose
+        )
 
     def getRobotRelativeSpeeds(self):
         """
