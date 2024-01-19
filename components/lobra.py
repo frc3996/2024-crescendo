@@ -73,6 +73,10 @@ class LoBras:
         # TODO
         # Place la tête et le bras en position note_trap
         pass
+    def set_arm_angle(self, angle):
+        self.current_arm_target = angle
+
+
 
     def execute(self):
         # self.arm_pid_controller.setReference(target_position, rev.CANSparkMax.ControlType.kPosition)

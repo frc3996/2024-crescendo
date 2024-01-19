@@ -345,6 +345,7 @@ class SwerveDrive:
                 self.lost_navx = True
                 return
             self._requested_vectors["rcw"] = angle_error
+            print(self.get_angle(), self.target_angle, angle_error)
         #     (
         #         self._requested_vectors["fwd"],
         #         self._requested_vectors["strafe"],
@@ -390,18 +391,26 @@ class SwerveDrive:
         xSpeed = self._requested_vectors["fwd"]
         if abs(self._requested_vectors["rcw"]) <= 0.02:
             self._requested_vectors["rcw"] = 0
-        rot = -self._requested_vectors["rcw"]/(1/0.15)
+        rot = -self._requested_vectors["rcw"]
+        print(self.target_angle)
 
-        swerveModuleStates = self.kinematics.toSwerveModuleStates(
-            wpimath.kinematics.ChassisSpeeds.discretize(
-                wpimath.kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(
-                    xSpeed, ySpeed, rot, self.navx.getRotation2d()
+        if self.field_centric:
+            swerveModuleStates = self.kinematics.toSwerveModuleStates(
+                wpimath.kinematics.ChassisSpeeds.discretize(
+                    wpimath.kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(
+                        xSpeed, ySpeed, rot, self.navx.getRotation2d()
+                    ),
+                    0.02,
                 )
-                if self.field_centric
-                else wpimath.kinematics.ChassisSpeeds(xSpeed, ySpeed, rot),
-                20,
             )
-        )
+        else:
+            swerveModuleStates = self.kinematics.toSwerveModuleStates(
+                wpimath.kinematics.ChassisSpeeds.discretize(
+                    wpimath.kinematics.ChassisSpeeds(xSpeed, ySpeed, rot),
+                    0.02,
+                )
+            )
+
         wpimath.kinematics.SwerveDrive4Kinematics.desaturateWheelSpeeds(
             swerveModuleStates, MAX_WHEEL_SPEED
         )

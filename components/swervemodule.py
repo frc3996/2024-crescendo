@@ -30,11 +30,10 @@ class SwerveModule:
         # General
         # meter_per_second = (rps / gear_ratio) * wheel_circumference_meter
         # rps = meter_per_second * gear_ratio / wheel_circumference_meter
-        carpet_fudge_factor = 0.9238
-        gear_fudge_factor = 0.98
-        wheel_circumference_meter = math.pi * units.inchesToMeters(4.0) * carpet_fudge_factor
-        wheel_gear_ratio = 6.75 * gear_fudge_factor  # L1 gearing
-        self.velocity_to_rps_conversion_factor = wheel_gear_ratio / wheel_circumference_meter
+        fudge_factor = 1
+        wheel_circumference_meter = math.pi * units.inchesToMeters(4.0)
+        wheel_gear_ratio = 8.14  # L1=8.14; L2=6.75; L3=6.12
+        self.velocity_to_rps_conversion_factor = wheel_gear_ratio / wheel_circumference_meter * fudge_factor
         self.currentPosition = kinematics.SwerveModulePosition()
         self.currentState = kinematics.SwerveModuleState()
         self.lastPosition = 0
@@ -51,12 +50,18 @@ class SwerveModule:
         # Drive Motor
         config = phoenix6.configs.TalonFXConfiguration()
         config.open_loop_ramps = phoenix6.configs.OpenLoopRampsConfigs().with_duty_cycle_open_loop_ramp_period(0.1)
+        config.slot0.k_p = 0.08
+        config.slot0.k_i = 0.0
+        config.slot0.k_d = 0.0001
+        config.slot0.k_v = 0.12
+        config.voltage.peak_forward_voltage = 8
+        config.voltage.peak_forward_voltage = -8
         motor_config = phoenix6.configs.MotorOutputConfigs()
         motor_config.inverted = phoenix6.signals.InvertedValue.CLOCKWISE_POSITIVE
         config.motor_output = motor_config
         self.driveMotor.configurator.apply(config)
+        self.driveMotor_control = phoenix6.controls.VelocityVoltage(0, 0, True, 0, 0, False, False, False)
         self._requested_speed = 0
-        self.driveMotor_control = phoenix6.controls.VelocityDutyCycle(0, 500)
 
         # Rotation Motor
         config = phoenix6.configs.TalonFXConfiguration()
@@ -196,8 +201,7 @@ class SwerveModule:
         if self.calibration_mode == 1:
             self._requested_speed = 0.05
         rps = self._requested_speed * self.velocity_to_rps_conversion_factor
-        self.driveMotor_control.output = rps
-        self.driveMotor.set_control(self.driveMotor_control)
+        self.driveMotor.set_control(self.driveMotor_control.with_velocity(rps))
         self._requested_speed = 0
 
         self.update_nt()

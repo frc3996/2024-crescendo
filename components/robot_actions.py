@@ -55,7 +55,7 @@ class RobotActions:
         self.controller = wpimath.controller.HolonomicDriveController(
                 wpimath.controller.PIDController(1, 0, 0),
                 wpimath.controller.PIDController(1, 0, 0),
-                wpimath.controller.ProfiledPIDControllerRadians(1, 0, 0, wpimath.trajectory.TrapezoidProfileRadians.Constraints(1, 0.2)),
+                wpimath.controller.ProfiledPIDControllerRadians(1, 0, 0, wpimath.trajectory.TrapezoidProfileRadians.Constraints(4, 2)),
         )
 
         # Register Named Commands
@@ -78,6 +78,7 @@ class RobotActions:
 
     def reset_auto(self):
         self.auto_timer = wpilib.Timer.getFPGATimestamp()
+        self.drivetrain.resetPose(self.trajectory.sample(0).getTargetHolonomicPose())
 
     def auto_test(self):
         now = wpilib.Timer.getFPGATimestamp() - self.auto_timer
@@ -85,11 +86,10 @@ class RobotActions:
         goal = self.trajectory.sample(now+0.02)
         angle = wpimath.geometry.Rotation2d.fromDegrees(0)
         adjustedSpeeds = self.controller.calculate(test_goal, goal.getTargetHolonomicPose(), 0, angle)
-        self.drivetrain.set_absolute_automove_value(adjustedSpeeds.vx, adjustedSpeeds.vy)
+        self.drivetrain.set_absolute_automove_value(adjustedSpeeds.vx*10, adjustedSpeeds.vy*10)
+        print(adjustedSpeeds.vx*10, adjustedSpeeds.vy*10)
 
-        # pathplannerlib.telemetry.PPLibTelemetry.setCurrentPose(goal.getTargetHolonomicPose())
-
-        # self.drivetrain.set_angle(goal.getTargetHolonomicPose().rotation().degrees()+180)
+        self.drivetrain.set_angle(goal.getTargetHolonomicPose().rotation().degrees()+180)
         # vectors = rotate_vector([goal.getTargetHolonomicPose().X(), goal.getTargetHolonomicPose().Y()], goal.heading.degrees())
         # x = vectors[0] / abs(math.sqrt(vectors[0]**2 + vectors[1]**2))
         # y = vectors[1] / abs(math.sqrt(vectors[0]**2 + vectors[1]**2))
@@ -137,6 +137,9 @@ class RobotActions:
         self.intake_limelight_adjust_pid.reset()
         pass
 
+    def TestLoBra(self, angle):
+        self.lobras.set_arm_angle(angle)
+
     def autointake_with_limelight(self):
         arm_angle = 20  # TODO calibrate all
         head_angle = 30  # TODO calibrate all
@@ -165,4 +168,5 @@ class RobotActions:
         self.drivetrain.set_relative_automove_value(fwd, 0)
 
     def execute(self):
+        pathplannerlib.telemetry.PPLibTelemetry.setCurrentPose(self.drivetrain.getPose())
         pass
