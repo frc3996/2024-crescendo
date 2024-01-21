@@ -89,9 +89,9 @@ class RobotActions:
 
         if self.reset_pose is True:
             reset_pose = self.trajectory.sample(0).getTargetHolonomicPose()
-            current_pose = self.drivetrain.getPose()
+            current_pose = self.drivetrain.getEstimatedPose()
             current_pose.transformBy(wpimath.geometry.Transform2d())
-            pose = wpimath.geometry.Pose2d.relativeTo(reset_pose, self.drivetrain.getPose())
+            pose = wpimath.geometry.Pose2d.relativeTo(reset_pose, self.drivetrain.getEstimatedPose())
             print(reset_pose)
             new_pose = wpimath.geometry.Pose2d(reset_pose.X(), reset_pose.Y(), wpimath.geometry.Rotation2d.fromDegrees(self.drivetrain.get_angle()))
             self.drivetrain.resetPose(new_pose)
@@ -187,7 +187,7 @@ class RobotActions:
         self.drivetrain.set_relative_automove_value(fwd, 0)
 
     def execute(self):
-        pose = self.drivetrain.getPose()
+        pose = self.drivetrain.getEstimatedPose()
         # print(pose.X(), pose.Y(), pose.rotation().degrees())
 
         pathplannerlib.telemetry.PPLibTelemetry.setCurrentPose(pose)

@@ -18,6 +18,7 @@ import wpimath.kinematics
 import wpimath.filter
 import wpimath.controller
 import pathplannerlib.telemetry
+import wpimath.estimator
 
 
 MAX_WHEEL_SPEED = 4  # meter per second
@@ -58,6 +59,9 @@ class SwerveDrive:
         """
         Appelé après l'injection
         """
+        self.chassis_speed = wpimath.kinematics.ChassisSpeeds()
+        self.sim_angle_offset = 0
+        self.sim_rot = 0
 
         # Place les modules dans un dictionaire
         self.modules = {
@@ -122,7 +126,8 @@ class SwerveDrive:
 
         self.navx_zero_angle()
 
-        self.odometry = wpimath.kinematics.SwerveDrive4Odometry(
+        # self.odometry = wpimath.kinematics.SwerveDrive4Odometry(
+        self.odometry = wpimath.estimator.SwerveDrive4PoseEstimator(
             self.kinematics,
             self.navx.getRotation2d(),
             (
@@ -131,7 +136,9 @@ class SwerveDrive:
                 self.rearLeftModule.getPosition(),
                 self.rearRightModule.getPosition(),
             ),
+            wpimath.geometry.Pose2d()
         )
+        self.odometry.setVisionMeasurementStdDevs((0.5, 0.5, math.pi/2))
 
     @staticmethod
     def square_input(input):
@@ -215,6 +222,13 @@ class SwerveDrive:
         for key in self.modules:
             self.modules[key].refresh_nt_config()
 
+    def set_sim_angle_offset(self, angle):
+        self.sim_angle_offset = angle
+        # self.sim_angle_offset += angle
+        # self.sim_angle_offset += 180 + 360
+        # self.sim_angle_offset %= 360
+        # self.sim_angle_offset -= 180
+
     def refresh_nt_config(self):
         self.angle_pid.setP(self.nt.getNumber("swerve/angle_pid/Kp", 0))
         self.angle_pid.setI(self.nt.getNumber("swerve/angle_pid/Ki", 0))
@@ -226,7 +240,7 @@ class SwerveDrive:
         Retourne l'angle absolue basée sur le zéro
         De -180 à 180 degrée
         """
-        return self.navx.getRotation2d().degrees()
+        return self.navx.getRotation2d().degrees() + self.sim_angle_offset
 
     def set_fwd(self, fwd):
         """
@@ -406,13 +420,15 @@ class SwerveDrive:
         # print(round(xSpeed,3), round(ySpeed,3), round(rot,3), round(self.target_angle))
 
         if self.field_centric:
-            swerveModuleStates = self.kinematics.toSwerveModuleStates(
-                wpimath.kinematics.ChassisSpeeds.discretize(
+            self.sim_rot = rot
+            self.chassis_speed = wpimath.kinematics.ChassisSpeeds.discretize(
                     wpimath.kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(
                         xSpeed, ySpeed, rot, self.navx.getRotation2d()
                     ),
                     0.02,
                 )
+            swerveModuleStates = self.kinematics.toSwerveModuleStates(
+                self.chassis_speed
             )
         else:
             swerveModuleStates = self.kinematics.toSwerveModuleStates(
@@ -470,8 +486,20 @@ class SwerveDrive:
                 self.rearRightModule.getActualPosition(),
             ),
         )
-        current_post = self.odometry.getPose()
-        pathplannerlib.telemetry.PPLibTelemetry.setCurrentPose(current_post)
+        # TODO To add vision merging in pose
+        # visionPose, visionTime = self.limelight.getBotPoseEstimateForAlliance()
+        # if visionPose:
+        #     if (
+        #         abs(visionPose.x - self.estimatorPose.x) < 0.5
+        #         and abs(visionPose.y - self.estimatorPose.y) < 0.5
+        #     ):
+        #         stddevupdate = remap(visionPose.x,2.0, 8.0, 0.3, 2.0)
+        #         # self.logger.info(f'Adding vision measuerment with StdDev of {stddevupdate} and distance of {visionPose.x} ')
+        #         self.estimator.addVisionMeasurement(visionPose.toPose2d(), visionTime, (stddevupdate, stddevupdate, math.pi/2))
+
+        current_pose = self.getEstimatedPose()
+        pathplannerlib.telemetry.PPLibTelemetry.setCurrentPose(current_pose)
+        print(current_pose.X(), current_pose.Y())
 
     def getPositions(self):
         """
@@ -499,12 +527,12 @@ class SwerveDrive:
         ]
         return states
 
-    def getPose(self) -> wpimath.geometry.Pose2d:
+    def getEstimatedPose(self) -> wpimath.geometry.Pose2d:
         """
         For PathPlannerLib
         Robot pose supplier
         """
-        return self.odometry.getPose()
+        return self.odometry.getEstimatedPosition()
 
     def resetPose(self, pose: wpimath.geometry.Pose2d):
         """
@@ -516,8 +544,7 @@ class SwerveDrive:
         self.rearLeftModule.resetPose()
         self.rearRightModule.resetPose()
 
-        self.odometry = wpimath.kinematics.SwerveDrive4Odometry(
-            self.kinematics,
+        self.odometry.resetPosition(
             self.navx.getRotation2d(),
             (
                 self.frontLeftModule.getPosition(),
@@ -541,7 +568,8 @@ class SwerveDrive:
         For PathPlannerLib
         Method that will drive the robot given FIELD RELATIVE ChassisSpeeds
         """
-        self.driveRobotRelative(wpimath.kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(fieldRelativeSpeeds, self.getPose().rotation()))
+        self.chassis_speed = fieldRelativeSpeeds
+        self.driveRobotRelative(wpimath.kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(fieldRelativeSpeeds, self.getEstimatedPose().rotation()))
 
     def driveRobotRelative(self, robotRelativeSpeeds: wpimath.kinematics.ChassisSpeeds):
         """
