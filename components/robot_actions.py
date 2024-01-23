@@ -51,7 +51,7 @@ class RobotActions:
         self.intake_limelight_adjust_pid = PIDController(0, 0, 0)
 
 
-        self.path = PathPlannerPath.fromPathFile(os.path.join(os.path.dirname(__file__), '..', "deploy", "pathplanner", "paths", "test_path2"))
+        self.path = PathPlannerPath.fromPathFile(os.path.join(os.path.dirname(__file__), '..', "deploy", "pathplanner", "paths", "oneway"))
         self.trajectory = self.path.getTrajectory(wpimath.kinematics.ChassisSpeeds(0,0,0), wpimath.geometry.Rotation2d())
         self.controller = wpimath.controller.HolonomicDriveController(
                 wpimath.controller.PIDController(1, 0, 0),
