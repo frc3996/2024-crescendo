@@ -152,7 +152,7 @@ class SwerveModule:
         current_position = self.driveMotor.get_position().value / self.velocity_to_rps_conversion_factor
         current_angle = geometry.Rotation2d.fromDegrees(self.get_encoder_abs_position() - 180)
         # print(f"{self.cfg.nt_name} rotation abs position: {self.get_encoder_abs_position()}")
-        return kinematics.SwerveModulePosition(current_position, current_angle)
+        return kinematics.SwerveModulePosition(-current_position, current_angle)
 
     def getPosition(self):
         """
