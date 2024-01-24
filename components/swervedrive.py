@@ -377,7 +377,7 @@ class SwerveDrive:
         if self.field_centric:
             if self.navx.isConnected() is True:
                 if self.lost_navx is True:
-                    self.angle_pid.reset()
+                    # self.angle_pid.reset()
                     self.target_angle = self.get_angle()
                     self.lost_navx = False
                 angle_error = self.angle_pid.calculate(self.get_angle(), self.target_angle)

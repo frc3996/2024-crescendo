@@ -27,19 +27,18 @@ class RobotActions:
         self.nt.putNumber("actions/intake_limelight_adjust_pid/Kd", 0)
         self.intake_limelight_adjust_pid = controller.PIDController(0, 0, 0)
 
-        self.test_path = path_helper.PathHelper(self.drivetrain, "onewayspin")
+        self.test_path = path_helper.PathHelper(self.drivetrain, "part_1")
 
     def reset_auto(self):
         self.must_reset_auto = True
 
     def auto_test(self):
         if self.must_reset_auto is True:
-            self.test_path.init_path(force_robot_starting_position=False)
+            self.test_path.init_path(force_robot_starting_position=True)
             self.must_reset_auto = False
 
         # if self.test_path.path_reached_end():
         #     return
-
 
         self.test_path.auto_move()
 
