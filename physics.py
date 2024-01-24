@@ -46,14 +46,4 @@ class PhysicsEngine:
 
 
     def update_sim(self, now, tm_diff):
-        # print(self.robot.drivetrain.target_angle - self.robot.drivetrain.get_angle())
-        vector = rotate_vector([self.robot.drivetrain.chassis_speed.vx, self.robot.drivetrain.chassis_speed.vy], -self.physics_controller.get_pose().rotation().degrees())
-        # print(vector[0], vector[1], self.robot.drivetrain.get_angle())
-        cspeed = wpimath.kinematics.ChassisSpeeds(vector[0], vector[1], self.robot.drivetrain.sim_rot*200)
-        pose = self.physics_controller.drive(
-            cspeed, tm_diff
-        )
-        # print(pose.rotation().degrees())
-        self.robot.drivetrain.set_sim_angle_offset(pose.rotation().degrees())
-
-        self.robot.drivetrain.resetPose(pose)
+        self.physics_controller.field.setRobotPose(self.robot.drivetrain.getEstimatedPose())

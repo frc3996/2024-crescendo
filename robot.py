@@ -32,7 +32,6 @@ INDICATEUR LUMINEUX
 
 """
 
-
 import phoenix6
 import rev
 import ntcore  # Outils pour les NetworkTables
@@ -110,35 +109,35 @@ class MyRobot(MagicRobot):
         # Il est important d'utiliser le logiciel de la compagnie pour trouver (ou configurer) les CAN id
         # On utilise également les encodeurs absolues CAN pour orienter la roue
         self.drivetrain_cfg = swervedrive.SwerveDriveConfig(
-            field_centric=True, base_width=27, base_length=19
+            field_centric=True, base_width=27, base_length=19, is_simulation=self.isSimulation()
         )
 
         self.frontLeftModule_driveMotor = phoenix6.hardware.TalonFX(26)
         self.frontLeftModule_rotateMotor = phoenix6.hardware.TalonFX(25)
         self.frontLeftModule_encoder = phoenix6.hardware.CANcoder(11)
         self.frontLeftModule_cfg = swervemodule.SwerveModuleConfig(
-            nt_name="frontLeftModule", inverted=False, allow_reverse=True
+            nt_name="frontLeftModule", inverted=False, allow_reverse=True, is_simulation=self.isSimulation()
         )
 
         self.frontRightModule_driveMotor = phoenix6.hardware.TalonFX(28)
         self.frontRightModule_rotateMotor = phoenix6.hardware.TalonFX(27)
         self.frontRightModule_encoder = phoenix6.hardware.CANcoder(14)
         self.frontRightModule_cfg = swervemodule.SwerveModuleConfig(
-            nt_name="frontRightModule", inverted=True, allow_reverse=True
+            nt_name="frontRightModule", inverted=True, allow_reverse=True, is_simulation=self.isSimulation()
         )
 
         self.rearLeftModule_driveMotor = phoenix6.hardware.TalonFX(24)
         self.rearLeftModule_rotateMotor = phoenix6.hardware.TalonFX(23)
         self.rearLeftModule_encoder = phoenix6.hardware.CANcoder(12)
         self.rearLeftModule_cfg = swervemodule.SwerveModuleConfig(
-            nt_name="rearLeftModule", inverted=True, allow_reverse=True
+            nt_name="rearLeftModule", inverted=True, allow_reverse=True, is_simulation=self.isSimulation()
         )
 
         self.rearRightModule_driveMotor = phoenix6.hardware.TalonFX(21)
         self.rearRightModule_rotateMotor = phoenix6.hardware.TalonFX(22)
         self.rearRightModule_encoder = phoenix6.hardware.CANcoder(13)
         self.rearRightModule_cfg = swervemodule.SwerveModuleConfig(
-            nt_name="rearRightModule", inverted=False, allow_reverse=True
+            nt_name="rearRightModule", inverted=False, allow_reverse=True, is_simulation=self.isSimulation()
         )
 
         # Le ShuffleBoard est utilisé afin d'ajuster le zéro des roues.
@@ -185,7 +184,6 @@ class MyRobot(MagicRobot):
 
     def teleopPeriodic(self):
         """Cette fonction est appelée de façon périodique lors du mode téléopéré."""
-        self.update_nt()
 
         self.drivetrain.set_controller_values(
             self.gamepad1.getRawAxis(gh.AXIS_LEFT_Y),

@@ -14,6 +14,7 @@ class SwerveModuleConfig:
     nt_name: str
     inverted: bool
     allow_reverse: bool
+    is_simulation: bool
 
 
 class SwerveModule:
@@ -34,7 +35,7 @@ class SwerveModule:
         wheel_circumference_meter = math.pi * units.inchesToMeters(4.0)
         wheel_gear_ratio = 8.14  # L1=8.14; L2=6.75; L3=6.12
         self.velocity_to_rps_conversion_factor = wheel_gear_ratio / wheel_circumference_meter * fudge_factor
-        self.currentPosition = kinematics.SwerveModulePosition()
+        self.sim_currentPosition = kinematics.SwerveModulePosition()
         self.currentState = kinematics.SwerveModuleState()
         self.lastPosition = 0
         self.debug = False
@@ -131,11 +132,15 @@ class SwerveModule:
         self._requested_speed = speed
 
     def resetPose(self):
-        self.currentPosition = kinematics.SwerveModulePosition(0, self.currentPosition.angle)
+        if self.cfg.is_simulation:
+            self.sim_currentPosition = kinematics.SwerveModulePosition(0, self.currentState.angle)
+        else:
+            self.driveMotor.set_position(0)
 
     def setTargetState(self, targetState):
         self.currentState = kinematics.SwerveModuleState.optimize(targetState, self.currentState.angle)
-        self.currentPosition = kinematics.SwerveModulePosition(self.currentPosition.distance + (self.currentState.speed * 0.02), self.currentState.angle)
+        if self.cfg.is_simulation:
+            self.sim_currentPosition = kinematics.SwerveModulePosition(self.sim_currentPosition.distance + (self.currentState.speed * 0.02), self.currentState.angle)
 
     def getState(self):
         """
@@ -144,23 +149,18 @@ class SwerveModule:
         """
         return self.currentState
 
-    def getActualPosition(self):
-        """
-        For PathPlannerLib
-        Return Swerve module position
-        """
-        current_position = self.driveMotor.get_position().value / self.velocity_to_rps_conversion_factor
-        current_angle = geometry.Rotation2d.fromDegrees(self.get_encoder_abs_position() - 180)
-        # print(f"{self.cfg.nt_name} rotation abs position: {self.get_encoder_abs_position()}")
-        return kinematics.SwerveModulePosition(-current_position, current_angle)
-
     def getPosition(self):
         """
         For PathPlannerLib
         Return Swerve module position
         """
+        if self.cfg.is_simulation:
+            return self.sim_currentPosition
 
-        return self.currentPosition
+        current_position = self.driveMotor.get_position().value / self.velocity_to_rps_conversion_factor
+        current_angle = geometry.Rotation2d.fromDegrees(self.get_encoder_abs_position() - 180)
+        # print(f"{self.cfg.nt_name} rotation abs position: {self.get_encoder_abs_position()}")
+        return kinematics.SwerveModulePosition(-current_position, current_angle)
 
     def update_nt(self):
         """

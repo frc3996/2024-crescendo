@@ -1,32 +1,9 @@
 
 import wpilib
-from components import swervedrive, lobra, intake
-from wpimath.controller import PIDController
-from common import limelight, arduino_light
 import ntcore
-import os
-import math
-from pathplannerlib.path import PathPlannerPath
-import pathplannerlib.telemetry
-# from pathplannerlib.config import HolonomicPathFollowerConfig, ReplanningConfig, PIDConstants
-# from pathplannerlib.auto import NamedCommands
-# from pathplannerlib.auto import PathPlannerAuto
-import wpimath.kinematics
-import wpimath.geometry
-from components.swervedrive import rotate_vector
-import wpimath.controller
-import wpimath.trajectory
-import constants
-
-
-def get_linear_damp_ratio(current_value, minimum, maximum):
-    """Return a ratio from 1 to 0 based on a range"""
-    m = maximum - minimum
-    b = minimum
-    res = (current_value - b) / m
-    res = min(1, res)
-    res = max(0, res)
-    return res
+from wpimath import controller
+from components import swervedrive, lobra, intake
+from common import limelight, arduino_light, path_helper, tools
 
 
 class RobotActions:
@@ -43,78 +20,28 @@ class RobotActions:
         self.nt.putNumber("actions/shoot_limelight_adjust_pid/Kp", 0.012)
         self.nt.putNumber("actions/shoot_limelight_adjust_pid/Ki", 0)
         self.nt.putNumber("actions/shoot_limelight_adjust_pid/Kd", 0)
-        self.shoot_limelight_adjust_pid = PIDController(0, 0, 0)
+        self.shoot_limelight_adjust_pid = controller.PIDController(0, 0, 0)
 
         self.nt.putNumber("actions/intake_limelight_adjust_pid/Kp", 0.7)
         self.nt.putNumber("actions/intake_limelight_adjust_pid/Ki", 0)
         self.nt.putNumber("actions/intake_limelight_adjust_pid/Kd", 0)
-        self.intake_limelight_adjust_pid = PIDController(0, 0, 0)
+        self.intake_limelight_adjust_pid = controller.PIDController(0, 0, 0)
 
-
-        self.path = PathPlannerPath.fromPathFile(os.path.join(os.path.dirname(__file__), '..', "deploy", "pathplanner", "paths", "oneway"))
-        self.trajectory = self.path.getTrajectory(wpimath.kinematics.ChassisSpeeds(0,0,0), wpimath.geometry.Rotation2d())
-        self.controller = wpimath.controller.HolonomicDriveController(
-                wpimath.controller.PIDController(1, 0, 0),
-                wpimath.controller.PIDController(1, 0, 0),
-                wpimath.controller.ProfiledPIDControllerRadians(1, 0, 0, wpimath.trajectory.TrapezoidProfileRadians.Constraints(constants.MAX_ANGULAR_VEL, constants.MAX_ANGULAR_ACCEL)),
-        )
-        self.controller.setEnabled(True)
-
-        # Register Named Commands
-
-        # AutoBuilder.configureHolonomic(
-        #     self.drivetrain.getPose, # Robot pose supplier
-        #     self.drivetrain.resetPose, # Method to reset odometry (will be called if your auto has a starting pose)
-        #     self.drivetrain.getRobotRelativeSpeeds, # ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
-        #     self.drivetrain.driveRobotRelative, # Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
-        #     HolonomicPathFollowerConfig( # HolonomicPathFollowerConfig, this should likely live in your Constants class
-        #         PIDConstants(5.0, 0.0, 0.0), # Translation PID constants
-        #         PIDConstants(5.0, 0.0, 0.0), # Rotation PID constants
-        #         4.5, # Max module speed, in m/s
-        #         0.4, # Drive base radius in meters. Distance from robot center to furthest module.
-        #         ReplanningConfig() # Default path replanning config. See the API for the options here
-        #     ),
-        #     True,
-        #     self # Reference to this subsystem to set requirements
-        # )
+        self.test_path = path_helper.PathHelper(self.drivetrain, "onewayspin")
 
     def reset_auto(self):
-        self.auto_timer = wpilib.Timer.getFPGATimestamp()
-        self.reset_pose = True
+        self.must_reset_auto = True
 
     def auto_test(self):
-        now = wpilib.Timer.getFPGATimestamp() - self.auto_timer
-        if now >= self.trajectory.getTotalTimeSeconds():
-            return
+        if self.must_reset_auto is True:
+            self.test_path.init_path(force_robot_starting_position=False)
+            self.must_reset_auto = False
 
-        if self.reset_pose is True:
-            reset_pose = self.trajectory.sample(0).getTargetHolonomicPose()
-            current_pose = self.drivetrain.getEstimatedPose()
-            current_pose.transformBy(wpimath.geometry.Transform2d())
-            pose = wpimath.geometry.Pose2d.relativeTo(reset_pose, self.drivetrain.getEstimatedPose())
-            print(reset_pose)
-            new_pose = wpimath.geometry.Pose2d(reset_pose.X(), reset_pose.Y(), wpimath.geometry.Rotation2d.fromDegrees(self.drivetrain.get_angle()))
-            self.drivetrain.resetPose(new_pose)
-            self.reset_pose = False
+        # if self.test_path.path_reached_end():
+        #     return
 
 
-        fake_pose = self.trajectory.sample(now)
-        goal = self.trajectory.sample(now+0.02)
-        goal_state = wpimath.trajectory.Trajectory.State(goal.timeSeconds, goal.velocityMps, goal.accelerationMpsSq, goal.getTargetHolonomicPose(), goal.curvatureRadPerMeter)
-        # adjustedSpeeds = self.controller.calculate(fake_pose.getTargetHolonomicPose(), goal_state, goal.targetHolonomicRotation)
-        adjustedSpeeds = self.controller.calculate(fake_pose.getTargetHolonomicPose(), goal.getTargetHolonomicPose(), goal.velocityMps, goal.heading)
-        speed = wpimath.kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(adjustedSpeeds.vx, adjustedSpeeds.vy, adjustedSpeeds.omega, goal.heading)
-        self.drivetrain.set_absolute_automove_value(speed.vx, speed.vy)
-        # print(speed.vx, speed.vy, goal.heading.degrees(), goal.targetHolonomicRotation.degrees(), goal.getTargetHolonomicPose().rotation().degrees())
-
-        # pathplannerlib.telemetry.PPLibTelemetry.setCurrentPose(goal.getTargetHolonomicPose())
-        self.drivetrain.set_angle(goal.getTargetHolonomicPose().rotation().degrees())
-        # vectors = rotate_vector([goal.getTargetHolonomicPose().X(), goal.getTargetHolonomicPose().Y()], goal.heading.degrees())
-        # x = vectors[0] / abs(math.sqrt(vectors[0]**2 + vectors[1]**2))
-        # y = vectors[1] / abs(math.sqrt(vectors[0]**2 + vectors[1]**2))
-        # self.drivetrain.set_absolute_automove_value(x * 0.2, y* 0.2)
-        # print(round(now), x, y, goal.getTargetHolonomicPose().X(), goal.getTargetHolonomicPose().Y(), goal.heading.degrees())
-
+        self.test_path.auto_move()
 
     def autoshoot_amp(self):
         arm_angle = 0  # TODO calibrate all
@@ -133,7 +60,7 @@ class RobotActions:
                 self.intake.shoot(fire=True)
             else:
                 # Move forward
-                res = get_linear_damp_ratio(abs(offset), 50, 0)
+                res = tools.map_value(abs(offset), 0, 50, 0, 1)
                 fwd = 0.5 * res
             self.shoot_limelight_adjust_pid.setP(self.nt.getNumber("actions/shoot_limelight_adjust_pid/Kp", 0))
             self.shoot_limelight_adjust_pid.setI(self.nt.getNumber("actions/shoot_limelight_adjust_pid/Ki", 0))
@@ -173,7 +100,7 @@ class RobotActions:
         self.lobras.set_angle(arm_angle, head_angle)
         if self.limelight_intake.is_target_in_view():
             offset = self.limelight_intake.get_tx()
-            res = get_linear_damp_ratio(abs(offset), 50, 0)
+            res = tools.map_value(abs(offset), 0, 50, 0, 1)
             fwd = 0.5 * res
             self.intake_limelight_adjust_pid.setP(self.nt.getNumber("actions/intake_limelight_adjust_pid/Kp", 0))
             self.intake_limelight_adjust_pid.setI(self.nt.getNumber("actions/intake_limelight_adjust_pid/Ki", 0))
@@ -187,7 +114,4 @@ class RobotActions:
         self.drivetrain.set_relative_automove_value(fwd, 0)
 
     def execute(self):
-        pose = self.drivetrain.getEstimatedPose()
-        # print(pose.X(), pose.Y(), pose.rotation().degrees())
-
-        pathplannerlib.telemetry.PPLibTelemetry.setCurrentPose(pose)
+        pass

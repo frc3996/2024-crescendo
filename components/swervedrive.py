@@ -17,9 +17,10 @@ import wpimath.geometry
 import wpimath.kinematics
 import wpimath.filter
 import wpimath.controller
+import wpimath.trajectory
 import pathplannerlib.telemetry
 import wpimath.estimator
-
+import constants
 
 MAX_WHEEL_SPEED = 4  # meter per second
 MAX_MODULE_SPEED = 4.5
@@ -37,6 +38,7 @@ class SwerveDriveConfig:
     field_centric: bool
     base_width: float
     base_length: float
+    is_simulation: bool
 
 
 class SwerveDrive:
@@ -60,8 +62,7 @@ class SwerveDrive:
         Appelé après l'injection
         """
         self.chassis_speed = wpimath.kinematics.ChassisSpeeds()
-        self.sim_angle_offset = 0
-        self.sim_rot = 0
+        self.sim_angle = 0
 
         # Place les modules dans un dictionaire
         self.modules = {
@@ -104,14 +105,24 @@ class SwerveDrive:
         self.automove_strafe = 0
         self.automove_strength = 0
 
-        self.angle_pid = wpimath.controller.PIDController(1, 0, 0)
+        self.angle_pid = wpimath.controller.ProfiledPIDController(
+            1,
+            0,
+            0,
+            wpimath.trajectory.TrapezoidProfile.Constraints(
+                constants.MAX_ANGULAR_VEL,
+                constants.MAX_ANGULAR_ACCEL
+            )
+        )
         self.angle_pid.enableContinuousInput(-180, 180)
-        self.angle_pid.setTolerance(-2, 2)
+        self.angle_pid.setTolerance(-1, 1)
 
         # Pid de rotation. Ajuster via le ShuffleBoard et écrire la nouvelle valeur ici
-        self.nt.putNumber("swerve/angle_pid/Kp", 0.002)
+        self.nt.putNumber("swerve/angle_pid/Kp", 0.005)
         self.nt.putNumber("swerve/angle_pid/Ki", 0)
         self.nt.putNumber("swerve/angle_pid/Kd", 0)
+        self.nt.putNumber("swerve/angle_pid/max_vel", constants.MAX_ANGULAR_VEL)
+        self.nt.putNumber("swerve/angle_pid/max_acc", constants.MAX_ANGULAR_ACCEL)
 
         self.frontLeftLocation = wpimath.geometry.Translation2d(self.cfg.base_width/2, self.cfg.base_length/2)
         self.frontRightLocation = wpimath.geometry.Translation2d(self.cfg.base_width/2, -self.cfg.base_length/2)
@@ -129,7 +140,7 @@ class SwerveDrive:
         # self.odometry = wpimath.kinematics.SwerveDrive4Odometry(
         self.odometry = wpimath.estimator.SwerveDrive4PoseEstimator(
             self.kinematics,
-            self.navx.getRotation2d(),
+            self.getRotation2d(),
             (
                 self.frontLeftModule.getPosition(),
                 self.frontRightModule.getPosition(),
@@ -222,25 +233,29 @@ class SwerveDrive:
         for key in self.modules:
             self.modules[key].refresh_nt_config()
 
-    def set_sim_angle_offset(self, angle):
-        self.sim_angle_offset = angle
-        # self.sim_angle_offset += angle
-        # self.sim_angle_offset += 180 + 360
-        # self.sim_angle_offset %= 360
-        # self.sim_angle_offset -= 180
-
     def refresh_nt_config(self):
         self.angle_pid.setP(self.nt.getNumber("swerve/angle_pid/Kp", 0))
         self.angle_pid.setI(self.nt.getNumber("swerve/angle_pid/Ki", 0))
         self.angle_pid.setD(self.nt.getNumber("swerve/angle_pid/Kd", 0))
+        constraint = wpimath.trajectory.TrapezoidProfile.Constraints(
+                self.nt.getNumber("swerve/angle_pid/max_vel", 0),
+                self.nt.getNumber("swerve/angle_pid/max_acc", 0)
+            )
+        self.angle_pid.setConstraints(constraint)
         self.debug = self.nt.getBoolean("swerve/debug", False)
+
+    def getRotation2d(self):
+        if self.cfg.is_simulation:
+            return wpimath.geometry.Rotation2d(self.sim_angle)
+        else:
+            return self.navx.getRotation2d()
 
     def get_angle(self):
         """
         Retourne l'angle absolue basée sur le zéro
         De -180 à 180 degrée
         """
-        return self.navx.getRotation2d().degrees() + self.sim_angle_offset
+        return self.getRotation2d().degrees()
 
     def set_fwd(self, fwd):
         """
@@ -366,7 +381,8 @@ class SwerveDrive:
                     self.target_angle = self.get_angle()
                     self.lost_navx = False
                 angle_error = self.angle_pid.calculate(self.get_angle(), self.target_angle)
-                angle_error = max(min(angle_error, 1), -1)
+                angle_error = max(min(angle_error, 2), -2)
+                # print(f"{self.get_angle():.3f}, {self.target_angle:.3f}, {angle_error:.3f}")
             else:
                 self.lost_navx = True
                 return
@@ -412,28 +428,27 @@ class SwerveDrive:
             self.request_wheel_lock = False
             return
 
-        ySpeed = -self._requested_vectors["strafe"]
-        xSpeed = self._requested_vectors["fwd"]
+        fwdSpeed = self._requested_vectors["fwd"]
+        strafeSpeed = -self._requested_vectors["strafe"]
         if abs(self._requested_vectors["rcw"]) <= 0.02:
             self._requested_vectors["rcw"] = 0
         rot = self._requested_vectors["rcw"]
-        # print(round(xSpeed,3), round(ySpeed,3), round(rot,3), round(self.target_angle))
 
         if self.field_centric:
-            self.sim_rot = rot
             self.chassis_speed = wpimath.kinematics.ChassisSpeeds.discretize(
                     wpimath.kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(
-                        xSpeed, ySpeed, rot, self.navx.getRotation2d()
+                        fwdSpeed, strafeSpeed, rot, self.getRotation2d()
                     ),
                     0.02,
                 )
             swerveModuleStates = self.kinematics.toSwerveModuleStates(
                 self.chassis_speed
             )
+            self.sim_angle = self.sim_angle + (rot * 0.02 * 20)
         else:
             swerveModuleStates = self.kinematics.toSwerveModuleStates(
                 wpimath.kinematics.ChassisSpeeds.discretize(
-                    wpimath.kinematics.ChassisSpeeds(xSpeed, ySpeed, rot),
+                    wpimath.kinematics.ChassisSpeeds(fwdSpeed, strafeSpeed, rot),
                     0.02,
                 )
             )
@@ -478,12 +493,12 @@ class SwerveDrive:
     def updateOdometry(self) -> None:
         """Updates the field relative position of the robot."""
         self.odometry.update(
-            self.navx.getRotation2d(),
+            self.getRotation2d(),
             (
-                self.frontLeftModule.getActualPosition(),
-                self.frontRightModule.getActualPosition(),
-                self.rearLeftModule.getActualPosition(),
-                self.rearRightModule.getActualPosition(),
+                self.frontLeftModule.getPosition(),
+                self.frontRightModule.getPosition(),
+                self.rearLeftModule.getPosition(),
+                self.rearRightModule.getPosition(),
             ),
         )
         # TODO To add vision merging in pose
@@ -499,20 +514,6 @@ class SwerveDrive:
 
         current_pose = self.getEstimatedPose()
         pathplannerlib.telemetry.PPLibTelemetry.setCurrentPose(current_pose)
-        print(current_pose.X(), current_pose.Y())
-
-    def getPositions(self):
-        """
-        For PathPlannerLib
-        Return Swerve module positions
-        """
-        positions = [
-            self.frontLeftModule.getPosition(),
-            self.frontRightModule.getPosition(),
-            self.rearLeftModule.getPosition(),
-            self.rearRightModule.getPosition(),
-        ]
-        return positions
 
     def getModuleStates(self):
         """
@@ -545,7 +546,7 @@ class SwerveDrive:
         self.rearRightModule.resetPose()
 
         self.odometry.resetPosition(
-            self.navx.getRotation2d(),
+            self.getRotation2d(),
             (
                 self.frontLeftModule.getPosition(),
                 self.frontRightModule.getPosition(),
@@ -561,6 +562,14 @@ class SwerveDrive:
         ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
         """
         return self.kinematics.toChassisSpeeds(self.getModuleStates())
+
+    def getFieldRelativeSpeeds(self):
+        """
+        For PathPlannerLib
+        ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
+        """
+        speed = wpimath.kinematics.ChassisSpeeds.fromRobotRelativeSpeeds(self.kinematics.toChassisSpeeds(self.getModuleStates()), self.getRotation2d())
+        return speed
 
 
     def driveFieldRelative(self, fieldRelativeSpeeds: wpimath.kinematics.ChassisSpeeds):

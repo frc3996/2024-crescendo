@@ -1,4 +1,4 @@
+import math
 
-
-MAX_ANGULAR_VEL = 540
-MAX_ANGULAR_ACCEL = 720
+MAX_ANGULAR_VEL = math.degrees(math.pi*2)
+MAX_ANGULAR_ACCEL = math.degrees(math.pi*5)

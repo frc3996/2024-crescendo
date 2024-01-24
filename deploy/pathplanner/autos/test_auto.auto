@@ -14,13 +14,13 @@
         {
           "type": "path",
           "data": {
-            "pathName": "test_path"
+            "pathName": "part_1"
           }
         },
         {
-          "type": "named",
+          "type": "path",
           "data": {
-            "name": "shoot"
+            "pathName": "part_2"
           }
         }
       ]
