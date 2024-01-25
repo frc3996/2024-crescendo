@@ -75,7 +75,7 @@ class LoBras:
         pass
 
     def execute(self):
-        print(self.arm_position_encoder.getPosition())
+        # print(self.arm_position_encoder.getPosition())
         # self.arm_pid_controller.setReference(target_position, rev.CANSparkMax.ControlType.kPosition)
         # self.arm_motor_left.set(value)
         pass

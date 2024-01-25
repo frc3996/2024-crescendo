@@ -22,6 +22,12 @@
           "data": {
             "pathName": "part_2"
           }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": null
+          }
         }
       ]
     }

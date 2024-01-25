@@ -16,10 +16,10 @@ class PathHelper:
         self.path = PathPlannerPath.fromPathFile(os.path.join(os.path.dirname(__file__), '..', "deploy", "pathplanner", "paths", path_name))
 
     def init_path(self, force_robot_starting_position=False):
-        self.trajectory = self.path.getTrajectory(kinematics.ChassisSpeeds(0,0,0), self.drivetrain.getRotation2d())
+        self.trajectory = self.path.getTrajectory(kinematics.ChassisSpeeds(0,0,0), geometry.Rotation2d())
         self.controller = controller.HolonomicDriveController(
-                controller.PIDController(2, 0, 0),
-                controller.PIDController(2, 0, 0),
+                controller.PIDController(1, 0, 0),
+                controller.PIDController(1, 0, 0),
                 controller.ProfiledPIDControllerRadians(1, 0, 0, trajectory.TrapezoidProfileRadians.Constraints(constants.MAX_ANGULAR_VEL, constants.MAX_ANGULAR_ACCEL)),
         )
         self.controller.setEnabled(True)
@@ -43,7 +43,6 @@ class PathHelper:
         current = self.drivetrain.getEstimatedPose()
         current = geometry.Pose2d(current.X(), current.Y(), geometry.Rotation2d(0))
         adjustedSpeeds = self.controller.calculate(current, goal.getTargetHolonomicPose(), 0, geometry.Rotation2d(0))
-        print(current, goal.getTargetHolonomicPose())
         # speed = kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(adjustedSpeeds.vx, adjustedSpeeds.vy, adjustedSpeeds.omega, goal.heading)
         self.drivetrain.set_absolute_automove_value(adjustedSpeeds.vx, -adjustedSpeeds.vy)
         self.drivetrain.set_angle(target_rotation)
