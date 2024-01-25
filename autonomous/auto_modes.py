@@ -27,7 +27,7 @@ class Path1(BaseAuto):
         self.path_part_1 = path_helper.PathHelper(self.drivetrain, "part_1")
         self.path_part_1.init_path(force_robot_starting_position=True)
 
-        self.path_part_2 = path_helper.PathHelper(self.drivetrain, "part_2")
+        self.path_part_2 = path_helper.PathHelper(self.drivetrain, "test_path2")
 
         self.next_state("execute_path_1")
 

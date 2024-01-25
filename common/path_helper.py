@@ -38,11 +38,15 @@ class PathHelper:
         # adjustedSpeeds = self.controller.calculate(fake_pose.getTargetHolonomicPose(), goal.getTargetHolonomicPose(), goal.velocityMps, goal.heading)
 
         goal = self.trajectory.sample(self.timer.get())
-        adjustedSpeeds = self.controller.calculate(self.drivetrain.getEstimatedPose(), goal.getTargetHolonomicPose(), goal.velocityMps, goal.heading)
-
-        # speed = kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(adjustedSpeeds.vx, -adjustedSpeeds.vy, adjustedSpeeds.omega, goal.heading)
+        target_rotation = goal.targetHolonomicRotation.degrees()
+        goal.targetHolonomicRotation = geometry.Rotation2d(0)
+        current = self.drivetrain.getEstimatedPose()
+        current = geometry.Pose2d(current.X(), current.Y(), geometry.Rotation2d(0))
+        adjustedSpeeds = self.controller.calculate(current, goal.getTargetHolonomicPose(), 0, geometry.Rotation2d(0))
+        print(current, goal.getTargetHolonomicPose())
+        # speed = kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(adjustedSpeeds.vx, adjustedSpeeds.vy, adjustedSpeeds.omega, goal.heading)
         self.drivetrain.set_absolute_automove_value(adjustedSpeeds.vx, -adjustedSpeeds.vy)
-        self.drivetrain.set_angle(goal.getTargetHolonomicPose().rotation().degrees())
+        self.drivetrain.set_angle(target_rotation)
 
     def path_reached_end(self):
         return self.timer.get() >= self.trajectory.getTotalTimeSeconds()
