@@ -82,9 +82,6 @@ class RobotActions:
         self.intake_limelight_adjust_pid.reset()
         pass
 
-    def TestLoBra(self, angle):
-        self.lobras.set_arm_angle(angle)
-
     def autointake_with_limelight(self):
         arm_angle = 20  # TODO calibrate all
         head_angle = 30  # TODO calibrate all

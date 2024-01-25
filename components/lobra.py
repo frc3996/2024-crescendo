@@ -15,20 +15,23 @@ class LoBras:
     def setup(self):
         self.current_arm_target = 0
         self.arm_motor_left.setIdleMode(rev.CANSparkMax.IdleMode.kCoast)
-        self.arm_motor_right.setIdleMode(rev.CANSparkMax.IdleMode.kCoast)
+        # self.arm_motor_right.setIdleMode(rev.CANSparkMax.IdleMode.kBrake)
         self.arm_motor_left.setOpenLoopRampRate(0.25)
-        self.arm_motor_right.setOpenLoopRampRate(0.25)
-        self.arm_motor_right.follow(self.arm_motor_left, invert=True)
+        # self.arm_motor_right.setOpenLoopRampRate(0.25)
+        # self.arm_motor_right.follow(self.arm_motor_left, invert=True)
         self.arm_pid_controller = self.arm_motor_left.getPIDController()
+        # self.arm_position_encoder = self.arm_motor_left.getAbsoluteEncoder(rev.SparkAbsoluteEncoder.Type.kDutyCycle)
+        # self.arm_position_encoder.setZeroOffset(self.arm_position_encoder.getPosition())
         self.arm_position_encoder = self.arm_motor_left.getEncoder()
         self.arm_position_encoder.setPosition(0)
         self.arm_pid = PIDController(0, 0, 0)
+
         self.nt.putNumber("lobras/arm_pid/Kp", 0.057)
         self.nt.putNumber("lobras/arm_pid/Ki", 0)
         self.nt.putNumber("lobras/arm_pid/Kd", 0)
 
-        kP = 0.1
-        kI = 0.0001
+        kP = 0.001
+        kI = 0  # 0.0001
         kD = 1
         kIz = 0
         kFF = 0
@@ -42,9 +45,8 @@ class LoBras:
         self.arm_pid_controller.setOutputRange(kMinOutput, kMaxOutput)
 
     def set_angle(self, arm_position, head_position):
-        # TODO
-        # Move the head and arm to a position
-        pass
+        self.current_arm_target = arm_position
+        self.current_head_target = head_position
 
     def intake_mode(self):
         # TODO
@@ -67,18 +69,13 @@ class LoBras:
         # Place la tête et le bras en position amp
         pass
 
-
-
     def note_trap_mode(self):
         # TODO
         # Place la tête et le bras en position note_trap
         pass
-    def set_arm_angle(self, angle):
-        self.current_arm_target = angle
-
-
 
     def execute(self):
+        print(self.arm_position_encoder.getPosition())
         # self.arm_pid_controller.setReference(target_position, rev.CANSparkMax.ControlType.kPosition)
         # self.arm_motor_left.set(value)
         pass

@@ -159,7 +159,7 @@ class MyRobot(MagicRobot):
 
     def initLobras(self):
         self.lobras_head_motor = rev.CANSparkMax(35, rev.CANSparkMax.MotorType.kBrushless)
-        self.lobras_arm_motor_left = rev.CANSparkMax(36, rev.CANSparkMax.MotorType.kBrushless)
+        self.lobras_arm_motor_left = rev.CANSparkMax(30, rev.CANSparkMax.MotorType.kBrushless)
         self.lobras_arm_motor_right = rev.CANSparkMax(37, rev.CANSparkMax.MotorType.kBrushless)
         self.lobras_arm_limit_switch = wpilib.DigitalInput(1)
         self.lobras_pneumatic_brake = wpilib.Solenoid(10, wpilib.PneumaticsModuleType.CTREPCM, 0)
@@ -202,14 +202,14 @@ class MyRobot(MagicRobot):
         if self.gamepad1.getRawButton(gh.BUTTON_A):
             self.robot_actions.autointake_with_limelight()
         elif self.gamepad1.getRawButton(gh.BUTTON_B):
-            self.robot_actions.autoshoot_amp()
+            self.lobras.set_angle(80)
+            # self.robot_actions.autoshoot_amp()
         elif self.gamepad1.getRawButton(gh.BUTTON_Y):
+            # self.lobras.set_angle(100)
             self.robot_actions.auto_test()
-            # self.robot_actions.TestLoBra(90)
         else:
-            # self.robot_actions.TestLoBra(0)
             self.robot_actions.reset_auto()
-            self.robot_actions.retract()
+            # self.robot_actions.retract()
 
 
     def update_nt(self):
