@@ -53,20 +53,20 @@ class LoBras:
 
     def update_nt_config(self):
         constraint = trajectory.TrapezoidProfileRadians.Constraints(
-            self.nt.getNumber()("lobras/arm_pid/max_vel", 0),
-            self.nt.getNumber()("lobras/arm_pid/max_acc", 0)
+            self.nt.getNumber("lobras/arm_pid/max_vel", 0),
+            self.nt.getNumber("lobras/arm_pid/max_acc", 0)
         )
         self.arm_pid.setPID(
-            self.nt.getNumber()("lobras/arm_pid/Kp", 0),
-            self.nt.getNumber()("lobras/arm_pid/Ki", 0),
-            self.nt.getNumber()("lobras/arm_pid/Kd", 0)
+            self.nt.getNumber("lobras/arm_pid/Kp", 0),
+            self.nt.getNumber("lobras/arm_pid/Ki", 0),
+            self.nt.getNumber("lobras/arm_pid/Kd", 0)
         )
         self.arm_pid.setConstraints(constraint)
 
 
         constraint = trajectory.TrapezoidProfileRadians.Constraints(
-            self.nt.getNumber()("lobras/head_pid/max_vel", 0),
-            self.nt.getNumber()("lobras/head_pid/max_acc", 0)
+            self.nt.getNumber("lobras/head_pid/max_vel", 0),
+            self.nt.getNumber("lobras/head_pid/max_acc", 0)
         )
         self.head_pid.setPID(
             self.nt.getNumber("lobras/head_pid/Kp", 0),
