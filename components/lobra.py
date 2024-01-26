@@ -1,8 +1,14 @@
 
+import math
 import wpilib
 import rev
 import ntcore
-from wpimath.controller import PIDController
+from wpimath import controller, trajectory
+
+
+# https://robotpy.readthedocs.io/projects/utilities/en/stable/magicbot.html
+from magicbot import feedback, tunable, will_reset_to, state_machine
+
 
 class LoBras:
     head_motor: rev.CANSparkMax
@@ -13,51 +19,81 @@ class LoBras:
     nt: ntcore.NetworkTable
 
     def setup(self):
-        self.current_arm_target = 0
-        self.arm_motor_left.setIdleMode(rev.CANSparkMax.IdleMode.kBrake)
-        # self.arm_motor_right.setIdleMode(rev.CANSparkMax.IdleMode.kBrake)
-        # self.arm_motor_left.setOpenLoopRampRate(0.25)
-        # self.arm_motor_right.setOpenLoopRampRate(0.25)
-        # self.arm_motor_right.follow(self.arm_motor_left, invert=True)
-        self.arm_pid_controller = self.arm_motor_left.getPIDController()
-        self.arm_position_encoder = self.arm_motor_left.getAbsoluteEncoder(rev.SparkAbsoluteEncoder.Type.kDutyCycle)
-        self.arm_pid_controller.setFeedbackDevice(self.arm_position_encoder)
-        # self.arm_position_encoder.setZeroOffset(self.arm_position_encoder.getPosition())
-        # self.arm_position_encoder = self.arm_motor_left.getEncoder()
-        # self.arm_position_encoder.setPosition(0)
-        self.arm_pid = PIDController(0, 0, 0)
+        self.arm_motor_right.setIdleMode(rev.CANSparkMax.IdleMode.kBrake)
+        self.arm_motor_right.setOpenLoopRampRate(0.25)
+        self.arm_motor_right.follow(self.arm_motor_left, invert=True)
 
-        self.nt.putNumber("lobras/arm_pid/Kp", 0.057)
+        self.arm_motor_left.setIdleMode(rev.CANSparkMax.IdleMode.kBrake)
+        self.arm_motor_left.setOpenLoopRampRate(0.25)
+        self.arm_position_encoder = self.arm_motor_left.getAbsoluteEncoder(rev.SparkAbsoluteEncoder.Type.kDutyCycle)
+        constraint = trajectory.TrapezoidProfileRadians.Constraints(0, 0)
+        self.arm_pid = controller.ProfiledPIDControllerRadians(0, 0, 0, constraint)
+        self.current_arm_target = self.arm_position_encoder.getPosition()
+
+        self.head_motor.setIdleMode(rev.CANSparkMax.IdleMode.kBrake)
+        self.head_motor.setOpenLoopRampRate(0.25)
+        self.head_position_encoder = self.head_motor.getAbsoluteEncoder(rev.SparkAbsoluteEncoder.Type.kDutyCycle)
+        constraint = trajectory.TrapezoidProfileRadians.Constraints(0, 0)
+        self.head_pid = controller.ProfiledPIDControllerRadians(0, 0, 0, constraint)
+        self.current_head_target = self.head_position_encoder.getPosition()
+
+        self.nt.putNumber("lobras/arm_pid/Kp", 0.002)
         self.nt.putNumber("lobras/arm_pid/Ki", 0)
         self.nt.putNumber("lobras/arm_pid/Kd", 0)
+        self.nt.putNumber("lobras/arm_pid/max_vel", 0.02)
+        self.nt.putNumber("lobras/arm_pid/max_acc", 0.02)
 
-        kP = 0.000
-        kI = 0  # 0.0001
-        kD = 0
-        kIz = 0
-        kFF = 0.02
-        kMaxOutput = 1
-        kMinOutput = -1
-        self.arm_pid_controller.setP(kP)
-        self.arm_pid_controller.setI(kI)
-        self.arm_pid_controller.setD(kD)
-        self.arm_pid_controller.setIZone(kIz)
-        self.arm_pid_controller.setFF(kFF)
-        self.arm_pid_controller.setOutputRange(kMinOutput, kMaxOutput)
+        self.nt.putNumber("lobras/head_pid/Kp", 0.002)
+        self.nt.putNumber("lobras/head_pid/Ki", 0)
+        self.nt.putNumber("lobras/head_pid/Kd", 0)
+        self.nt.putNumber("lobras/head_pid/max_vel", 0.02)
+        self.nt.putNumber("lobras/head_pid/max_acc", 0.02)
 
-    def update_nt(self):
+        self.update_nt_config()
+
+    def update_nt_config(self):
+        constraint = trajectory.TrapezoidProfileRadians.Constraints(
+            self.nt.getNumber()("lobras/arm_pid/max_vel", 0),
+            self.nt.getNumber()("lobras/arm_pid/max_acc", 0)
+        )
+        self.arm_pid.setPID(
+            self.nt.getNumber()("lobras/arm_pid/Kp", 0),
+            self.nt.getNumber()("lobras/arm_pid/Ki", 0),
+            self.nt.getNumber()("lobras/arm_pid/Kd", 0)
+        )
+        self.arm_pid.setConstraints(constraint)
+
+
+        constraint = trajectory.TrapezoidProfileRadians.Constraints(
+            self.nt.getNumber()("lobras/head_pid/max_vel", 0),
+            self.nt.getNumber()("lobras/head_pid/max_acc", 0)
+        )
+        self.head_pid.setPID(
+            self.nt.getNumber("lobras/head_pid/Kp", 0),
+            self.nt.getNumber("lobras/head_pid/Ki", 0),
+            self.nt.getNumber("lobras/head_pid/Kd", 0)
+        )
+        self.head_pid.setConstraints(constraint)
 
 
     def set_angle(self, arm_position, head_position):
+        """Set the target angles, in degrees, from 0 to 360"""
         self.current_arm_target = arm_position
         self.current_head_target = head_position
+
+    @feedback
+    def current_arm_position(self):
+        return self.arm_position_encoder.getPosition() * 360
+
+    @feedback
+    def current_head_position(self):
+        return self.head_position_encoder.getPosition() * 360
 
     def intake_mode(self):
         # TODO
         # Place la tête et le bras en position intake
         # self.__set_positions(xx, yy)
         pass
-
 
     def speaker_mode(self, fire=False):
         # TODO
@@ -80,5 +116,14 @@ class LoBras:
         pass
 
     def execute(self):
-        print(self.current_arm_target, self.arm_position_encoder.getPosition())
-        self.arm_motor_left.set(self.current_arm_target - self.arm_position_encoder.getPosition())
+        self.nt.putNumber("lobras/arm_current_position", self.current_arm_position())
+        self.nt.putNumber("lobras/arm_target_position", self.current_arm_target)
+        self.nt.putNumber("lobras/head_current_position", self.current_head_position())
+        self.nt.putNumber("lobras/head_target_position", self.current_head_target)
+
+        arm_error = self.arm_pid.calculate(math.radians(self.current_arm_position()), math.radians(self.current_arm_target))
+        head_error = self.head_pid.calculate(math.radians(self.current_head_position()), math.radians(self.current_head_target))
+
+        print(arm_error, head_error)
+        # self.arm_motor_left.set(arm_error)
+        # self.arm_motor_left.set(head_error)

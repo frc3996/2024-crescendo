@@ -171,6 +171,7 @@ class MyRobot(MagicRobot):
     def autonomousInit(self):
         """Cette fonction est appelée une seule fois lorsque le robot entre en mode autonome."""
         self.drivetrain.init()
+        self.lobras.update_nt_config()
 
     def autonomous(self):
         """Pour les modes auto de MagicBot, voir le dossier ./autonomous"""
