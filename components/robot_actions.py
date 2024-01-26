@@ -47,7 +47,7 @@ class RobotActions:
         head_angle = 0  # TODO calibrate all
         if self.intake.shot_done is True:
             self.retract()
-            return
+            return True
 
         self.drivetrain.set_angle(0) # TODO GET PROPER ANGLE
         self.lobras.set_angle(arm_angle, head_angle)
@@ -70,6 +70,7 @@ class RobotActions:
             error = 0
 
         self.drivetrain.set_relative_automove_value(fwd, error)
+        return False
 
     def autoshoot_speaker(self):
         pass
@@ -90,7 +91,7 @@ class RobotActions:
             self.arduino_light.set_RGB(0, 0, 255)
             # self.status_light.set(1)
             self.retract()
-            return
+            return True
 
         self.intake.intake()
         self.lobras.set_angle(arm_angle, head_angle)
@@ -108,6 +109,7 @@ class RobotActions:
 
         self.drivetrain.relative_rotate(-error)
         self.drivetrain.set_relative_automove_value(fwd, 0)
+        return False
 
     def execute(self):
         pass
