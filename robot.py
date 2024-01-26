@@ -32,17 +32,18 @@ INDICATEUR LUMINEUX
 
 """
 
+import math
+
+import ntcore
 import phoenix6
 import rev
-import ntcore  # Outils pour les NetworkTables
 import wpilib
-from common import gamepad_helper as gh  # Outil pour faciliter l'utilisation des contrôleurs
-from common import limelight, arduino_light
 from magicbot import MagicRobot
 from navx import AHRS
+from wpimath.geometry import Rotation2d
 
-
-from components import swervemodule, swervedrive, lobra, intake, robot_actions
+from common import arduino_light, limelight
+from components import intake, lobra, robot_actions, swervedrive, swervemodule
 
 
 class MyRobot(MagicRobot):
@@ -72,8 +73,18 @@ class MyRobot(MagicRobot):
     rearLeftModule: swervemodule.SwerveModule
     rearRightModule: swervemodule.SwerveModule
     drivetrain: swervedrive.SwerveDrive
+
+    # I HATE MAGICBOT AND ITS STUPID INJECTION
+    lobras_arm: lobra.LoBrasArm
+    lobras_arm_follower: lobra.LoBrasArmFollower
+    lobras_head: lobra.LoBrasHead
     lobras: lobra.LoBras
+
+    intake_shooter: intake.IntakeShooter
+    intake_grabber: intake.IntakeGrabber
+    intake_beam: intake.IntakeBeam
     intake: intake.Intake
+
     navx: AHRS
     robot_actions: robot_actions.RobotActions
 
@@ -87,6 +98,7 @@ class MyRobot(MagicRobot):
         """
         # NetworkTable
         self.nt = ntcore.NetworkTableInstance.getDefault().getTable("robotpy")
+
         self.limelight_intake = limelight.Limelight("limelight")
         self.limelight_shoot = limelight.Limelight("limelight-shoot")
         self.arduino_light = arduino_light.I2CArduinoLight(wpilib.I2C.Port.kMXP, 0x42)
@@ -94,11 +106,10 @@ class MyRobot(MagicRobot):
 
         # Configuration de la base swerve
         self.initSwerve()
-        self.initIntake()
-        self.initLobras()
 
         # General
-        self.gamepad1 = wpilib.Joystick(0)
+        # self.gamepad1 = wpilib.XboxController(0)
+        self.gamepad1 = wpilib.PS5Controller(0)
         self.pdp = wpilib.PowerDistribution()
 
     def initSwerve(self):
@@ -109,35 +120,50 @@ class MyRobot(MagicRobot):
         # Il est important d'utiliser le logiciel de la compagnie pour trouver (ou configurer) les CAN id
         # On utilise également les encodeurs absolues CAN pour orienter la roue
         self.drivetrain_cfg = swervedrive.SwerveDriveConfig(
-            field_centric=True, base_width=27, base_length=19, is_simulation=self.isSimulation()
+            field_centric=True,
+            base_width=27,
+            base_length=19,
+            is_simulation=self.isSimulation(),
         )
 
         self.frontLeftModule_driveMotor = phoenix6.hardware.TalonFX(26)
         self.frontLeftModule_rotateMotor = phoenix6.hardware.TalonFX(25)
         self.frontLeftModule_encoder = phoenix6.hardware.CANcoder(11)
         self.frontLeftModule_cfg = swervemodule.SwerveModuleConfig(
-            nt_name="frontLeftModule", inverted=False, allow_reverse=True, is_simulation=self.isSimulation()
+            nt_name="frontLeftModule",
+            inverted=False,
+            allow_reverse=True,
+            is_simulation=self.isSimulation(),
         )
 
         self.frontRightModule_driveMotor = phoenix6.hardware.TalonFX(28)
         self.frontRightModule_rotateMotor = phoenix6.hardware.TalonFX(27)
         self.frontRightModule_encoder = phoenix6.hardware.CANcoder(14)
         self.frontRightModule_cfg = swervemodule.SwerveModuleConfig(
-            nt_name="frontRightModule", inverted=True, allow_reverse=True, is_simulation=self.isSimulation()
+            nt_name="frontRightModule",
+            inverted=True,
+            allow_reverse=True,
+            is_simulation=self.isSimulation(),
         )
 
         self.rearLeftModule_driveMotor = phoenix6.hardware.TalonFX(24)
         self.rearLeftModule_rotateMotor = phoenix6.hardware.TalonFX(23)
         self.rearLeftModule_encoder = phoenix6.hardware.CANcoder(12)
         self.rearLeftModule_cfg = swervemodule.SwerveModuleConfig(
-            nt_name="rearLeftModule", inverted=True, allow_reverse=True, is_simulation=self.isSimulation()
+            nt_name="rearLeftModule",
+            inverted=True,
+            allow_reverse=True,
+            is_simulation=self.isSimulation(),
         )
 
         self.rearRightModule_driveMotor = phoenix6.hardware.TalonFX(21)
         self.rearRightModule_rotateMotor = phoenix6.hardware.TalonFX(22)
         self.rearRightModule_encoder = phoenix6.hardware.CANcoder(13)
         self.rearRightModule_cfg = swervemodule.SwerveModuleConfig(
-            nt_name="rearRightModule", inverted=False, allow_reverse=True, is_simulation=self.isSimulation()
+            nt_name="rearRightModule",
+            inverted=False,
+            allow_reverse=True,
+            is_simulation=self.isSimulation(),
         )
 
         # Le ShuffleBoard est utilisé afin d'ajuster le zéro des roues.
@@ -152,18 +178,6 @@ class MyRobot(MagicRobot):
         # Et le navx nécessaire pour un control "Field Centric"
         self.navx = AHRS.create_spi(update_rate_hz=50)
 
-    def initIntake(self):
-        self.intake_input_motor = rev.CANSparkMax(33, rev.CANSparkMax.MotorType.kBrushless)
-        self.intake_output_motor = rev.CANSparkMax(34, rev.CANSparkMax.MotorType.kBrushless)
-        self.intake_beam_sensor = wpilib.AnalogInput(2)
-
-    def initLobras(self):
-        self.lobras_head_motor = rev.CANSparkMax(35, rev.CANSparkMax.MotorType.kBrushless)
-        self.lobras_arm_motor_left = rev.CANSparkMax(20, rev.CANSparkMax.MotorType.kBrushless)
-        self.lobras_arm_motor_right = rev.CANSparkMax(37, rev.CANSparkMax.MotorType.kBrushless)
-        self.lobras_arm_limit_switch = wpilib.DigitalInput(1)
-        self.lobras_pneumatic_brake = wpilib.Solenoid(10, wpilib.PneumaticsModuleType.CTREPCM, 0)
-
     def disabledPeriodic(self):
         """Mets à jours le dashboard, même quand le robot est désactivé"""
         self.update_nt()
@@ -171,7 +185,6 @@ class MyRobot(MagicRobot):
     def autonomousInit(self):
         """Cette fonction est appelée une seule fois lorsque le robot entre en mode autonome."""
         self.drivetrain.init()
-        self.lobras.update_nt_config()
 
     def autonomous(self):
         """Pour les modes auto de MagicBot, voir le dossier ./autonomous"""
@@ -180,38 +193,37 @@ class MyRobot(MagicRobot):
     def teleopInit(self):
         """Cette fonction est appelée une seule fois lorsque le robot entre en mode téléopéré."""
         self.drivetrain.init()
-        self.arduino_light.set_RGB(0,0,0)
+        self.arduino_light.set_RGB(0, 0, 0)
         self.status_light.set(0)
 
     def teleopPeriodic(self):
         """Cette fonction est appelée de façon périodique lors du mode téléopéré."""
 
-        self.drivetrain.set_controller_values(
-            self.gamepad1.getRawAxis(gh.AXIS_LEFT_Y),
-            self.gamepad1.getRawAxis(gh.AXIS_LEFT_X),
-            self.gamepad1.getRawAxis(gh.AXIS_RIGHT_X),
-            self.gamepad1.getRawAxis(gh.AXIS_RIGHT_Y),
-        )
+        # self.drivetrain.set_controller_values(
+        #     self.gamepad1.getLeftY(),
+        #     self.gamepad1.getLeftX(),
+        #     self.gamepad1.getRightX(),
+        #     self.gamepad1.getRightY(),
+        # )
 
         # Reset navx zero
-        if self.gamepad1.getRawButton(gh.BUTTON_X):
-            self.drivetrain.navx_zero_angle()
-
-        if self.gamepad1.getRawButton(gh.BUTTON_LEFT_BUMPER):
-            self.drivetrain.request_wheel_lock = True
-
-        if self.gamepad1.getRawButton(gh.BUTTON_A):
-            self.robot_actions.autointake_with_limelight()
-        elif self.gamepad1.getRawButton(gh.BUTTON_B):
-            self.lobras.set_angle(0.2, 0)
+        # if self.gamepad1.getCrossButton():  # self.gamepad1.getXButton():
+        #     self.drivetrain.navx_zero_angle()
+        #
+        # if self.gamepad1.getL1Button():  # getLeftBumper():
+        #     self.drivetrain.request_wheel_lock = True
+        #
+        # if self.gamepad1.getSquareButton():  # getAButton():
+        #     self.robot_actions.autointake_with_limelight()
+        if self.gamepad1.getTriangleButton():  # getBButton():
+            self.lobras.set_angle(Rotation2d(math.pi), Rotation2d(0))
             # self.robot_actions.autoshoot_amp()
-        elif self.gamepad1.getRawButton(gh.BUTTON_Y):
-            self.lobras.set_angle(0.3, 0)
+        if self.gamepad1.getCircleButton():  # getYButton():
+            self.lobras.set_angle(Rotation2d(math.pi / 2), Rotation2d(0))
             # self.robot_actions.auto_test()
-        else:
-            self.robot_actions.reset_auto()
-            # self.robot_actions.retract()
-
+        # else:
+        #    self.robot_actions.reset_auto()
+        # self.robot_actions.retract()
 
     def update_nt(self):
         """Affiche les données sur le ShuffleBoard"""

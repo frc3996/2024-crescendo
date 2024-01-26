@@ -1,93 +1,293 @@
-
 import math
-import wpilib
+
+import magicbot
 import rev
-import ntcore
-from wpimath import controller, trajectory
+import wpilib
+import wpimath.units
+from magicbot import feedback
+from wpimath.geometry import Rotation2d
 
 
-# https://robotpy.readthedocs.io/projects/utilities/en/stable/magicbot.html
-from magicbot import feedback, tunable, will_reset_to, state_machine
+class LoBrasHead:
+    # Enconneur
+
+    ## Encodeur et moteur dans le meme sense?
+    kEncoderInverted = False
+
+    ## Position minimale
+    kSoftLimitReverse = math.pi / 2
+
+    ## Position maximale
+    kSoftLimitForward = 3 * math.pi / 2
+
+    # Duty cycle maximal utiliser par le PID
+    kMinOutput = -1
+    kMaxOutput = 1
+
+    ## DO NOT TOUCH: Facteur de position entre encodeur et pid controller
+    kEncoderPositionFactor = 2 * math.pi  # radians
+    kEncoderVelocityFactor = (2 * math.pi) / 60  # radians per second
+    kEncoderPositionPIDMinInput = 0  # radians
+    kEncoderPositionPIDMaxInput = kEncoderPositionFactor  # radians
+
+    # Moteur
+
+    ## Brake ou coast
+    kMotorIdleMode = rev.CANSparkMax.IdleMode.kBrake
+
+    # Limit de courant (MAX 80, defaut=20)
+    kMotorCurrentLimit = 20
+
+    # Valeurs de PID
+    kP = magicbot.tunable(0.7)
+    kI = magicbot.tunable(0.0)
+    kD = magicbot.tunable(0.0)
+    kFF = magicbot.tunable(0.0)
+
+    ## On ne se teleporte pas a une position
+    kMotorClosedLoopRampRate = magicbot.tunable(0.0)
+
+    def setup(self):
+        self.motor = rev.CANSparkMax(35, rev.CANSparkMax.MotorType.kBrushless)
+
+        # Factory reset, on remet les spark dans un etat connu avant de les
+        # configurer. C'est utile si on dois les remplacer
+        self.motor.restoreFactoryDefaults()
+
+        # Configurer les enconneurs et les controlleurs PIDs
+        self.encoder = self.motor.getAbsoluteEncoder(
+            rev.SparkAbsoluteEncoder.Type.kDutyCycle
+        )
+        self.pid = self.motor.getPIDController()
+        self.pid.setFeedbackDevice(self.encoder)
+
+        # Appliquer les facteur de conversion pour position et velocite pour le
+        # bras. On veux ces valeurs en radians et radians par secondes pour etre compatible
+        # avec les kinematic swerve de wpilib
+        self.encoder.setPositionConversionFactor(self.kEncoderPositionFactor)
+        self.encoder.setVelocityConversionFactor(self.kEncoderVelocityFactor)
+
+        # Soft limit forward
+        self.motor.enableSoftLimit(rev.CANSparkMax.SoftLimitDirection.kForward, True)
+        self.motor.setSoftLimit(
+            rev.CANSparkMax.SoftLimitDirection.kForward, self.kSoftLimitForward
+        )
+
+        # Soft limit backward
+        self.motor.enableSoftLimit(rev.CANSparkMax.SoftLimitDirection.kReverse, True)
+        self.motor.setSoftLimit(
+            rev.CANSparkMax.SoftLimitDirection.kReverse, self.kSoftLimitReverse
+        )
+
+        # Inverser l'encodeur si necessaire
+        self.encoder.setInverted(self.kEncoderInverted)
+
+        # XXX: Desactiver puisque le bras ne dois jamais prendre le chemin le
+        #      plus court
+        # Activer le wrap around pour le moteur, ceci permet au controlleur PID
+        # de passer par 0 pour se rendre a son setpoint. Par example de passer
+        # de 360 degrees a 10 degrees va passer par 0 plutot que l'autre
+        # direction
+        # self.pid.setPositionPIDWrappingEnabled(True)
+        # self.pid.setPositionPIDWrappingMinInput(
+        #     kLeftHeadEncoderPositionPIDMinInput
+        # )
+        # self.pid.setPositionPIDWrappingMaxInput(
+        #     kLeftHeadEncoderPositionPIDMaxInput
+        # )
+
+        # On rampe la vitesse
+        self.motor.setClosedLoopRampRate(self.kMotorClosedLoopRampRate)
+
+        # Configurer le PID pour le moteur
+        self.pid.setP(self.kP)
+        self.pid.setI(self.kI)
+        self.pid.setD(self.kD)
+        self.pid.setFF(self.kFF)
+        self.pid.setOutputRange(self.kMinOutput, self.kMaxOutput)
+
+        # Configrer le idle mode et le courant maximal
+        self.motor.setIdleMode(self.kMotorIdleMode)
+        self.motor.setSmartCurrentLimit(self.kMotorCurrentLimit)
+
+        # Sauvegarer la configuration. Si un SPARK MAX brown-out durant operation
+        # il va conserver ces configurations
+        self.motor.burnFlash()
+
+    def setAngle(self, angle: Rotation2d):
+        self.pid.setReference(angle.radians(), rev.CANSparkMax.ControlType.kPosition)
+
+    def getPosition(self) -> Rotation2d:
+        return Rotation2d(wpimath.units.radians(self.encoder.getPosition()))
+
+    def execute(self):
+        # Update the tunables
+        self.motor.setClosedLoopRampRate(self.kMotorClosedLoopRampRate)
+        self.pid.setP(self.kP)
+        self.pid.setI(self.kI)
+        self.pid.setD(self.kD)
+        self.pid.setFF(self.kFF)
+
+
+class LoBrasArm:
+    # Enconneur
+
+    ## Encodeur et moteur dans le meme sense?
+    kEncoderInverted = False
+
+    ## Position minimale
+    kSoftLimitReverse = math.pi / 2
+
+    ## Position maximale
+    kSoftLimitForward = 3 * math.pi / 2
+
+    # Duty cycle maximal utiliser par le PID
+    kMinOutput = -1
+    kMaxOutput = 1
+
+    ## DO NOT TOUCH: Facteur de position entre encodeur et pid controller
+    kEncoderPositionFactor = 2 * math.pi  # radians
+    kEncoderVelocityFactor = (2 * math.pi) / 60  # radians per second
+    kEncoderPositionPIDMinInput = 0  # radians
+    kEncoderPositionPIDMaxInput = kEncoderPositionFactor  # radians
+
+    # Moteur
+
+    ## Brake ou coast
+    kMotorIdleMode = rev.CANSparkMax.IdleMode.kBrake
+
+    # Limit de courant (MAX 80, defaut=20)
+    kMotorCurrentLimit = 20
+
+    # Valeurs de PID
+    kP = magicbot.tunable(0.7)
+    kI = magicbot.tunable(0.0)
+    kD = magicbot.tunable(0.0)
+    kFF = magicbot.tunable(0.0)
+
+    ## On rampe la vitesse
+    kMotorClosedLoopRampRate = magicbot.tunable(1.0)
+
+    def setup(self):
+        # self.arm_limit_switch = wpilib.DigitalInput(1)
+
+        self.motor = rev.CANSparkMax(20, rev.CANSparkMax.MotorType.kBrushless)
+
+        # Factory reset, on remet les spark dans un etat connu avant de les
+        # configurer. C'est utile si on dois les remplacer
+        self.motor.restoreFactoryDefaults()
+
+        # Configurer les enconneurs et les controlleurs PIDs
+        self.encoder = self.motor.getAbsoluteEncoder(
+            rev.SparkAbsoluteEncoder.Type.kDutyCycle
+        )
+        self.pid = self.motor.getPIDController()
+        self.pid.setFeedbackDevice(self.encoder)
+
+        # Appliquer les facteur de conversion pour position et velocite pour le
+        # bras. On veux ces valeurs en radians et radians par secondes pour etre compatible
+        # avec les kinematic swerve de wpilib
+        self.encoder.setPositionConversionFactor(self.kEncoderPositionFactor)
+        self.encoder.setVelocityConversionFactor(self.kEncoderVelocityFactor)
+
+        # Soft limit forward
+        self.motor.enableSoftLimit(rev.CANSparkMax.SoftLimitDirection.kForward, True)
+        self.motor.setSoftLimit(
+            rev.CANSparkMax.SoftLimitDirection.kForward, self.kSoftLimitForward
+        )
+
+        # Soft limit backward
+        self.motor.enableSoftLimit(rev.CANSparkMax.SoftLimitDirection.kReverse, True)
+        self.motor.setSoftLimit(
+            rev.CANSparkMax.SoftLimitDirection.kReverse, self.kSoftLimitReverse
+        )
+
+        # Inverser l'encodeur si necessaire
+        self.encoder.setInverted(self.kEncoderInverted)
+
+        # XXX: Desactiver puisque le bras ne dois jamais prendre le chemin le
+        #      plus court
+        # Activer le wrap around pour le moteur, ceci permet au controlleur PID
+        # de passer par 0 pour se rendre a son setpoint. Par example de passer
+        # de 360 degrees a 10 degrees va passer par 0 plutot que l'autre
+        # direction
+        # self.pid.setPositionPIDWrappingEnabled(True)
+        # self.pid.setPositionPIDWrappingMinInput(
+        #     kEncoderPositionPIDMinInput
+        # )
+        # self.pid.setPositionPIDWrappingMaxInput(
+        #     kEncoderPositionPIDMaxInput
+        # )
+
+        # On rampe la vitesse
+        self.motor.setClosedLoopRampRate(self.kMotorClosedLoopRampRate)
+
+        # Configurer le PID pour le moteur
+        self.pid.setP(self.kP)
+        self.pid.setI(self.kI)
+        self.pid.setD(self.kD)
+        self.pid.setFF(self.kFF)
+        self.pid.setOutputRange(self.kMinOutput, self.kMaxOutput)
+
+        # Configrer le idle mode et le courant maximal
+        self.motor.setIdleMode(self.kMotorIdleMode)
+        self.motor.setSmartCurrentLimit(self.kMotorCurrentLimit)
+
+        # Sauvegarer la configuration. Si un SPARK MAX brown-out durant operation
+        # il va conserver ces configurations
+        self.motor.burnFlash()
+
+    def setAngle(self, angle: Rotation2d):
+        self.pid.setReference(angle.radians(), rev.CANSparkMax.ControlType.kPosition)
+
+    def getPosition(self) -> Rotation2d:
+        return Rotation2d(wpimath.units.radians(self.encoder.getPosition()))
+
+    def execute(self):
+        # Update the tunables
+        self.motor.setClosedLoopRampRate(self.kMotorClosedLoopRampRate)
+        self.pid.setP(self.kP)
+        self.pid.setI(self.kI)
+        self.pid.setD(self.kD)
+        self.pid.setFF(self.kFF)
+
+
+class LoBrasArmFollower:
+    kFollowerInverted = True
+    lobras_arm: LoBrasArm
+
+    def setup(self):
+        self.motor = rev.CANSparkMax(37, rev.CANSparkMax.MotorType.kBrushless)
+        # Factory reset, on remet les spark dans un etat connu avant de les
+        # configurer. C'est utile si on dois les remplacer
+        self.motor.restoreFactoryDefaults()
+
+        # En mode CAN, un SPARK MAX est configurer pour suivre un autre
+        self.motor.follow(self.lobras_arm.motor, invert=self.kFollowerInverted)
+
+        self.motor.burnFlash()
+
+    def execute(self):
+        pass
 
 
 class LoBras:
-    head_motor: rev.CANSparkMax
-    arm_motor_left: rev.CANSparkMax
-    arm_motor_right: rev.CANSparkMax
-    arm_limit_switch: wpilib.DigitalInput
-    pneumatic_brake: wpilib.Solenoid
-    nt: ntcore.NetworkTable
+    lobras_arm: LoBrasArm
+    lobras_arm_follower: LoBrasArmFollower
+    lobras_head: LoBrasHead
 
-    def setup(self):
-        self.arm_motor_right.setIdleMode(rev.CANSparkMax.IdleMode.kBrake)
-        self.arm_motor_right.setOpenLoopRampRate(0.25)
-        self.arm_motor_right.follow(self.arm_motor_left, invert=True)
-
-        self.arm_motor_left.setIdleMode(rev.CANSparkMax.IdleMode.kBrake)
-        self.arm_motor_left.setOpenLoopRampRate(0.25)
-        self.arm_position_encoder = self.arm_motor_left.getAbsoluteEncoder(rev.SparkAbsoluteEncoder.Type.kDutyCycle)
-        constraint = trajectory.TrapezoidProfileRadians.Constraints(0, 0)
-        self.arm_pid = controller.ProfiledPIDControllerRadians(0, 0, 0, constraint)
-        self.current_arm_target = self.arm_position_encoder.getPosition()
-
-        self.head_motor.setIdleMode(rev.CANSparkMax.IdleMode.kBrake)
-        self.head_motor.setOpenLoopRampRate(0.25)
-        self.head_position_encoder = self.head_motor.getAbsoluteEncoder(rev.SparkAbsoluteEncoder.Type.kDutyCycle)
-        constraint = trajectory.TrapezoidProfileRadians.Constraints(0, 0)
-        self.head_pid = controller.ProfiledPIDControllerRadians(0, 0, 0, constraint)
-        self.current_head_target = self.head_position_encoder.getPosition()
-
-        self.nt.putNumber("lobras/arm_pid/Kp", 0.002)
-        self.nt.putNumber("lobras/arm_pid/Ki", 0)
-        self.nt.putNumber("lobras/arm_pid/Kd", 0)
-        self.nt.putNumber("lobras/arm_pid/max_vel", 0.02)
-        self.nt.putNumber("lobras/arm_pid/max_acc", 0.02)
-
-        self.nt.putNumber("lobras/head_pid/Kp", 0.002)
-        self.nt.putNumber("lobras/head_pid/Ki", 0)
-        self.nt.putNumber("lobras/head_pid/Kd", 0)
-        self.nt.putNumber("lobras/head_pid/max_vel", 0.02)
-        self.nt.putNumber("lobras/head_pid/max_acc", 0.02)
-
-        self.update_nt_config()
-
-    def update_nt_config(self):
-        constraint = trajectory.TrapezoidProfileRadians.Constraints(
-            self.nt.getNumber("lobras/arm_pid/max_vel", 0),
-            self.nt.getNumber("lobras/arm_pid/max_acc", 0)
-        )
-        self.arm_pid.setPID(
-            self.nt.getNumber("lobras/arm_pid/Kp", 0),
-            self.nt.getNumber("lobras/arm_pid/Ki", 0),
-            self.nt.getNumber("lobras/arm_pid/Kd", 0)
-        )
-        self.arm_pid.setConstraints(constraint)
-
-
-        constraint = trajectory.TrapezoidProfileRadians.Constraints(
-            self.nt.getNumber("lobras/head_pid/max_vel", 0),
-            self.nt.getNumber("lobras/head_pid/max_acc", 0)
-        )
-        self.head_pid.setPID(
-            self.nt.getNumber("lobras/head_pid/Kp", 0),
-            self.nt.getNumber("lobras/head_pid/Ki", 0),
-            self.nt.getNumber("lobras/head_pid/Kd", 0)
-        )
-        self.head_pid.setConstraints(constraint)
-
-
-    def set_angle(self, arm_position, head_position):
+    def set_angle(self, arm_position: Rotation2d, head_position: Rotation2d):
         """Set the target angles, in degrees, from 0 to 360"""
-        self.current_arm_target = arm_position
-        self.current_head_target = head_position
+        self.lobras_arm.setAngle(arm_position)
+        self.lobras_head.setAngle(head_position)
 
     @feedback
     def current_arm_position(self):
-        return self.arm_position_encoder.getPosition() * 360
+        return self.lobras_arm.getPosition().degrees()
 
     @feedback
     def current_head_position(self):
-        return self.head_position_encoder.getPosition() * 360
+        return self.lobras_head.getPosition().degrees()
 
     def intake_mode(self):
         # TODO
@@ -116,14 +316,4 @@ class LoBras:
         pass
 
     def execute(self):
-        self.nt.putNumber("lobras/arm_current_position", self.current_arm_position())
-        self.nt.putNumber("lobras/arm_target_position", self.current_arm_target)
-        self.nt.putNumber("lobras/head_current_position", self.current_head_position())
-        self.nt.putNumber("lobras/head_target_position", self.current_head_target)
-
-        arm_error = self.arm_pid.calculate(math.radians(self.current_arm_position()), math.radians(self.current_arm_target))
-        head_error = self.head_pid.calculate(math.radians(self.current_head_position()), math.radians(self.current_head_target))
-
-        print(arm_error, head_error)
-        # self.arm_motor_left.set(arm_error)
-        # self.arm_motor_left.set(head_error)
+        pass

@@ -1,12 +1,44 @@
+import math
 
-import rev
+import magicbot
 import ntcore  # Outils pour les NetworkTables
+import rev
 import wpilib
-from magicbot import MagicRobot
-from wpimath.controller import PIDController
-import gamepad_helper
+from wpimath.geometry import Rotation2d
 
-class MyRobot(MagicRobot):
+# Encodeur et moteur dans le meme sense?
+kArmEncoderInverted = False
+
+# Brake ou coast
+kArmMotorIdleMode = rev.CANSparkMax.IdleMode.kBrake
+
+# Position minimale
+kArmSoftLimitReverse = math.pi / 2
+
+# Position maximale
+kArmSoftLimitForward = 3 * math.pi / 2
+
+# Valeurs de PID
+kArmP = 0.7
+kArmI = 0
+kArmD = 0
+kArmFF = 0
+
+# Duty cycle maximal utiliser par le PID
+kArmMinOutput = -1
+kArmMaxOutput = 1
+
+# DO NOT TOUCH: Limit de courant (MAX 80, defaut=20)
+kArmMotorCurrentLimit = 20
+
+# DO NOT TOUCH: Facteur de position entre encodeur et pid controller
+kArmEncoderPositionFactor = 2 * math.pi  # radians
+kArmEncoderVelocityFactor = (2 * math.pi) / 60  # radians per second
+kArmEncoderPositionPIDMinInput = 0  # radians
+kArmEncoderPositionPIDMaxInput = kArmEncoderPositionFactor  # radians
+
+
+class MyRobot(magicbot.MagicRobot):
     """
     Après avoir créer les 'components' de bas niveau, tel que 'drivetrain' ou 'intake', utiliser leur nom suivi d'un trait souligné (_)
     pour injecter des objets au composant.
@@ -31,6 +63,11 @@ class MyRobot(MagicRobot):
 
     # Networktables pour de la configuration et retour d'information
 
+    kArmP = magicbot.tunable(kArmP)
+    kArmI = magicbot.tunable(kArmI)
+    kArmD = magicbot.tunable(kArmD)
+    kArmFF = magicbot.tunable(kArmFF)
+
     def createObjects(self):
         """
         C'est ici que les composants sont vraiment créé avec le signe =.
@@ -38,38 +75,71 @@ class MyRobot(MagicRobot):
         """
         # NetworkTable
         self.arm_motor_left = rev.CANSparkMax(5, rev.CANSparkMax.MotorType.kBrushless)
+
+        # Factory reset, on remet les spark dans un etat connu avant de les
+        # configurer. C'est utile si on dois les remplacer
         self.arm_motor_left.restoreFactoryDefaults()
-        self.arm_motor_left.setOpenLoopRampRate(2)
-        self.arm_motor_left.setIdleMode(rev.CANSparkMax.IdleMode.kBrake)
-        # self.arm_pid_controller = self.arm_motor_left.getPIDController()
-        self.arm_position_encoder = self.arm_motor_left.getAbsoluteEncoder(rev.SparkAbsoluteEncoder.Type.kDutyCycle)
-        # self.arm_position_encoder = self.arm_motor_left.getEncoder()
-        # self.arm_position_encoder.setPosition(0)
-        # self.arm_pid_controller.setFeedbackDevice(self.arm_position_encoder)
-        self.arm_pid = PIDController(0.1, 0.02, 0.001)
-        self.arm_pid.enableContinuousInput(0, 1)
-        self.arm_pid
 
+        # Configurer les enconneurs et les controlleurs PIDs
+        self.arm_position_encoder = self.arm_motor_left.getAbsoluteEncoder(
+            rev.SparkAbsoluteEncoder.Type.kDutyCycle
+        )
+        self.arm_pid_controller = self.arm_motor_left.getPIDController()
+        self.arm_pid_controller.setFeedbackDevice(self.arm_position_encoder)
 
+        # Appliquer les facteur de conversion pour position et velocite pour le
+        # bras. On veux ces valeurs en radians et radians par secondes pour etre compatible
+        # avec les kinematic swerve de wpilib
+        self.arm_position_encoder.setPositionConversionFactor(kArmEncoderPositionFactor)
+        self.arm_position_encoder.setVelocityConversionFactor(kArmEncoderVelocityFactor)
 
-        # kP = 0.000002
-        # kI = 0  # 0.0001
-        # kD = 0
-        # kIz = 0
-        # kFF = 0.000
-        # kMaxOutput = 1
-        # kMinOutput = -1
+        # Soft limit forward
+        self.arm_motor_left.enableSoftLimit(
+            rev.CANSparkMax.SoftLimitDirection.kForward, True
+        )
+        self.arm_motor_left.setSoftLimit(
+            rev.CANSparkMax.SoftLimitDirection.kForward, kArmSoftLimitForward
+        )
+
+        # Soft limit backward
+        self.arm_motor_left.enableSoftLimit(
+            rev.CANSparkMax.SoftLimitDirection.kReverse, True
+        )
+        self.arm_motor_left.setSoftLimit(
+            rev.CANSparkMax.SoftLimitDirection.kReverse, kArmSoftLimitReverse
+        )
+
+        # Inverser l'encodeur si necessaire
+        self.arm_position_encoder.setInverted(kArmEncoderInverted)
+
+        # Activer le wrap around pour le moteur, ceci permet au controlleur PID
+        # de passer par 0 pour se rendre a son setpoint. Par example de passer
+        # de 360 degrees a 10 degrees va passer par 0 plutot que l'autre
+        # direction
         # self.arm_pid_controller.setPositionPIDWrappingEnabled(True)
-        # self.arm_pid_controller.setPositionPIDWrappingMaxInput(100)
-        # self.arm_pid_controller.setPositionPIDWrappingMinInput(-100)
-        # self.arm_pid_controller.setP(kP)
-        # self.arm_pid_controller.setI(kI)
-        # self.arm_pid_controller.setD(kD)
-        # self.arm_pid_controller.setIZone(kIz)
-        # self.arm_pid_controller.setFF(kFF)
-        # self.arm_pid_controller.setOutputRange(kMinOutput, kMaxOutput)
+        # self.arm_pid_controller.setPositionPIDWrappingMinInput(
+        #     kArmEncoderPositionPIDMinInput
+        # )
+        # self.arm_pid_controller.setPositionPIDWrappingMaxInput(
+        #     kArmEncoderPositionPIDMaxInput
+        # )
 
-        self.gamepad1 = wpilib.Joystick(0)
+        # Configurer le PID pour le moteur
+        # self.arm_pid_controller.setP(kArmP)
+        # self.arm_pid_controller.setI(kArmI)
+        # self.arm_pid_controller.setD(kArmD)
+        # self.arm_pid_controller.setFF(kArmFF)
+        self.arm_pid_controller.setOutputRange(kArmMinOutput, kArmMaxOutput)
+
+        # Configrer le idle mode et le courant maximal
+        self.arm_motor_left.setIdleMode(kArmMotorIdleMode)
+        self.arm_motor_left.setSmartCurrentLimit(kArmMotorCurrentLimit)
+
+        # Sauvegarer la configuration. Si un SPARK MAX brown out durant operation
+        # il va conserver ces configurations
+        self.arm_motor_left.burnFlash()
+
+        self.joystick = wpilib.PS5Controller(0)
 
     def disabledPeriodic(self):
         """Mets à jours le dashboard, même quand le robot est désactivé"""
@@ -90,12 +160,17 @@ class MyRobot(MagicRobot):
     def teleopPeriodic(self):
         """Cette fonction est appelée de façon périodique lors du mode téléopéré."""
 
-        # error = ((self.gamepad1.getRawAxis(gamepad_helper.AXIS_LEFT_Y)+1) / 2) - self.arm_position_encoder.getPosition()
-        # error *= 1
-        print(self.arm_position_encoder.getPosition()*360)
-        error = self.arm_pid.calculate(self.arm_position_encoder.getPosition(), ((self.gamepad1.getRawAxis(gamepad_helper.AXIS_LEFT_Y)+1) / 2))
-        # print(round(error,3))
-        self.arm_motor_left.set(error)
+        # Configurer le PID pour le moteur
+        self.arm_pid_controller.setP(self.kArmP)
+        self.arm_pid_controller.setI(self.kArmI)
+        self.arm_pid_controller.setD(self.kArmD)
+        self.arm_pid_controller.setFF(self.kArmFF)
+
+        rotation = Rotation2d.fromDegrees(self.joystick.getLeftX() * 360)
+        print(rotation.degrees(), rotation.radians())
+        self.arm_pid_controller.setReference(
+            rotation.radians(), rev.CANSparkMax.ControlType.kPosition
+        )
 
 
 if __name__ == "__main__":
