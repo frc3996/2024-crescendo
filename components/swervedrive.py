@@ -17,6 +17,7 @@ from components import swervemodule
 import pathplannerlib.telemetry
 import constants
 
+
 MAX_WHEEL_SPEED = 4  # meter per second
 MAX_MODULE_SPEED = 4.5
 
@@ -46,18 +47,16 @@ class SwerveDrive:
     navx: AHRS
     nt: ntcore.NetworkTable
 
-    lower_input_thresh = 0.1
-    xy_multiplier = 1
-    NavxPitchZero = 0
-    NavxRollZero = 0
-    zero_done = False
-
     def setup(self):
         """
         Appelé après l'injection
         """
         self.chassis_speed = kinematics.ChassisSpeeds()
         self.sim_angle = 0
+        self.lower_input_thresh = 0.1
+        self.NavxPitchZero = 0
+        self.NavxRollZero = 0
+        self.zero_done = False
 
         # Place les modules dans un dictionaire
         self.modules = {
@@ -260,7 +259,6 @@ class SwerveDrive:
         Écrit le vecteur 'forward'
         :param fwd: Valeur en m/s
         """
-        # fwd *= self.xy_multiplier
         self._requested_vectors["fwd"] = fwd
 
     def set_strafe(self, strafe):
@@ -268,7 +266,6 @@ class SwerveDrive:
         Écrit la valeur 'strafe'
         :param strafe: Valeur en m/s
         """
-        # strafe *= self.xy_multiplier
         self._requested_vectors["strafe"] = strafe
 
     def set_angle(self, angle):
@@ -385,29 +382,6 @@ class SwerveDrive:
                 self.lost_navx = True
                 return
             self._requested_vectors["rcw"] = angle_error
-        #     (
-        #         self._requested_vectors["fwd"],
-        #         self._requested_vectors["strafe"],
-        #         self._requested_vectors["rcw"]
-        #     ) = self.normalize(
-        #         [
-        #             self._requested_vectors["fwd"],
-        #             self._requested_vectors["strafe"],
-        #             angle_error
-        #         ]
-        #     )
-        # else:
-        #     (
-        #         self._requested_vectors["fwd"],
-        #         self._requested_vectors["strafe"],
-        #         self._requested_vectors["rcw"]
-        #     ) = self.normalize(
-        #         [
-        #             self._requested_vectors["fwd"],
-        #             self._requested_vectors["strafe"],
-        #             self._requested_vectors["rcw"]
-        #         ]
-        #     )
 
         # Ne fais rien si les vecteurs sont trop petits
         if (self._requested_vectors["strafe"] == 0
@@ -462,16 +436,6 @@ class SwerveDrive:
         self.frontRightModule.setTargetState(swerveModuleStates[1])
         self.rearLeftModule.setTargetState(swerveModuleStates[2])
         self.rearRightModule.setTargetState(swerveModuleStates[3])
-
-        # self._requested_speeds["front_left"] = swerveModuleStates[0].speed * 0.5
-        # self._requested_speeds["front_right"] = swerveModuleStates[1].speed * 0.5
-        # self._requested_speeds["rear_left"] = swerveModuleStates[2].speed * 0.5
-        # self._requested_speeds["rear_right"] = swerveModuleStates[3].speed * 0.5
-
-        # self._requested_angles["front_left"] = swerveModuleStates[0].angle.degrees()
-        # self._requested_angles["front_right"] = swerveModuleStates[1].angle.degrees()
-        # self._requested_angles["rear_left"] = swerveModuleStates[2].angle.degrees()
-        # self._requested_angles["rear_right"] = swerveModuleStates[3].angle.degrees()
 
         # Remise à zéro des valeurs demandées par sécurité
         self._requested_vectors["fwd"] = 0.0
@@ -559,23 +523,19 @@ class SwerveDrive:
 
     def getRobotRelativeSpeeds(self):
         """
-        For PathPlannerLib
         ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
         """
         return self.kinematics.toChassisSpeeds(self.getModuleStates())
 
     def getFieldRelativeSpeeds(self):
         """
-        For PathPlannerLib
         ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
         """
         speed = kinematics.ChassisSpeeds.fromRobotRelativeSpeeds(self.kinematics.toChassisSpeeds(self.getModuleStates()), self.getRotation2d())
         return speed
 
-
     def driveFieldRelative(self, fieldRelativeSpeeds: kinematics.ChassisSpeeds):
         """
-        For PathPlannerLib
         Method that will drive the robot given FIELD RELATIVE ChassisSpeeds
         """
         self.chassis_speed = fieldRelativeSpeeds
@@ -583,7 +543,6 @@ class SwerveDrive:
 
     def driveRobotRelative(self, robotRelativeSpeeds: kinematics.ChassisSpeeds):
         """
-        For PathPlannerLib
         Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
         """
         targetSpeeds = kinematics.ChassisSpeeds.discretize(robotRelativeSpeeds, 0.02)
@@ -591,10 +550,8 @@ class SwerveDrive:
         targetStates = self.kinematics.toSwerveModuleStates(targetSpeeds)
         self.setStates(targetStates)
 
-
     def setStates(self, targetStates: list[kinematics.SwerveModuleState]):
         """
-        For PathPlannerLib
         Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
         """
         targetStates = kinematics.SwerveDrive4Kinematics.desaturateWheelSpeeds(targetStates, MAX_MODULE_SPEED)
@@ -620,12 +577,6 @@ class SwerveDrive:
 
         # Calcul des vecteurs
         self._calculate_vectors()
-
-        # Écrit le résultat dans chaque swerve module
-        # for key in self.modules:
-        #     self.modules[key].move(
-        #         self._requested_speeds[key], self._requested_angles[key]
-        #     )
 
         # Remets les vitesse à zéro
         self._requested_speeds = dict.fromkeys(self._requested_speeds, 0)

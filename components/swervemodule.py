@@ -2,9 +2,7 @@ from dataclasses import dataclass
 
 import phoenix6
 import ntcore
-import wpimath
-from wpimath.controller import PIDController
-from wpimath import kinematics, units, geometry
+from wpimath import controller, kinematics, units, geometry
 import math
 
 
@@ -73,7 +71,7 @@ class SwerveModule:
         self.rotateMotor.configurator.apply(config)
         self._requested_degree = 0
         self.rotateMotor_control = phoenix6.controls.DutyCycleOut(0)
-        self.rotation_pid = PIDController(0, 0, 0)  # PID configuré via le ShuffleBoard
+        self.rotation_pid = controller.PIDController(0, 0, 0)  # PID configuré via le ShuffleBoard
         self.rotation_pid.enableContinuousInput(
             0, 360
         )  # 0 et 360 sont considérés comme la même valeur
