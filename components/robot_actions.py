@@ -1,4 +1,3 @@
-
 import wpilib
 import ntcore
 from wpimath import controller, geometry
@@ -49,7 +48,7 @@ class RobotActions:
             self.retract()
             return True
 
-        self.drivetrain.set_angle(0) # TODO GET PROPER ANGLE
+        self.drivetrain.set_angle(0)  # TODO GET PROPER ANGLE
         self.lobras.set_angle(arm_angle, head_angle)
         fwd = 0
         error = 0
@@ -61,9 +60,15 @@ class RobotActions:
                 # Move forward
                 res = tools.map_value(abs(offset), 0, 50, 0, 1)
                 fwd = 0.5 * res
-            self.shoot_limelight_adjust_pid.setP(self.nt.getNumber("actions/shoot_limelight_adjust_pid/Kp", 0))
-            self.shoot_limelight_adjust_pid.setI(self.nt.getNumber("actions/shoot_limelight_adjust_pid/Ki", 0))
-            self.shoot_limelight_adjust_pid.setD(self.nt.getNumber("actions/shoot_limelight_adjust_pid/Kd", 0))
+            self.shoot_limelight_adjust_pid.setP(
+                self.nt.getNumber("actions/shoot_limelight_adjust_pid/Kp", 0)
+            )
+            self.shoot_limelight_adjust_pid.setI(
+                self.nt.getNumber("actions/shoot_limelight_adjust_pid/Ki", 0)
+            )
+            self.shoot_limelight_adjust_pid.setD(
+                self.nt.getNumber("actions/shoot_limelight_adjust_pid/Kd", 0)
+            )
             error = self.shoot_limelight_adjust_pid.calculate(offset, 0)
         else:
             fwd = 0.5
@@ -99,9 +104,15 @@ class RobotActions:
             offset = self.limelight_intake.get_tx()
             res = tools.map_value(abs(offset), 0, 50, 0, 1)
             fwd = 0.5 * res
-            self.intake_limelight_adjust_pid.setP(self.nt.getNumber("actions/intake_limelight_adjust_pid/Kp", 0))
-            self.intake_limelight_adjust_pid.setI(self.nt.getNumber("actions/intake_limelight_adjust_pid/Ki", 0))
-            self.intake_limelight_adjust_pid.setD(self.nt.getNumber("actions/intake_limelight_adjust_pid/Kd", 0))
+            self.intake_limelight_adjust_pid.setP(
+                self.nt.getNumber("actions/intake_limelight_adjust_pid/Kp", 0)
+            )
+            self.intake_limelight_adjust_pid.setI(
+                self.nt.getNumber("actions/intake_limelight_adjust_pid/Ki", 0)
+            )
+            self.intake_limelight_adjust_pid.setD(
+                self.nt.getNumber("actions/intake_limelight_adjust_pid/Kd", 0)
+            )
             error = self.intake_limelight_adjust_pid.calculate(offset, 0)
         else:
             fwd = 0.5

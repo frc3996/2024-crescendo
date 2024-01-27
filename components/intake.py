@@ -1,6 +1,7 @@
 import magicbot
 import rev
 import wpilib
+
 import constants
 
 INTAKE_SPEED = 10
@@ -20,7 +21,9 @@ class IntakeBeam:
 
 class IntakeGrabber:
     def setup(self):
-        self.input_motor = rev.CANSparkMax(constants.CANIds.INTAKE_GRABBER, rev.CANSparkMax.MotorType.kBrushless)
+        self.input_motor = rev.CANSparkMax(
+            constants.CANIds.INTAKE_GRABBER, rev.CANSparkMax.MotorType.kBrushless
+        )
 
     def execute(self):
         pass
@@ -43,7 +46,9 @@ class IntakeShooter:
     kMaxOutput = 1
 
     def setup(self):
-        self.motor = rev.CANSparkMax(constants.CANIds.SHOOTER_LEFT, rev.CANSparkMax.MotorType.kBrushless)
+        self.motor = rev.CANSparkMax(
+            constants.CANIds.SHOOTER_LEFT, rev.CANSparkMax.MotorType.kBrushless
+        )
 
         self.motor.restoreFactoryDefaults()
         self.motor.setInverted(True)
@@ -87,7 +92,9 @@ class IntakeShooterFollower:
     intake_shooter: IntakeShooter
 
     def setup(self):
-        self.motor = rev.CANSparkMax(constants.CANIds.SHOOTER_RIGHT, rev.CANSparkMax.MotorType.kBrushless)
+        self.motor = rev.CANSparkMax(
+            constants.CANIds.SHOOTER_RIGHT, rev.CANSparkMax.MotorType.kBrushless
+        )
         # Factory reset, on remet les spark dans un etat connu avant de les
         # configurer. C'est utile si on dois les remplacer
         self.motor.restoreFactoryDefaults()
@@ -99,6 +106,7 @@ class IntakeShooterFollower:
 
     def execute(self):
         pass
+
 
 class Intake:
     shooter: IntakeShooter

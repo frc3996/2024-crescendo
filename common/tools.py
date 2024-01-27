@@ -1,5 +1,3 @@
-
-
 def map_value(value, old_min, old_max, new_min, new_max):
     # Figure out how 'wide' each range is
     old_span = old_max - old_min

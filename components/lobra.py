@@ -8,6 +8,7 @@ from magicbot import feedback
 from wpimath.geometry import Rotation2d
 import constants
 
+
 class LoBrasHead:
     # Enconneur
 
@@ -48,7 +49,9 @@ class LoBrasHead:
     kMotorClosedLoopRampRate = magicbot.tunable(0.2)
 
     def setup(self):
-        self.motor = rev.CANSparkMax(constants.CANIds.HEAD_ANGLE_MOTOR, rev.CANSparkMax.MotorType.kBrushless)
+        self.motor = rev.CANSparkMax(
+            constants.CANIds.HEAD_ANGLE_MOTOR, rev.CANSparkMax.MotorType.kBrushless
+        )
 
         # Factory reset, on remet les spark dans un etat connu avant de les
         # configurer. C'est utile si on dois les remplacer
@@ -177,7 +180,9 @@ class LoBrasArm:
     def setup(self):
         # self.arm_limit_switch = wpilib.DigitalInput(1)
 
-        self.motor = rev.CANSparkMax(constants.CANIds.ARM_RIGHT, rev.CANSparkMax.MotorType.kBrushless)
+        self.motor = rev.CANSparkMax(
+            constants.CANIds.ARM_RIGHT, rev.CANSparkMax.MotorType.kBrushless
+        )
 
         # Factory reset, on remet les spark dans un etat connu avant de les
         # configurer. C'est utile si on dois les remplacer
@@ -269,7 +274,9 @@ class LoBrasArmFollower:
     lobras_arm: LoBrasArm
 
     def setup(self):
-        self.motor = rev.CANSparkMax(constants.CANIds.ARM_LEFT, rev.CANSparkMax.MotorType.kBrushless)
+        self.motor = rev.CANSparkMax(
+            constants.CANIds.ARM_LEFT, rev.CANSparkMax.MotorType.kBrushless
+        )
         # Factory reset, on remet les spark dans un etat connu avant de les
         # configurer. C'est utile si on dois les remplacer
         self.motor.restoreFactoryDefaults()

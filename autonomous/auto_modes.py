@@ -13,6 +13,7 @@ from .base_auto import BaseAuto
 
 import time
 
+
 class Path1(BaseAuto):
     MODE_NAME = "Path1"
     DEFAULT = True

@@ -44,6 +44,7 @@ class PhysicsEngine:
         self.startingPositionSet = wpimath.geometry.Pose2d()
         self.physics_controller.field.setRobotPose(self.startingPositionSet)
 
-
     def update_sim(self, now, tm_diff):
-        self.physics_controller.field.setRobotPose(self.robot.drivetrain.getEstimatedPose())
+        self.physics_controller.field.setRobotPose(
+            self.robot.drivetrain.getEstimatedPose()
+        )

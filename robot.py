@@ -133,48 +133,72 @@ class MyRobot(MagicRobot):
             is_simulation=self.isSimulation(),
         )
 
-        self.frontLeftModule_driveMotor = phoenix6.hardware.TalonFX(constants.CANIds.SWERVE_DRIVE_FL)
-        self.frontLeftModule_rotateMotor = phoenix6.hardware.TalonFX(constants.CANIds.SWERVE_ROTATE_FL)
-        self.frontLeftModule_encoder = phoenix6.hardware.CANcoder(constants.CANIds.SWERVE_CANCODER_FL)
+        self.frontLeftModule_driveMotor = phoenix6.hardware.TalonFX(
+            constants.CANIds.SWERVE_DRIVE_FL
+        )
+        self.frontLeftModule_rotateMotor = phoenix6.hardware.TalonFX(
+            constants.CANIds.SWERVE_ROTATE_FL
+        )
+        self.frontLeftModule_encoder = phoenix6.hardware.CANcoder(
+            constants.CANIds.SWERVE_CANCODER_FL
+        )
         self.frontLeftModule_cfg = swervemodule.SwerveModuleConfig(
             nt_name="frontLeftModule",
             inverted=False,
             allow_reverse=True,
             is_simulation=self.isSimulation(),
-            rotation_zero= 193
+            rotation_zero=193,
         )
 
-        self.frontRightModule_driveMotor = phoenix6.hardware.TalonFX(constants.CANIds.SWERVE_DRIVE_FR)
-        self.frontRightModule_rotateMotor = phoenix6.hardware.TalonFX(constants.CANIds.SWERVE_ROTATE_FR)
-        self.frontRightModule_encoder = phoenix6.hardware.CANcoder(constants.CANIds.SWERVE_CANCODER_FR)
+        self.frontRightModule_driveMotor = phoenix6.hardware.TalonFX(
+            constants.CANIds.SWERVE_DRIVE_FR
+        )
+        self.frontRightModule_rotateMotor = phoenix6.hardware.TalonFX(
+            constants.CANIds.SWERVE_ROTATE_FR
+        )
+        self.frontRightModule_encoder = phoenix6.hardware.CANcoder(
+            constants.CANIds.SWERVE_CANCODER_FR
+        )
         self.frontRightModule_cfg = swervemodule.SwerveModuleConfig(
             nt_name="frontRightModule",
             inverted=True,
             allow_reverse=True,
             is_simulation=self.isSimulation(),
-            rotation_zero = 76
+            rotation_zero=76,
         )
 
-        self.rearLeftModule_driveMotor = phoenix6.hardware.TalonFX(constants.CANIds.SWERVE_DRIVE_RL)
-        self.rearLeftModule_rotateMotor = phoenix6.hardware.TalonFX(constants.CANIds.SWERVE_ROTATE_RL)
-        self.rearLeftModule_encoder = phoenix6.hardware.CANcoder(constants.CANIds.SWERVE_CANCODER_RL)
+        self.rearLeftModule_driveMotor = phoenix6.hardware.TalonFX(
+            constants.CANIds.SWERVE_DRIVE_RL
+        )
+        self.rearLeftModule_rotateMotor = phoenix6.hardware.TalonFX(
+            constants.CANIds.SWERVE_ROTATE_RL
+        )
+        self.rearLeftModule_encoder = phoenix6.hardware.CANcoder(
+            constants.CANIds.SWERVE_CANCODER_RL
+        )
         self.rearLeftModule_cfg = swervemodule.SwerveModuleConfig(
             nt_name="rearLeftModule",
             inverted=True,
             allow_reverse=True,
             is_simulation=self.isSimulation(),
-            rotation_zero = 216
+            rotation_zero=216,
         )
 
-        self.rearRightModule_driveMotor = phoenix6.hardware.TalonFX(constants.CANIds.SWERVE_DRIVE_RR)
-        self.rearRightModule_rotateMotor = phoenix6.hardware.TalonFX(constants.CANIds.SWERVE_ROTATE_RR)
-        self.rearRightModule_encoder = phoenix6.hardware.CANcoder(constants.CANIds.SWERVE_CANCODER_RR)
+        self.rearRightModule_driveMotor = phoenix6.hardware.TalonFX(
+            constants.CANIds.SWERVE_DRIVE_RR
+        )
+        self.rearRightModule_rotateMotor = phoenix6.hardware.TalonFX(
+            constants.CANIds.SWERVE_ROTATE_RR
+        )
+        self.rearRightModule_encoder = phoenix6.hardware.CANcoder(
+            constants.CANIds.SWERVE_CANCODER_RR
+        )
         self.rearRightModule_cfg = swervemodule.SwerveModuleConfig(
             nt_name="rearRightModule",
             inverted=False,
             allow_reverse=True,
             is_simulation=self.isSimulation(),
-            rotation_zero = 318
+            rotation_zero=318,
         )
 
         # Et le navx nécessaire pour un control "Field Centric"

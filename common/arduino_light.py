@@ -1,6 +1,6 @@
-
 import wpilib
 import struct
+
 
 class I2CArduinoLight:
     def __init__(self, i2c_port: wpilib.I2C.Port, i2c_id):

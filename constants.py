@@ -1,8 +1,8 @@
 import math
 from enum import IntEnum
 
-MAX_ANGULAR_VEL = math.degrees(math.pi*2)
-MAX_ANGULAR_ACCEL = math.degrees(math.pi*5)
+MAX_ANGULAR_VEL = math.degrees(math.pi * 2)
+MAX_ANGULAR_ACCEL = math.degrees(math.pi * 5)
 
 
 class CANIds(IntEnum):

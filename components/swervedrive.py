@@ -107,9 +107,8 @@ class SwerveDrive:
             0,
             0,
             trajectory.TrapezoidProfile.Constraints(
-                constants.MAX_ANGULAR_VEL,
-                constants.MAX_ANGULAR_ACCEL
-            )
+                constants.MAX_ANGULAR_VEL, constants.MAX_ANGULAR_ACCEL
+            ),
         )
         self.angle_pid.enableContinuousInput(-180, 180)
         self.angle_pid.setTolerance(-1, 1)
@@ -121,10 +120,18 @@ class SwerveDrive:
         self.nt.putNumber("swerve/angle_pid/max_vel", constants.MAX_ANGULAR_VEL)
         self.nt.putNumber("swerve/angle_pid/max_acc", constants.MAX_ANGULAR_ACCEL)
 
-        self.frontLeftLocation = geometry.Translation2d(self.cfg.base_width/2, self.cfg.base_length/2)
-        self.frontRightLocation = geometry.Translation2d(self.cfg.base_width/2, -self.cfg.base_length/2)
-        self.backLeftLocation = geometry.Translation2d(-self.cfg.base_width/2, self.cfg.base_length/2)
-        self.backRightLocation = geometry.Translation2d(-self.cfg.base_width/2, -self.cfg.base_length/2)
+        self.frontLeftLocation = geometry.Translation2d(
+            self.cfg.base_width / 2, self.cfg.base_length / 2
+        )
+        self.frontRightLocation = geometry.Translation2d(
+            self.cfg.base_width / 2, -self.cfg.base_length / 2
+        )
+        self.backLeftLocation = geometry.Translation2d(
+            -self.cfg.base_width / 2, self.cfg.base_length / 2
+        )
+        self.backRightLocation = geometry.Translation2d(
+            -self.cfg.base_width / 2, -self.cfg.base_length / 2
+        )
         self.kinematics = kinematics.SwerveDrive4Kinematics(
             self.frontLeftLocation,
             self.frontRightLocation,
@@ -144,9 +151,9 @@ class SwerveDrive:
                 self.rearLeftModule.getPosition(),
                 self.rearRightModule.getPosition(),
             ),
-            geometry.Pose2d()
+            geometry.Pose2d(),
         )
-        self.odometry.setVisionMeasurementStdDevs((0.5, 0.5, math.pi/2))
+        self.odometry.setVisionMeasurementStdDevs((0.5, 0.5, math.pi / 2))
 
     @staticmethod
     def square_input(input):
@@ -235,9 +242,9 @@ class SwerveDrive:
         self.angle_pid.setI(self.nt.getNumber("swerve/angle_pid/Ki", 0))
         self.angle_pid.setD(self.nt.getNumber("swerve/angle_pid/Kd", 0))
         constraint = trajectory.TrapezoidProfile.Constraints(
-                self.nt.getNumber("swerve/angle_pid/max_vel", 0),
-                self.nt.getNumber("swerve/angle_pid/max_acc", 0)
-            )
+            self.nt.getNumber("swerve/angle_pid/max_vel", 0),
+            self.nt.getNumber("swerve/angle_pid/max_acc", 0),
+        )
         self.angle_pid.setConstraints(constraint)
         self.debug = self.nt.getBoolean("swerve/debug", False)
 
@@ -375,7 +382,9 @@ class SwerveDrive:
                     # self.angle_pid.reset()
                     self.target_angle = self.get_angle()
                     self.lost_navx = False
-                angle_error = self.angle_pid.calculate(self.get_angle(), self.target_angle)
+                angle_error = self.angle_pid.calculate(
+                    self.get_angle(), self.target_angle
+                )
                 angle_error = max(min(angle_error, 2), -2)
                 # print(f"{self.get_angle():.3f}, {self.target_angle:.3f}, {angle_error:.3f}")
             else:
@@ -384,14 +393,13 @@ class SwerveDrive:
             self._requested_vectors["rcw"] = angle_error
 
         # Ne fais rien si les vecteurs sont trop petits
-        if (self._requested_vectors["strafe"] == 0
+        if (
+            self._requested_vectors["strafe"] == 0
             and self._requested_vectors["fwd"] == 0
             and self.request_wheel_lock
         ):
             # On remets à zéro la vitesse
-            self._requested_speeds = dict.fromkeys(
-                self._requested_speeds, 0
-            )
+            self._requested_speeds = dict.fromkeys(self._requested_speeds, 0)
             # Place les roues à 45 degrées, utile pour la défense
             self._requested_angles["front_left"] = 45
             self._requested_angles["front_right"] = -45
@@ -411,11 +419,11 @@ class SwerveDrive:
         self.nt.putNumber("debug/strageSpeed", strafeSpeed)
         if self.field_centric:
             self.chassis_speed = kinematics.ChassisSpeeds.discretize(
-                    kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(
-                        fwdSpeed, strafeSpeed, rot, self.getRotation2d()
-                    ),
-                    0.02,
-                )
+                kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(
+                    fwdSpeed, strafeSpeed, rot, self.getRotation2d()
+                ),
+                0.02,
+            )
             swerveModuleStates = self.kinematics.toSwerveModuleStates(
                 self.chassis_speed
             )
@@ -518,7 +526,7 @@ class SwerveDrive:
                 self.rearLeftModule.getPosition(),
                 self.rearRightModule.getPosition(),
             ),
-            pose
+            pose,
         )
 
     def getRobotRelativeSpeeds(self):
@@ -531,7 +539,10 @@ class SwerveDrive:
         """
         ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
         """
-        speed = kinematics.ChassisSpeeds.fromRobotRelativeSpeeds(self.kinematics.toChassisSpeeds(self.getModuleStates()), self.getRotation2d())
+        speed = kinematics.ChassisSpeeds.fromRobotRelativeSpeeds(
+            self.kinematics.toChassisSpeeds(self.getModuleStates()),
+            self.getRotation2d(),
+        )
         return speed
 
     def driveFieldRelative(self, fieldRelativeSpeeds: kinematics.ChassisSpeeds):
@@ -539,7 +550,11 @@ class SwerveDrive:
         Method that will drive the robot given FIELD RELATIVE ChassisSpeeds
         """
         self.chassis_speed = fieldRelativeSpeeds
-        self.driveRobotRelative(kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(fieldRelativeSpeeds, self.getEstimatedPose().rotation()))
+        self.driveRobotRelative(
+            kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(
+                fieldRelativeSpeeds, self.getEstimatedPose().rotation()
+            )
+        )
 
     def driveRobotRelative(self, robotRelativeSpeeds: kinematics.ChassisSpeeds):
         """
@@ -554,7 +569,9 @@ class SwerveDrive:
         """
         Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
         """
-        targetStates = kinematics.SwerveDrive4Kinematics.desaturateWheelSpeeds(targetStates, MAX_MODULE_SPEED)
+        targetStates = kinematics.SwerveDrive4Kinematics.desaturateWheelSpeeds(
+            targetStates, MAX_MODULE_SPEED
+        )
         self.frontLeftModule.setTargetState(targetStates[0])
         self.frontRightModule.setTargetState(targetStates[1])
         self.rearLeftModule.setTargetState(targetStates[2])
