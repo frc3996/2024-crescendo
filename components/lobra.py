@@ -12,13 +12,13 @@ class LoBrasHead:
     # Enconneur
 
     ## Encodeur et moteur dans le meme sense?
-    kEncoderInverted = False
+    kEncoderInverted = True
 
     ## Position minimale
-    kSoftLimitReverse = math.pi / 2
+    kSoftLimitReverse = math.radians(46)
 
     ## Position maximale
-    kSoftLimitForward = 3 * math.pi / 2
+    kSoftLimitForward = math.radians(285)
 
     # Duty cycle maximal utiliser par le PID
     kMinOutput = -1
@@ -39,13 +39,13 @@ class LoBrasHead:
     kMotorCurrentLimit = 20
 
     # Valeurs de PID
-    kP = magicbot.tunable(0.7)
+    kP = magicbot.tunable(0.2)
     kI = magicbot.tunable(0.0)
     kD = magicbot.tunable(0.0)
     kFF = magicbot.tunable(0.0)
 
     ## On ne se teleporte pas a une position
-    kMotorClosedLoopRampRate = magicbot.tunable(0.0)
+    kMotorClosedLoopRampRate = magicbot.tunable(0.2)
 
     def setup(self):
         self.motor = rev.CANSparkMax(constants.CANIds.HEAD_ANGLE_MOTOR, rev.CANSparkMax.MotorType.kBrushless)
@@ -54,6 +54,7 @@ class LoBrasHead:
         # configurer. C'est utile si on dois les remplacer
         self.motor.restoreFactoryDefaults()
 
+        self.motor.setInverted(True)
         # Configurer les enconneurs et les controlleurs PIDs
         self.encoder = self.motor.getAbsoluteEncoder(
             rev.SparkAbsoluteEncoder.Type.kDutyCycle
@@ -80,6 +81,7 @@ class LoBrasHead:
         )
 
         # Inverser l'encodeur si necessaire
+        self.encoder.setZeroOffset(0)
         self.encoder.setInverted(self.kEncoderInverted)
 
         # XXX: Desactiver puisque le bras ne dois jamais prendre le chemin le
@@ -114,13 +116,17 @@ class LoBrasHead:
         # il va conserver ces configurations
         self.motor.burnFlash()
 
-    def setAngle(self, angle: Rotation2d):
-        self.pid.setReference(angle.radians(), rev.CANSparkMax.ControlType.kPosition)
+    def setAngle(self, angle: float):
+        # Rotation 2D returns from -pi to +pi. Normalize from 0 to 2pi.
+        angle = math.radians(angle)
+        angle += self.kSoftLimitReverse
+        self.pid.setReference(angle, rev.CANSparkMax.ControlType.kPosition)
 
-    def getPosition(self) -> Rotation2d:
-        return Rotation2d(wpimath.units.radians(self.encoder.getPosition()))
+    def getPosition(self) -> float:
+        return self.encoder.getPosition()
 
     def execute(self):
+        # return
         # Update the tunables
         self.motor.setClosedLoopRampRate(self.kMotorClosedLoopRampRate)
         self.pid.setP(self.kP)
@@ -136,10 +142,10 @@ class LoBrasArm:
     kEncoderInverted = False
 
     ## Position minimale
-    kSoftLimitReverse = math.pi / 2
+    kSoftLimitReverse = math.radians(105)
 
     ## Position maximale
-    kSoftLimitForward = 3 * math.pi / 2
+    kSoftLimitForward = math.radians(210)
 
     # Duty cycle maximal utiliser par le PID
     kMinOutput = -1
@@ -160,14 +166,13 @@ class LoBrasArm:
     kMotorCurrentLimit = 20
 
     # Valeurs de PID
-    kP = magicbot.tunable(0.0007)
-    # kP = magicbot.tunable(0.7)
+    kP = magicbot.tunable(1)
     kI = magicbot.tunable(0.0)
     kD = magicbot.tunable(0.0)
     kFF = magicbot.tunable(0.0)
 
     ## On rampe la vitesse
-    kMotorClosedLoopRampRate = magicbot.tunable(1.0)
+    kMotorClosedLoopRampRate = magicbot.tunable(0.2)
 
     def setup(self):
         # self.arm_limit_switch = wpilib.DigitalInput(1)
@@ -178,6 +183,7 @@ class LoBrasArm:
         # configurer. C'est utile si on dois les remplacer
         self.motor.restoreFactoryDefaults()
 
+        self.motor.setInverted(True)
         # Configurer les enconneurs et les controlleurs PIDs
         self.encoder = self.motor.getAbsoluteEncoder(
             rev.SparkAbsoluteEncoder.Type.kDutyCycle
@@ -205,6 +211,7 @@ class LoBrasArm:
 
         # Inverser l'encodeur si necessaire
         self.encoder.setInverted(self.kEncoderInverted)
+        self.encoder.setZeroOffset(0)
 
         # XXX: Desactiver puisque le bras ne dois jamais prendre le chemin le
         #      plus court
@@ -238,13 +245,17 @@ class LoBrasArm:
         # il va conserver ces configurations
         self.motor.burnFlash()
 
-    def setAngle(self, angle: Rotation2d):
-        self.pid.setReference(angle.radians(), rev.CANSparkMax.ControlType.kPosition)
+    def setAngle(self, angle: float):
+        # Rotation 2D returns from -pi to +pi. Normalize from 0 to 2pi.
+        angle = math.radians(angle)
+        angle += self.kSoftLimitReverse
+        self.pid.setReference(angle, rev.CANSparkMax.ControlType.kPosition)
 
-    def getPosition(self) -> Rotation2d:
-        return Rotation2d(wpimath.units.radians(self.encoder.getPosition()))
+    def getPosition(self) -> float:
+        return self.encoder.getPosition()
 
     def execute(self):
+        return
         # Update the tunables
         self.motor.setClosedLoopRampRate(self.kMotorClosedLoopRampRate)
         self.pid.setP(self.kP)
@@ -277,18 +288,26 @@ class LoBras:
     lobras_arm_follower: LoBrasArmFollower
     lobras_head: LoBrasHead
 
-    def set_angle(self, arm_position: Rotation2d, head_position: Rotation2d):
+    def set_arm_angle(self, arm_position: float):
+        """Set the target angles, in degrees, from 0 to 360"""
+        self.lobras_arm.setAngle(arm_position)
+
+    def set_head_angle(self, head_position: float):
+        """Set the target angles, in degrees, from 0 to 360"""
+        self.lobras_head.setAngle(head_position)
+
+    def set_angle(self, arm_position: float, head_position: float):
         """Set the target angles, in degrees, from 0 to 360"""
         self.lobras_arm.setAngle(arm_position)
         self.lobras_head.setAngle(head_position)
 
     @feedback
     def current_arm_position(self):
-        return self.lobras_arm.getPosition().degrees()
+        return math.degrees(self.lobras_arm.getPosition())
 
     @feedback
     def current_head_position(self):
-        return self.lobras_head.getPosition().degrees()
+        return math.degrees(self.lobras_head.getPosition())
 
     def intake_mode(self):
         # TODO

@@ -38,7 +38,7 @@ import ntcore
 import phoenix6
 import rev
 import wpilib
-from magicbot import MagicRobot
+from magicbot import MagicRobot, feedback
 from navx import AHRS
 from wpimath.geometry import Rotation2d
 
@@ -82,6 +82,7 @@ class MyRobot(MagicRobot):
     lobras: lobra.LoBras
 
     intake_shooter: intake.IntakeShooter
+    intake_shooter_follower: intake.IntakeShooterFollower
     intake_grabber: intake.IntakeGrabber
     intake_beam: intake.IntakeBeam
     intake: intake.Intake
@@ -112,6 +113,11 @@ class MyRobot(MagicRobot):
         self.gamepad1 = wpilib.XboxController(0)
         # self.gamepad1 = wpilib.PS5Controller(0)
         self.pdp = wpilib.PowerDistribution()
+        self.digitaltest = wpilib.DigitalInput(9)
+
+    @feedback
+    def getDigitalIO(self):
+        return self.digitaltest.get()
 
     def initSwerve(self):
         """
@@ -195,28 +201,37 @@ class MyRobot(MagicRobot):
     def teleopPeriodic(self):
         """Cette fonction est appelée de façon périodique lors du mode téléopéré."""
 
-        self.drivetrain.set_controller_values(
-            self.gamepad1.getLeftY(),
-            self.gamepad1.getLeftX(),
-            self.gamepad1.getRightX(),
-            self.gamepad1.getRightY(),
-        )
+        # self.drivetrain.set_controller_values(
+        #     self.gamepad1.getLeftY(),
+        #     self.gamepad1.getLeftX(),
+        #     self.gamepad1.getRightX(),
+        #     self.gamepad1.getRightY(),
+        # )
 
         # Reset navx zero
-        # if self.gamepad1.getCrossButton():  # self.gamepad1.getXButton():
-        #     self.drivetrain.navx_zero_angle()
+        if self.gamepad1.getXButton():
+            self.drivetrain.navx_zero_angle()
 
         # if self.gamepad1.getL1Button():  # getLeftBumper():
         #     self.drivetrain.request_wheel_lock = True
 
         # if self.gamepad1.getSquareButton():  # getAButton():
         #     self.robot_actions.autointake_with_limelight()
+        joystickx = self.gamepad1.getLeftX() * 360
 
         if self.gamepad1.getAButton():  # getBButton():
-            self.lobras.set_angle(Rotation2d.fromDegrees(0), Rotation2d(0))
-            # self.robot_actions.autoshoot_amp()
+            self.lobras.set_arm_angle(joystickx)
+        if self.gamepad1.getXButton():  # getBButton():
+            self.lobras.set_head_angle(joystickx)
         if self.gamepad1.getBButton():  # getYButton():
-            self.lobras.set_angle(Rotation2d.fromDegrees(10), Rotation2d(0))
+            self.lobras.set_angle(0, 0)
+        if self.gamepad1.getYButton():  # getYButton():
+            self.lobras.set_angle(100, 180)
+            self.intake.shooter.enable_shooter()
+        if self.gamepad1.getLeftBumper():
+            self.intake.shooter.enable_shooter()
+        if self.gamepad1.getRightBumper():
+            self.intake.shooter.disable_shooter()
             # self.robot_actions.auto_test()
         # else:
         #    self.robot_actions.reset_auto()

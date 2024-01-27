@@ -4,7 +4,6 @@ import wpilib
 import constants
 
 INTAKE_SPEED = 10
-SHOOTER_SPEED = 10
 
 
 class IntakeBeam:
@@ -29,15 +28,15 @@ class IntakeGrabber:
 
 class IntakeShooter:
     # Valeurs de PID
-    kP = magicbot.tunable(0.7)
+    kP = magicbot.tunable(0.0003)
     kI = magicbot.tunable(0.0)
     kD = magicbot.tunable(0.0)
     kFF = magicbot.tunable(0.0)
 
-    velocity = magicbot.tunable(SHOOTER_SPEED)
+    velocity = magicbot.tunable(8000)
 
     ## On rampe la vitesse
-    kMotorClosedLoopRampRate = magicbot.tunable(1.0)
+    kMotorClosedLoopRampRate = magicbot.tunable(0.3)
 
     # Duty cycle maximal utiliser par le PID
     kMinOutput = -1
@@ -47,6 +46,7 @@ class IntakeShooter:
         self.motor = rev.CANSparkMax(constants.CANIds.SHOOTER_LEFT, rev.CANSparkMax.MotorType.kBrushless)
 
         self.motor.restoreFactoryDefaults()
+        self.motor.setInverted(True)
         self.encoder = self.motor.getEncoder()
         self.pid = self.motor.getPIDController()
         self.pid.setFeedbackDevice(self.encoder)
@@ -67,11 +67,19 @@ class IntakeShooter:
     def enable_shooter(self):
         self.pid.setReference(self.velocity, rev.CANSparkMax.ControlType.kVelocity)
 
+    def disable_shooter(self):
+        self.pid.setReference(0, rev.CANSparkMax.ControlType.kVelocity)
+
     def is_ready(self):
         return abs(self.encoder.getVelocity() - self.velocity) < 1
 
     def execute(self):
-        pass
+        # Update the tunables
+        self.motor.setClosedLoopRampRate(self.kMotorClosedLoopRampRate)
+        self.pid.setP(self.kP)
+        self.pid.setI(self.kI)
+        self.pid.setD(self.kD)
+        self.pid.setFF(self.kFF)
 
 
 class IntakeShooterFollower:
@@ -89,6 +97,8 @@ class IntakeShooterFollower:
 
         self.motor.burnFlash()
 
+    def execute(self):
+        pass
 
 class Intake:
     shooter: IntakeShooter

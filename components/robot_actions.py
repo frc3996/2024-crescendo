@@ -43,8 +43,8 @@ class RobotActions:
         self.test_path.auto_move()
 
     def autoshoot_amp(self):
-        arm_angle = geometry.Rotation2d.fromDegrees(0)  # TODO calibrate all
-        head_angle = geometry.Rotation2d.fromDegrees(0)  # TODO calibrate all
+        arm_angle = 0  # TODO calibrate all
+        head_angle = 0  # TODO calibrate all
         if self.intake.shot_done is True:
             self.retract()
             return True
@@ -76,16 +76,16 @@ class RobotActions:
         pass
 
     def retract(self):
-        arm_angle = geometry.Rotation2d.fromDegrees(0)  # TODO calibrate all
-        head_angle = geometry.Rotation2d.fromDegrees(0)  # TODO calibrate all
+        arm_angle = 0  # TODO calibrate all
+        head_angle = 0  # TODO calibrate all
         self.lobras.set_angle(arm_angle, head_angle)
         self.shoot_limelight_adjust_pid.reset()
         self.intake_limelight_adjust_pid.reset()
         pass
 
     def autointake_with_limelight(self):
-        arm_angle = geometry.Rotation2d.fromDegrees(0)  # TODO calibrate all
-        head_angle = geometry.Rotation2d.fromDegrees(0)  # TODO calibrate all
+        arm_angle = 0  # TODO calibrate all
+        head_angle = 0  # TODO calibrate all
 
         if self.intake.is_object_intaken() is True:
             self.arduino_light.set_RGB(0, 0, 255)
