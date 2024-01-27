@@ -14,6 +14,7 @@ class SwerveModuleConfig:
     inverted: bool
     allow_reverse: bool
     is_simulation: bool
+    rotation_zero: int
 
 
 class SwerveModule:
@@ -34,6 +35,7 @@ class SwerveModule:
         """
         Appelé après l'injection
         """
+        self.encoder_zero = self.cfg.rotation_zero
         # General
         # meter_per_second = (rps / gear_ratio) * wheel_circumference_meter
         # rps = meter_per_second * gear_ratio / wheel_circumference_meter

@@ -44,6 +44,7 @@ from wpimath.geometry import Rotation2d
 
 from common import arduino_light, limelight
 from components import intake, lobra, robot_actions, swervedrive, swervemodule
+import constants
 
 
 class MyRobot(MagicRobot):
@@ -108,8 +109,8 @@ class MyRobot(MagicRobot):
         self.initSwerve()
 
         # General
-        # self.gamepad1 = wpilib.XboxController(0)
-        self.gamepad1 = wpilib.PS5Controller(0)
+        self.gamepad1 = wpilib.XboxController(0)
+        # self.gamepad1 = wpilib.PS5Controller(0)
         self.pdp = wpilib.PowerDistribution()
 
     def initSwerve(self):
@@ -126,54 +127,49 @@ class MyRobot(MagicRobot):
             is_simulation=self.isSimulation(),
         )
 
-        self.frontLeftModule_driveMotor = phoenix6.hardware.TalonFX(26)
-        self.frontLeftModule_rotateMotor = phoenix6.hardware.TalonFX(25)
-        self.frontLeftModule_encoder = phoenix6.hardware.CANcoder(11)
+        self.frontLeftModule_driveMotor = phoenix6.hardware.TalonFX(constants.CANIds.SWERVE_DRIVE_FL)
+        self.frontLeftModule_rotateMotor = phoenix6.hardware.TalonFX(constants.CANIds.SWERVE_ROTATE_FL)
+        self.frontLeftModule_encoder = phoenix6.hardware.CANcoder(constants.CANIds.SWERVE_CANCODER_FL)
         self.frontLeftModule_cfg = swervemodule.SwerveModuleConfig(
             nt_name="frontLeftModule",
             inverted=False,
             allow_reverse=True,
             is_simulation=self.isSimulation(),
+            rotation_zero= 193
         )
 
-        self.frontRightModule_driveMotor = phoenix6.hardware.TalonFX(28)
-        self.frontRightModule_rotateMotor = phoenix6.hardware.TalonFX(27)
-        self.frontRightModule_encoder = phoenix6.hardware.CANcoder(14)
+        self.frontRightModule_driveMotor = phoenix6.hardware.TalonFX(constants.CANIds.SWERVE_DRIVE_FR)
+        self.frontRightModule_rotateMotor = phoenix6.hardware.TalonFX(constants.CANIds.SWERVE_ROTATE_FR)
+        self.frontRightModule_encoder = phoenix6.hardware.CANcoder(constants.CANIds.SWERVE_CANCODER_FR)
         self.frontRightModule_cfg = swervemodule.SwerveModuleConfig(
             nt_name="frontRightModule",
             inverted=True,
             allow_reverse=True,
             is_simulation=self.isSimulation(),
+            rotation_zero = 76
         )
 
-        self.rearLeftModule_driveMotor = phoenix6.hardware.TalonFX(24)
-        self.rearLeftModule_rotateMotor = phoenix6.hardware.TalonFX(23)
-        self.rearLeftModule_encoder = phoenix6.hardware.CANcoder(12)
+        self.rearLeftModule_driveMotor = phoenix6.hardware.TalonFX(constants.CANIds.SWERVE_DRIVE_RL)
+        self.rearLeftModule_rotateMotor = phoenix6.hardware.TalonFX(constants.CANIds.SWERVE_ROTATE_RL)
+        self.rearLeftModule_encoder = phoenix6.hardware.CANcoder(constants.CANIds.SWERVE_CANCODER_RL)
         self.rearLeftModule_cfg = swervemodule.SwerveModuleConfig(
             nt_name="rearLeftModule",
             inverted=True,
             allow_reverse=True,
             is_simulation=self.isSimulation(),
+            rotation_zero = 216
         )
 
-        self.rearRightModule_driveMotor = phoenix6.hardware.TalonFX(21)
-        self.rearRightModule_rotateMotor = phoenix6.hardware.TalonFX(22)
-        self.rearRightModule_encoder = phoenix6.hardware.CANcoder(13)
+        self.rearRightModule_driveMotor = phoenix6.hardware.TalonFX(constants.CANIds.SWERVE_DRIVE_RR)
+        self.rearRightModule_rotateMotor = phoenix6.hardware.TalonFX(constants.CANIds.SWERVE_ROTATE_RR)
+        self.rearRightModule_encoder = phoenix6.hardware.CANcoder(constants.CANIds.SWERVE_CANCODER_RR)
         self.rearRightModule_cfg = swervemodule.SwerveModuleConfig(
             nt_name="rearRightModule",
             inverted=False,
             allow_reverse=True,
             is_simulation=self.isSimulation(),
+            rotation_zero = 318
         )
-
-        # Le ShuffleBoard est utilisé afin d'ajuster le zéro des roues.
-        # Un fois testé, les valeurs peuvent-être modifiées ici.
-        self.nt.putNumber("config/zero_calibration_mode", 0)
-
-        self.nt.putNumber("frontLeftModule/rotation_zero", 193)
-        self.nt.putNumber("frontRightModule/rotation_zero", 76)
-        self.nt.putNumber("rearLeftModule/rotation_zero", 216)
-        self.nt.putNumber("rearRightModule/rotation_zero", 318)
 
         # Et le navx nécessaire pour un control "Field Centric"
         self.navx = AHRS.create_spi(update_rate_hz=50)
@@ -199,27 +195,28 @@ class MyRobot(MagicRobot):
     def teleopPeriodic(self):
         """Cette fonction est appelée de façon périodique lors du mode téléopéré."""
 
-        # self.drivetrain.set_controller_values(
-        #     self.gamepad1.getLeftY(),
-        #     self.gamepad1.getLeftX(),
-        #     self.gamepad1.getRightX(),
-        #     self.gamepad1.getRightY(),
-        # )
+        self.drivetrain.set_controller_values(
+            self.gamepad1.getLeftY(),
+            self.gamepad1.getLeftX(),
+            self.gamepad1.getRightX(),
+            self.gamepad1.getRightY(),
+        )
 
         # Reset navx zero
         # if self.gamepad1.getCrossButton():  # self.gamepad1.getXButton():
         #     self.drivetrain.navx_zero_angle()
-        #
+
         # if self.gamepad1.getL1Button():  # getLeftBumper():
         #     self.drivetrain.request_wheel_lock = True
-        #
+
         # if self.gamepad1.getSquareButton():  # getAButton():
         #     self.robot_actions.autointake_with_limelight()
-        if self.gamepad1.getTriangleButton():  # getBButton():
-            self.lobras.set_angle(Rotation2d(math.pi), Rotation2d(0))
+
+        if self.gamepad1.getAButton():  # getBButton():
+            self.lobras.set_angle(Rotation2d.fromDegrees(0), Rotation2d(0))
             # self.robot_actions.autoshoot_amp()
-        if self.gamepad1.getCircleButton():  # getYButton():
-            self.lobras.set_angle(Rotation2d(math.pi / 2), Rotation2d(0))
+        if self.gamepad1.getBButton():  # getYButton():
+            self.lobras.set_angle(Rotation2d.fromDegrees(10), Rotation2d(0))
             # self.robot_actions.auto_test()
         # else:
         #    self.robot_actions.reset_auto()
