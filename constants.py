@@ -26,7 +26,7 @@ class CANIds(IntEnum):
     ARM_RIGHT = 30
     HEAD_ANGLE_MOTOR = 7
 
-    INTAKE_GRABBER = 10
+    INTAKE = 10
     SHOOTER_LEFT = 6
     SHOOTER_RIGHT = 20
 

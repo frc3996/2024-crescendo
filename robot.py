@@ -42,9 +42,11 @@ from magicbot import MagicRobot, feedback
 from navx import AHRS
 from wpimath.geometry import Rotation2d
 
-from common import arduino_light, limelight
-from components import intake, lobra, robot_actions, swervedrive, swervemodule
 import constants
+from common import arduino_light, limelight
+from components import (Intake, LoBras, LoBrasArm, LoBrasArmFollower,
+                        LoBrasHead, Shooter, ShooterFollower, robot_actions,
+                        swervedrive, swervemodule)
 
 
 class MyRobot(MagicRobot):
@@ -76,16 +78,14 @@ class MyRobot(MagicRobot):
     drivetrain: swervedrive.SwerveDrive
 
     # I HATE MAGICBOT AND ITS STUPID INJECTION
-    lobras_arm: lobra.LoBrasArm
-    lobras_arm_follower: lobra.LoBrasArmFollower
-    lobras_head: lobra.LoBrasHead
-    lobras: lobra.LoBras
+    lobras_arm: LoBrasArm
+    lobras_arm_follower: LoBrasArmFollower
+    lobras_head: LoBrasHead
+    lobras: LoBras
 
-    intake_shooter: intake.IntakeShooter
-    intake_shooter_follower: intake.IntakeShooterFollower
-    intake_grabber: intake.IntakeGrabber
-    intake_beam: intake.IntakeBeam
-    intake: intake.Intake
+    shooter: Shooter
+    shooter_follower: ShooterFollower
+    intake: Intake
 
     navx: AHRS
     robot_actions: robot_actions.RobotActions
@@ -251,11 +251,11 @@ class MyRobot(MagicRobot):
             self.lobras.set_angle(0, 0)
         if self.gamepad1.getYButton():  # getYButton():
             self.lobras.set_angle(100, 180)
-            self.intake.shooter.enable_shooter()
+            self.shooter.enable_shooter()
         if self.gamepad1.getLeftBumper():
-            self.intake.shooter.enable_shooter()
+            self.shooter.enable_shooter()
         if self.gamepad1.getRightBumper():
-            self.intake.shooter.disable_shooter()
+            self.shooter.disable_shooter()
             # self.robot_actions.auto_test()
         # else:
         #    self.robot_actions.reset_auto()

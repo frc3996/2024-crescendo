@@ -1,8 +1,9 @@
-import wpilib
 import ntcore
+import wpilib
 from wpimath import controller, geometry
-from components import swervedrive, lobra, intake
-from common import limelight, arduino_light, path_helper, tools
+
+from common import arduino_light, limelight, path_helper, tools
+from components import intake, lobra, swervedrive
 
 
 class RobotActions:

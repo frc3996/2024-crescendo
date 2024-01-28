@@ -2,10 +2,8 @@ import math
 
 import magicbot
 import rev
-import wpilib
-import wpimath.units
 from magicbot import feedback
-from wpimath.geometry import Rotation2d
+
 import constants
 
 
@@ -47,6 +45,8 @@ class LoBrasHead:
 
     ## On ne se teleporte pas a une position
     kMotorClosedLoopRampRate = magicbot.tunable(0.2)
+
+    _target_position: float
 
     def setup(self):
         self.motor = rev.CANSparkMax(
@@ -119,14 +119,22 @@ class LoBrasHead:
         # il va conserver ces configurations
         self.motor.burnFlash()
 
-    def setAngle(self, angle: float):
+        self._target_position = self.get_position()
+
+    def set_angle(self, angle: float):
         # Rotation 2D returns from -pi to +pi. Normalize from 0 to 2pi.
         angle = math.radians(angle)
         angle += self.kSoftLimitReverse
         self.pid.setReference(angle, rev.CANSparkMax.ControlType.kPosition)
 
-    def getPosition(self) -> float:
+    def get_position(self) -> float:
         return self.encoder.getPosition()
+
+    def is_ready(self):
+        if abs(self.get_position() - self._target_position) < 1:
+            return True
+        else:
+            return False
 
     def execute(self):
         # return
@@ -176,6 +184,8 @@ class LoBrasArm:
 
     ## On rampe la vitesse
     kMotorClosedLoopRampRate = magicbot.tunable(0.2)
+
+    _target_position: float
 
     def setup(self):
         # self.arm_limit_switch = wpilib.DigitalInput(1)
@@ -250,14 +260,22 @@ class LoBrasArm:
         # il va conserver ces configurations
         self.motor.burnFlash()
 
-    def setAngle(self, angle: float):
+        self._target_position = self.get_position()
+
+    def set_angle(self, angle: float):
         # Rotation 2D returns from -pi to +pi. Normalize from 0 to 2pi.
         angle = math.radians(angle)
         angle += self.kSoftLimitReverse
         self.pid.setReference(angle, rev.CANSparkMax.ControlType.kPosition)
 
-    def getPosition(self) -> float:
+    def get_position(self) -> float:
         return self.encoder.getPosition()
+
+    def is_ready(self):
+        if abs(self.get_position() - self._target_position) < 1:
+            return True
+        else:
+            return False
 
     def execute(self):
         return
@@ -291,56 +309,34 @@ class LoBrasArmFollower:
 
 
 class LoBras:
+    """
+    This is only for diagnostics!
+    """
+
     lobras_arm: LoBrasArm
     lobras_arm_follower: LoBrasArmFollower
     lobras_head: LoBrasHead
 
     def set_arm_angle(self, arm_position: float):
         """Set the target angles, in degrees, from 0 to 360"""
-        self.lobras_arm.setAngle(arm_position)
+        self.lobras_arm.set_angle(arm_position)
 
     def set_head_angle(self, head_position: float):
         """Set the target angles, in degrees, from 0 to 360"""
-        self.lobras_head.setAngle(head_position)
+        self.lobras_head.set_angle(head_position)
 
     def set_angle(self, arm_position: float, head_position: float):
         """Set the target angles, in degrees, from 0 to 360"""
-        self.lobras_arm.setAngle(arm_position)
-        self.lobras_head.setAngle(head_position)
+        self.lobras_arm.set_angle(arm_position)
+        self.lobras_head.set_angle(head_position)
 
     @feedback
     def current_arm_position(self):
-        return math.degrees(self.lobras_arm.getPosition())
+        return math.degrees(self.lobras_arm.get_position())
 
     @feedback
     def current_head_position(self):
-        return math.degrees(self.lobras_head.getPosition())
-
-    def intake_mode(self):
-        # TODO
-        # Place la tête et le bras en position intake
-        # self.__set_positions(xx, yy)
-        pass
-
-    def speaker_mode(self, fire=False):
-        # TODO
-        # Place le bras en mode speaker
-        # Utilise la limelight pour viser avec la tete
-
-        if fire is False:
-            return
-
-        # Tire si limelight + vitesse Ok
-
-    def amp_mode(self):
-        # TODO
-        # Place la tête et le bras en position amp
-        pass
-
-    def note_trap_mode(self):
-        # TODO
-        # Place la tête et le bras en position note_trap
-        pass
+        return math.degrees(self.lobras_head.get_position())
 
     def execute(self):
         pass

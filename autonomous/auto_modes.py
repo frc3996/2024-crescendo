@@ -1,17 +1,10 @@
 import ntcore
-import os
-from components import swervedrive, robot_actions
 from magicbot.state_machine import timed_state
-import wpimath.controller
-import wpimath.trajectory
-from pathplannerlib.path import PathPlannerPath
-import constants
-import wpilib
+
 from common import path_helper
+from components import robot_actions, swervedrive
 
 from .base_auto import BaseAuto
-
-import time
 
 
 class Path1(BaseAuto):
