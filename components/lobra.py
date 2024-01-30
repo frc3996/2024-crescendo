@@ -149,6 +149,12 @@ class LoBrasHead:
         self.pid.setI(self.kI)
         self.pid.setD(self.kD)
         self.pid.setFF(self.kFF)
+        self.motor.setIdleMode(self.kMotorIdleMode)
+        self.motor.burnFlash()
+
+    def on_disable(self):
+        self.motor.setIdleMode(rev.CANSparkMax.IdleMode.kCoast)
+        self.motor.burnFlash()
 
 
 class LoBrasArm:
@@ -295,6 +301,12 @@ class LoBrasArm:
         self.pid.setI(self.kI)
         self.pid.setD(self.kD)
         self.pid.setFF(self.kFF)
+        self.motor.setIdleMode(self.kMotorIdleMode)
+        self.motor.burnFlash()
+
+    def on_disable(self):
+        self.motor.setIdleMode(rev.CANSparkMax.IdleMode.kCoast)
+        self.motor.burnFlash()
 
 
 class LoBrasArmFollower:
