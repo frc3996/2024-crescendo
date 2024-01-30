@@ -17,7 +17,7 @@ class LoBrasHead:
     kSoftLimitReverse = math.radians(46)
 
     ## Position maximale
-    kSoftLimitForward = math.radians(285)
+    kSoftLimitForward = math.radians(212)
 
     # Duty cycle maximal utiliser par le PID
     kMinOutput = -1
@@ -119,7 +119,7 @@ class LoBrasHead:
         # il va conserver ces configurations
         self.motor.burnFlash()
 
-        self._target_position = self.get_position()
+        self._target_position = self.get_angle()
 
     def set_angle(self, angle: float):
         # Rotation 2D returns from -pi to +pi. Normalize from 0 to 2pi.
@@ -127,17 +127,20 @@ class LoBrasHead:
         angle += self.kSoftLimitReverse
         self.pid.setReference(angle, rev.CANSparkMax.ControlType.kPosition)
 
-    def get_position(self) -> float:
+    def get_angle(self) -> float:
+        return self.encoder.getPosition() - self.kSoftLimitReverse
+
+    def get_encoder_angle(self) -> float:
         return self.encoder.getPosition()
 
     def is_ready(self):
-        if abs(self.get_position() - self._target_position) < 1:
+        if abs(self.get_angle() - self._target_position) < 10:
             return True
         else:
             return False
 
     def execute(self):
-        # return
+        return
         # Update the tunables
         self.motor.setClosedLoopRampRate(self.kMotorClosedLoopRampRate)
         self.pid.setP(self.kP)
@@ -260,7 +263,7 @@ class LoBrasArm:
         # il va conserver ces configurations
         self.motor.burnFlash()
 
-        self._target_position = self.get_position()
+        self._target_position = self.get_angle()
 
     def set_angle(self, angle: float):
         # Rotation 2D returns from -pi to +pi. Normalize from 0 to 2pi.
@@ -268,11 +271,14 @@ class LoBrasArm:
         angle += self.kSoftLimitReverse
         self.pid.setReference(angle, rev.CANSparkMax.ControlType.kPosition)
 
-    def get_position(self) -> float:
+    def get_angle(self) -> float:
+        return self.encoder.getPosition() - self.kSoftLimitReverse
+
+    def get_encoder_angle(self) -> float:
         return self.encoder.getPosition()
 
     def is_ready(self):
-        if abs(self.get_position() - self._target_position) < 1:
+        if abs(self.get_angle() - self._target_position) < 1:
             return True
         else:
             return False
@@ -331,12 +337,20 @@ class LoBras:
         self.lobras_head.set_angle(head_position)
 
     @feedback
-    def current_arm_position(self):
-        return math.degrees(self.lobras_arm.get_position())
+    def arm_angle(self):
+        return math.degrees(self.lobras_arm.get_angle())
 
     @feedback
-    def current_head_position(self):
-        return math.degrees(self.lobras_head.get_position())
+    def head_angle(self):
+        return math.degrees(self.lobras_head.get_angle())
+
+    @feedback
+    def arm_encoder_angle(self):
+        return math.degrees(self.lobras_arm.get_encoder_angle())
+
+    @feedback
+    def head_encoder_angle(self):
+        return math.degrees(self.lobras_head.get_encoder_angle())
 
     def execute(self):
         pass

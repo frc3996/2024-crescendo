@@ -3,9 +3,9 @@ import rev
 from magicbot import StateMachine, default_state, state, timed_state
 
 import constants
-from components import Intake
+from components import Intake, IntakeControl
 
-from .lobra import LoBras
+from .lobra import LoBras, LoBrasArm, LoBrasHead
 
 
 class Shooter:
@@ -15,7 +15,8 @@ class Shooter:
     kD = magicbot.tunable(0.0)
     kFF = magicbot.tunable(0.0)
 
-    velocity = magicbot.tunable(8000)
+    # MAX SPEED IS 5676
+    velocity = magicbot.tunable(5000)
 
     ## On rampe la vitesse
     kMotorClosedLoopRampRate = magicbot.tunable(0.3)
@@ -48,16 +49,22 @@ class Shooter:
         self.motor.burnFlash()
 
     # Control methods
-    def enable_shooter(self):
+    def enable(self):
         self.pid.setReference(self.velocity, rev.CANSparkMax.ControlType.kVelocity)
 
-    def disable_shooter(self):
+    def disable(self):
         self.pid.setReference(0, rev.CANSparkMax.ControlType.kDutyCycle)
+
+    def is_enabled(self):
+        if self.encoder.getVelocity() > 0:
+            return True
+        return False
 
     def is_ready(self):
         return abs(self.encoder.getVelocity() - self.velocity) < 1
 
     def execute(self):
+        return
         # Update the tunables
         self.motor.setClosedLoopRampRate(self.kMotorClosedLoopRampRate)
         self.pid.setP(self.kP)
@@ -88,9 +95,10 @@ class ShooterFollower:
 
 
 class ShooterControl(StateMachine):
-    lobra: LoBras
+    lobras_arm: LoBrasArm
+    lobras_head: LoBrasHead
     shooter: Shooter
-    intake: Intake
+    intake_control: IntakeControl
 
     def fire(self):
         """This function is called from teleop or autonomous to cause the
@@ -98,20 +106,40 @@ class ShooterControl(StateMachine):
         self.engage()
 
     @state(first=True)
+    def position_arm(self):
+        self.lobras_arm.set_angle(100)
+        if self.lobras_arm.is_ready():
+            self.next_state_now("position_head")
+
+    @state
+    def position_head(self):
+        """Premier etat, position la tete"""
+        self.lobras_head.set_angle(195)
+
+        if self.lobras_head.is_ready():
+            self.next_state_now("prepare_to_fire")
+
+    @state
     def prepare_to_fire(self):
         """First state -- waits until shooter is ready before going to the
         next action in the sequence"""
-        self.shooter.enable_shooter()
+        self.shooter.enable()
 
-        if self.shooter.is_ready():
-            self.next_state_now("firing")
+        # if self.shooter.is_ready():
+        self.next_state_now("firing")
 
-    @timed_state(duration=1, must_finish=True)
+    @state
     def firing(self):
         """Fires the ball"""
-        self.intake.feed_shooter()
+        self.intake_control.feed()
+        if not self.intake_control.is_executing:
+            self.next_state_now("stop")
 
-    @default_state
-    def halt(self):
+    @state
+    def stop(self):
         """Always called to stop the motor"""
-        self.shooter.disable_shooter()
+        self.shooter.disable()
+
+    def done(self) -> None:
+        self.shooter.disable()
+        return super().done()

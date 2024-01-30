@@ -44,9 +44,10 @@ from wpimath.geometry import Rotation2d
 
 import constants
 from common import arduino_light, limelight
-from components import (Intake, LoBras, LoBrasArm, LoBrasArmFollower,
-                        LoBrasHead, Shooter, ShooterFollower, robot_actions,
-                        swervedrive, swervemodule)
+from components import (Intake, IntakeBeam, IntakeControl, LoBras, LoBrasArm,
+                        LoBrasArmFollower, LoBrasHead, Shooter, ShooterControl,
+                        ShooterFollower, robot_actions, swervedrive,
+                        swervemodule)
 
 
 class MyRobot(MagicRobot):
@@ -85,7 +86,10 @@ class MyRobot(MagicRobot):
 
     shooter: Shooter
     shooter_follower: ShooterFollower
+    shooter_control: ShooterControl
     intake: Intake
+    intake_beam: IntakeBeam
+    intake_control: IntakeControl
 
     navx: AHRS
     robot_actions: robot_actions.RobotActions
@@ -247,16 +251,30 @@ class MyRobot(MagicRobot):
             self.lobras.set_arm_angle(joystickx)
         if self.gamepad1.getXButton():  # getBButton():
             self.lobras.set_head_angle(joystickx)
-        if self.gamepad1.getBButton():  # getYButton():
-            self.lobras.set_angle(0, 0)
         if self.gamepad1.getYButton():  # getYButton():
-            self.lobras.set_angle(100, 180)
-            self.shooter.enable_shooter()
+            self.intake_control.grab()
+        if self.gamepad1.getBButton():  # getYButton():
+            self.shooter_control.fire()
         if self.gamepad1.getLeftBumper():
-            self.shooter.enable_shooter()
+            self.intake_control.feed()
         if self.gamepad1.getRightBumper():
-            self.shooter.disable_shooter()
-            # self.robot_actions.auto_test()
+            self.intake_control.done()
+        if self.gamepad1.getStartButtonPressed():
+            if self.shooter.is_enabled():
+                self.shooter.disable()
+            else:
+                self.shooter.enable()
+        # if self.gamepad1.getBButton():  # getYButton():
+        # if self.gamepad1.getBButton():  # getYButton():
+        #     self.lobras.set_angle(0, 0)
+        # if self.gamepad1.getYButton():  # getYButton():
+        #     self.lobras.set_angle(100, 180)
+        #     self.shooter.enable_shooter()
+        # if self.gamepad1.getLeftBumper():
+        #     self.shooter.enable_shooter()
+        # if self.gamepad1.getRightBumper():
+        #     self.shooter.disable_shooter()
+        # self.robot_actions.auto_test()
         # else:
         #    self.robot_actions.reset_auto()
         # self.robot_actions.retract()
