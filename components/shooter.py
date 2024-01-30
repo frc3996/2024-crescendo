@@ -62,6 +62,8 @@ class Shooter:
 
     def execute(self):
         return
+
+    def on_enable(self):
         # Update the tunables
         self.motor.setClosedLoopRampRate(self.kMotorClosedLoopRampRate)
         self.pid.setP(self.kP)
