@@ -1,15 +1,16 @@
 import ntcore
 import wpilib
+from magicbot import StateMachine, default_state, feedback, state, timed_state
 from wpimath import controller, geometry
 
 from common import arduino_light, limelight, path_helper, tools
-from components import intake, lobra, swervedrive
+from components import *
 
 
 class RobotActions:
     drivetrain: swervedrive.SwerveDrive
-    intake: intake.Intake
-    lobras: lobra.LoBras
+    intake: Intake
+    lobras: LoBras
     limelight_intake: limelight.Limelight
     limelight_shoot: limelight.Limelight
     arduino_light: arduino_light.I2CArduinoLight
@@ -125,3 +126,106 @@ class RobotActions:
 
     def execute(self):
         pass
+
+
+class ActionGrab(StateMachine):
+    lobras_arm: LoBrasArm
+    lobras_head: LoBrasHead
+    intake: Intake
+
+    @state(first=True)
+    def position_head(self):
+        """Premier etat, position la tete"""
+        self.lobras_head.set_angle(110)
+
+        if self.lobras_head.is_ready():
+            self.next_state("position_arm")
+
+    @state
+    def position_arm(self):
+        self.lobras_arm.set_angle(0)
+        if self.lobras_arm.is_ready():
+            self.next_state("start_intake")
+
+    @state
+    def start_intake(self):
+        self.intake.enable()
+        if self.intake.has_object():
+            self.done()
+
+    def done(self) -> None:
+        self.lobras_head.set_angle(10)
+        self.intake.disable()
+        return super().done()
+
+
+class ActionShoot(StateMachine):
+    lobras_arm: LoBrasArm
+    lobras_head: LoBrasHead
+    shooter: Shooter
+    intake: Intake
+
+    @state(first=True)
+    def position_arm(self):
+        self.lobras_arm.set_angle(100)
+        if self.lobras_arm.is_ready():
+            self.next_state("position_head")
+
+    @state
+    def position_head(self):
+        """Premier etat, position la tete"""
+        self.lobras_head.set_angle(195)
+
+        if self.lobras_head.is_ready():
+            self.next_state("prepare_to_fire")
+
+    @timed_state(duration=2, next_state="feed_start")
+    def prepare_to_fire(self, initial_call):
+        """First state -- waits until shooter is ready before going to the
+        next action in the sequence"""
+        if initial_call:
+            self.shooter.enable()
+
+        # Use a normal state
+        # if self.shooter.is_ready():
+        #     self.next_state("firing")
+
+    @state
+    def feed_start(self):
+        self.intake.enable()
+        if not self.intake.has_object():
+            self.done()
+
+    def done(self) -> None:
+        self.shooter.disable()
+        self.intake.disable()
+        return super().done()
+
+
+class ActionStow(StateMachine):
+    lobras_arm: LoBrasArm
+    lobras_head: LoBrasHead
+    shooter: Shooter
+    intake: Intake
+
+    def fire(self):
+        """This function is called from teleop or autonomous to cause the
+        shooter to fire"""
+        self.engage()
+
+    @state(first=True)
+    def position_head(self):
+        """Premier etat, position la tete, et on s'assure que plu rien tourne"""
+        self.shooter.disable()
+        self.intake.disable()
+
+        self.lobras_head.set_angle(0)
+
+        if self.lobras_head.is_ready():
+            self.next_state("position_arm")
+
+    @state
+    def position_arm(self):
+        self.lobras_arm.set_angle(0)
+        if self.lobras_arm.is_ready():
+            self.done()

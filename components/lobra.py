@@ -134,7 +134,7 @@ class LoBrasHead:
         return self.encoder.getPosition()
 
     def is_ready(self):
-        if abs(self.get_angle() - self._target_position) < 10:
+        if abs(self.get_angle() - self._target_position) < 1:
             return True
         else:
             return False

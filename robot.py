@@ -44,10 +44,9 @@ from wpimath.geometry import Rotation2d
 
 import constants
 from common import arduino_light, limelight
-from components import (Intake, IntakeBeam, IntakeControl, LoBras, LoBrasArm,
-                        LoBrasArmFollower, LoBrasHead, Shooter, ShooterControl,
-                        ShooterFollower, robot_actions, swervedrive,
-                        swervemodule)
+from components import *
+from components.robot_actions import (ActionGrab, ActionShoot, ActionStow,
+                                      RobotActions)
 
 
 class MyRobot(MagicRobot):
@@ -67,32 +66,36 @@ class MyRobot(MagicRobot):
     Pour plus d'information: https://robotpy.readthedocs.io/en/stable/frameworks/magicbot.html
     """
 
-    # Swerve Drive
-    # Ici on crée un composant par swerve (swervemodule), suivi d'un dernier composant qui regroupe l'ensemble de toutes les swerves (swervedrive)
-    # `inverted` doit être ajusté si le moteur tourne dans la mauvaise direction
-    # `allow_reverse` est utiliser pour changer la direction de rotation d'un moteur plutôt que de faire une rotation de plus de 180 degrée
-    # `nt_name` sera le nom sous lequel sera groupé les données des modules dans les networktables
+    # HIGH Level components first (components that use components)
+    actionGrab: ActionGrab
+    actionShoot: ActionShoot
+    actionStow: ActionStow
+    robot_actions: RobotActions
+
+    # LOW Level components after
+
+    # SwerveDrive
     frontLeftModule: swervemodule.SwerveModule
     frontRightModule: swervemodule.SwerveModule
     rearLeftModule: swervemodule.SwerveModule
     rearRightModule: swervemodule.SwerveModule
     drivetrain: swervedrive.SwerveDrive
 
-    # I HATE MAGICBOT AND ITS STUPID INJECTION
+    # LoBras
     lobras_arm: LoBrasArm
     lobras_arm_follower: LoBrasArmFollower
     lobras_head: LoBrasHead
     lobras: LoBras
 
+    # Shooter
     shooter: Shooter
     shooter_follower: ShooterFollower
-    shooter_control: ShooterControl
-    intake: Intake
-    intake_beam: IntakeBeam
-    intake_control: IntakeControl
 
+    # Intake
+    intake: Intake
+
+    # NAVX
     navx: AHRS
-    robot_actions: robot_actions.RobotActions
 
     # Networktables pour de la configuration et retour d'information
     nt: ntcore.NetworkTable
@@ -229,55 +232,31 @@ class MyRobot(MagicRobot):
     def teleopPeriodic(self):
         """Cette fonction est appelée de façon périodique lors du mode téléopéré."""
 
-        # self.drivetrain.set_controller_values(
-        #     self.gamepad1.getLeftY(),
-        #     self.gamepad1.getLeftX(),
-        #     self.gamepad1.getRightX(),
-        #     self.gamepad1.getRightY(),
-        # )
+        self.drivetrain.set_controller_values(
+            self.gamepad1.getLeftY(),
+            self.gamepad1.getLeftX(),
+            self.gamepad1.getRightX(),
+            self.gamepad1.getRightY(),
+        )
 
         # Reset navx zero
-        if self.gamepad1.getXButton():
+        if self.gamepad1.getYButton():
             self.drivetrain.navx_zero_angle()
 
-        # if self.gamepad1.getL1Button():  # getLeftBumper():
-        #     self.drivetrain.request_wheel_lock = True
+        if self.gamepad1.getStartButton():
+            self.drivetrain.request_wheel_lock = True
 
-        # if self.gamepad1.getSquareButton():  # getAButton():
-        #     self.robot_actions.autointake_with_limelight()
-        joystickx = self.gamepad1.getLeftX() * 360
-
-        if self.gamepad1.getAButton():  # getBButton():
-            self.lobras.set_arm_angle(joystickx)
-        if self.gamepad1.getXButton():  # getBButton():
-            self.lobras.set_head_angle(joystickx)
-        if self.gamepad1.getYButton():  # getYButton():
-            self.intake_control.grab()
-        if self.gamepad1.getBButton():  # getYButton():
-            self.shooter_control.fire()
+        joystick = self.gamepad1.getLeftX() * 360
         if self.gamepad1.getLeftBumper():
-            self.intake_control.feed()
+            self.lobras.set_arm_angle(joystick)
         if self.gamepad1.getRightBumper():
-            self.intake_control.done()
-        if self.gamepad1.getStartButtonPressed():
-            if self.shooter.is_enabled():
-                self.shooter.disable()
-            else:
-                self.shooter.enable()
-        # if self.gamepad1.getBButton():  # getYButton():
-        # if self.gamepad1.getBButton():  # getYButton():
-        #     self.lobras.set_angle(0, 0)
-        # if self.gamepad1.getYButton():  # getYButton():
-        #     self.lobras.set_angle(100, 180)
-        #     self.shooter.enable_shooter()
-        # if self.gamepad1.getLeftBumper():
-        #     self.shooter.enable_shooter()
-        # if self.gamepad1.getRightBumper():
-        #     self.shooter.disable_shooter()
-        # self.robot_actions.auto_test()
-        # else:
-        #    self.robot_actions.reset_auto()
-        # self.robot_actions.retract()
+            self.lobras.set_head_angle(joystick)
+        if self.gamepad1.getAButton():
+            self.actionStow.engage()
+        if self.gamepad1.getBButton():
+            self.actionGrab.engage()
+        if self.gamepad1.getXButton():
+            self.actionShoot.engage()
 
     def update_nt(self):
         """Affiche les données sur le ShuffleBoard"""

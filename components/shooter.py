@@ -3,9 +3,6 @@ import rev
 from magicbot import StateMachine, default_state, state, timed_state
 
 import constants
-from components import Intake, IntakeControl
-
-from .lobra import LoBras, LoBrasArm, LoBrasHead
 
 
 class Shooter:
@@ -61,7 +58,7 @@ class Shooter:
         return False
 
     def is_ready(self):
-        return abs(self.encoder.getVelocity() - self.velocity) < 1
+        return abs(self.encoder.getVelocity() - self.velocity) < 100
 
     def execute(self):
         return
@@ -92,54 +89,3 @@ class ShooterFollower:
 
     def execute(self):
         pass
-
-
-class ShooterControl(StateMachine):
-    lobras_arm: LoBrasArm
-    lobras_head: LoBrasHead
-    shooter: Shooter
-    intake_control: IntakeControl
-
-    def fire(self):
-        """This function is called from teleop or autonomous to cause the
-        shooter to fire"""
-        self.engage()
-
-    @state(first=True)
-    def position_arm(self):
-        self.lobras_arm.set_angle(100)
-        if self.lobras_arm.is_ready():
-            self.next_state_now("position_head")
-
-    @state
-    def position_head(self):
-        """Premier etat, position la tete"""
-        self.lobras_head.set_angle(195)
-
-        if self.lobras_head.is_ready():
-            self.next_state_now("prepare_to_fire")
-
-    @state
-    def prepare_to_fire(self):
-        """First state -- waits until shooter is ready before going to the
-        next action in the sequence"""
-        self.shooter.enable()
-
-        # if self.shooter.is_ready():
-        self.next_state_now("firing")
-
-    @state
-    def firing(self):
-        """Fires the ball"""
-        self.intake_control.feed()
-        if not self.intake_control.is_executing:
-            self.next_state_now("stop")
-
-    @state
-    def stop(self):
-        """Always called to stop the motor"""
-        self.shooter.disable()
-
-    def done(self) -> None:
-        self.shooter.disable()
-        return super().done()
