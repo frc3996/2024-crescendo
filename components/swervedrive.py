@@ -9,14 +9,17 @@ Angle:  The angle of the robot as measured by a gyroscope. The robot's angle
 """
 
 import math
-import ntcore
 from dataclasses import dataclass
-from wpimath import geometry, filter, kinematics, controller, trajectory, estimator
-from navx import AHRS
-from components import swervemodule
-import pathplannerlib.telemetry
-import constants
 
+import ntcore
+import pathplannerlib.telemetry
+from magicbot import feedback, tunable
+from navx import AHRS
+from wpimath import (controller, estimator, filter, geometry, kinematics,
+                     trajectory)
+
+import constants
+from components import swervemodule
 
 MAX_WHEEL_SPEED = 4  # meter per second
 MAX_MODULE_SPEED = 4.5
@@ -44,8 +47,14 @@ class SwerveDrive:
     frontRightModule: swervemodule.SwerveModule
     rearLeftModule: swervemodule.SwerveModule
     rearRightModule: swervemodule.SwerveModule
-    navx: AHRS
     nt: ntcore.NetworkTable
+
+    # Pid de rotation. Ajuster via le ShuffleBoard et écrire la nouvelle valeur ici
+    kP = tunable(0.004)
+    kI = tunable(0.0)
+    kD = tunable(0.0)
+    max_vel = tunable(constants.MAX_ANGULAR_VEL)
+    max_accel = tunable(constants.MAX_ANGULAR_ACCEL)
 
     def setup(self):
         """
@@ -54,8 +63,6 @@ class SwerveDrive:
         self.chassis_speed = kinematics.ChassisSpeeds()
         self.sim_angle = 0
         self.lower_input_thresh = 0.1
-        self.NavxPitchZero = 0
-        self.NavxRollZero = 0
         self.zero_done = False
 
         # Place les modules dans un dictionaire
@@ -67,7 +74,7 @@ class SwerveDrive:
         }
 
         # Mets les commandes à zéro
-        self._requested_vectors = {"fwd": 0, "strafe": 0, "rcw": 0}
+        self._requested_vectors = {"fwd": 0.0, "strafe": 0.0, "rcw": 0.0}
 
         self._requested_angles = {
             "front_left": 0,
@@ -83,11 +90,9 @@ class SwerveDrive:
             "rear_right": 0,
         }
 
-        self.debug = False
-        self.nt.putBoolean("swerve/debug", False)
-        self.field_centric = self.cfg.field_centric
+        self.navx = AHRS.create_spi(update_rate_hz=50)
 
-        self.lost_navx = False
+        self.field_centric = self.cfg.field_centric
 
         self.controller_forward = 0
         self.controller_strafe = 0
@@ -113,13 +118,6 @@ class SwerveDrive:
         self.angle_pid.enableContinuousInput(-180, 180)
         self.angle_pid.setTolerance(-1, 1)
 
-        # Pid de rotation. Ajuster via le ShuffleBoard et écrire la nouvelle valeur ici
-        self.nt.putNumber("swerve/angle_pid/Kp", 0.004)
-        self.nt.putNumber("swerve/angle_pid/Ki", 0)
-        self.nt.putNumber("swerve/angle_pid/Kd", 0)
-        self.nt.putNumber("swerve/angle_pid/max_vel", constants.MAX_ANGULAR_VEL)
-        self.nt.putNumber("swerve/angle_pid/max_acc", constants.MAX_ANGULAR_ACCEL)
-
         self.frontLeftLocation = geometry.Translation2d(
             self.cfg.base_width / 2, self.cfg.base_length / 2
         )
@@ -139,12 +137,9 @@ class SwerveDrive:
             self.backRightLocation,
         )
 
-        self.navx_zero_angle()
-
-        # self.odometry = kinematics.SwerveDrive4Odometry(
         self.odometry = estimator.SwerveDrive4PoseEstimator(
             self.kinematics,
-            self.getRotation2d(),
+            self.get_gyro_angle(),
             (
                 self.frontLeftModule.getPosition(),
                 self.frontRightModule.getPosition(),
@@ -154,6 +149,23 @@ class SwerveDrive:
             geometry.Pose2d(),
         )
         self.odometry.setVisionMeasurementStdDevs((0.5, 0.5, math.pi / 2))
+
+    def on_enable(self):
+        self.navx_zero_angle()
+        self.flush()
+
+        self.angle_pid.setP(self.kP)
+        self.angle_pid.setI(self.kI)
+        self.angle_pid.setD(self.kD)
+        constraint = trajectory.TrapezoidProfile.Constraints(
+            self.max_vel,
+            self.max_accel,
+        )
+        self.angle_pid.setConstraints(constraint)
+
+        # TODO: Move this on on_enable of swervemodule
+        for key in self.modules:
+            self.modules[key].refresh_nt_config()
 
     @staticmethod
     def square_input(input):
@@ -191,75 +203,68 @@ class SwerveDrive:
 
         return data
 
-    def init_navx(self):
-        if self.zero_done is True:
-            return
-        self.zero_done = True
-        self.navx_zero_all()
-
-    def navx_zero_angle(self):
-        self.navx.reset()
-        self.target_angle = self.get_angle()
-
-    def navx_zero_all(self):
-        self.navx_zero_angle()
-        self.NavxPitchZero = self.navx.getPitch()
-        self.NavxRollZero = self.navx.getRoll()
-
     def flush(self):
         """
         Cette méthode devrait être appelé pour remettre à zéro le drivetrain.
         Remotes les module swerve à zéro en même temps.
         """
-        self._requested_vectors = {"fwd": 0, "strafe": 0, "rcw": 0}
+        self._requested_vectors["fwd"] = 0.0
+        self._requested_vectors["strafe"] = 0.0
+        self._requested_vectors["rcw"] = 0.0
 
-        self._requested_angles = {
-            "front_left": 0,
-            "front_right": 0,
-            "rear_left": 0,
-            "rear_right": 0,
-        }
+        self._requested_angles["front_left"] = 0
+        self._requested_angles["front_right"] = 0
+        self._requested_angles["rear_left"] = 0
+        self._requested_angles["rear_right"] = 0
 
-        self._requested_speeds = {
-            "front_left": 0,
-            "front_right": 0,
-            "rear_left": 0,
-            "rear_right": 0,
-        }
+        self._requested_speeds["front_left"] = 0
+        self._requested_speeds["front_right"] = 0
+        self._requested_speeds["rear_left"] = 0
+        self._requested_speeds["rear_right"] = 0
 
         for module in self.modules.values():
             module.flush()
 
-    def init(self):
-        self.init_navx()
-        self.flush()
-        self.refresh_nt_config()
-        for key in self.modules:
-            self.modules[key].refresh_nt_config()
-
-    def refresh_nt_config(self):
-        self.angle_pid.setP(self.nt.getNumber("swerve/angle_pid/Kp", 0))
-        self.angle_pid.setI(self.nt.getNumber("swerve/angle_pid/Ki", 0))
-        self.angle_pid.setD(self.nt.getNumber("swerve/angle_pid/Kd", 0))
-        constraint = trajectory.TrapezoidProfile.Constraints(
-            self.nt.getNumber("swerve/angle_pid/max_vel", 0),
-            self.nt.getNumber("swerve/angle_pid/max_acc", 0),
-        )
-        self.angle_pid.setConstraints(constraint)
-        self.debug = self.nt.getBoolean("swerve/debug", False)
-
-    def getRotation2d(self):
+    def get_gyro_angle(self):
         if self.cfg.is_simulation:
             return geometry.Rotation2d(self.sim_angle)
         else:
-            return self.navx.getRotation2d()
+            if self.navx.isConnected() is True:
+                return self.navx.getRotation2d()
+            else:
+                # I really don't know if this is a good idea
+                return self.getEstimatedPose().rotation()
+
+    def navx_zero_angle(self):
+        self.navx.reset()
+        self.target_angle = self.get_angle()
+
+    @feedback
+    def navx_pitch(self):
+        return self.navx.getPitch()
+
+    @feedback
+    def navx_yaw(self):
+        return self.navx.getYaw()
+
+    @feedback
+    def navx_roll(self):
+        return self.navx.getRoll()
+
+    @feedback
+    def navx_angle(self):
+        return self.navx.getAngle()
+
+    @feedback
+    def navx_angle_error(self):
+        return self.target_angle - self.get_angle()
 
     def get_angle(self):
         """
         Retourne l'angle absolue basée sur le zéro
         De -180 à 180 degrée
         """
-        return self.getRotation2d().degrees()
+        return self.getEstimatedPose().rotation().degrees()
 
     def set_fwd(self, fwd):
         """
@@ -301,6 +306,19 @@ class SwerveDrive:
         self.automove_strafe = vector[1]
         self.automove_strength = strength
 
+    def compute_look_at_stick_angle(self):
+        angle_stick_x = self.controller_angle_stick_x
+        angle_stick_y = self.controller_angle_stick_y
+
+        # Élimite la zone morte du joystick (petits déplacements)
+        if math.sqrt(angle_stick_x**2 + angle_stick_y**2) > 0.5:
+            angle = (math.degrees(math.atan2(angle_stick_y, angle_stick_x)) + 360) % 360
+            angle += 270
+            angle %= 360
+            angle -= 180
+            angle = -angle
+            self.set_angle(angle)
+
     def set_controller_values(self, forward, strafe, angle_stick_x, angle_stick_y):
         self.controller_forward = forward
         self.controller_strafe = strafe
@@ -309,7 +327,7 @@ class SwerveDrive:
 
         self.compute_look_at_stick_angle()
 
-    def compute_move(self):
+    def _compute_move(self):
         """Fait bouger le robot avec un contrôleur"""
         forward = self.square_input(-self.controller_forward)
         strafe = self.square_input(self.controller_strafe)
@@ -336,19 +354,6 @@ class SwerveDrive:
         angle_stick_x = self.controller_angle_stick_x
         rotate = self.square_input(angle_stick_x)
         self._rotate_robot(rotate)
-
-    def compute_look_at_stick_angle(self):
-        angle_stick_x = self.controller_angle_stick_x
-        angle_stick_y = self.controller_angle_stick_y
-
-        # Élimite la zone morte du joystick (petits déplacements)
-        if math.sqrt(angle_stick_x**2 + angle_stick_y**2) > 0.5:
-            angle = (math.degrees(math.atan2(angle_stick_y, angle_stick_x)) + 360) % 360
-            angle += 270
-            angle %= 360
-            angle -= 180
-            angle = -angle
-            self.set_angle(angle)
 
     def snap_angle_nearest_180(self):
         """Force le robot à regarder vers l'avant ou l'arrière"""
@@ -377,19 +382,9 @@ class SwerveDrive:
         """
 
         if self.field_centric:
-            if self.navx.isConnected() is True:
-                if self.lost_navx is True:
-                    # self.angle_pid.reset()
-                    self.target_angle = self.get_angle()
-                    self.lost_navx = False
-                angle_error = self.angle_pid.calculate(
-                    self.get_angle(), self.target_angle
-                )
-                angle_error = max(min(angle_error, 2), -2)
-                # print(f"{self.get_angle():.3f}, {self.target_angle:.3f}, {angle_error:.3f}")
-            else:
-                self.lost_navx = True
-                return
+            angle_error = self.angle_pid.calculate(self.get_angle(), self.target_angle)
+            angle_error = max(min(angle_error, 2), -2)
+            # print(f"{self.get_angle():.3f}, {self.target_angle:.3f}, {angle_error:.3f}")
             self._requested_vectors["rcw"] = angle_error
 
         # Ne fais rien si les vecteurs sont trop petits
@@ -420,7 +415,7 @@ class SwerveDrive:
         if self.field_centric:
             self.chassis_speed = kinematics.ChassisSpeeds.discretize(
                 kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(
-                    fwdSpeed, strafeSpeed, rot, self.getRotation2d()
+                    fwdSpeed, strafeSpeed, rot, self.getEstimatedPose().rotation()
                 ),
                 0.02,
             )
@@ -450,23 +445,10 @@ class SwerveDrive:
         self._requested_vectors["strafe"] = 0.0
         self._requested_vectors["rcw"] = 0.0
 
-    def update_nt(self):
-        """
-        Affiche des informations de débogage
-        """
-        if self.debug:
-            self.nt.putNumber("navx/pitch", self.navx.getPitch())
-            self.nt.putNumber("navx/yaw", self.navx.getYaw())
-            self.nt.putNumber("navx/roll", self.navx.getRoll())
-            self.nt.putNumber("navx/angle", self.navx.getAngle())
-            self.nt.putNumber(
-                "debug/navx_angle_error", self.target_angle - self.get_angle()
-            )
-
     def updateOdometry(self) -> None:
         """Updates the field relative position of the robot."""
         self.odometry.update(
-            self.getRotation2d(),
+            self.get_gyro_angle(),
             (
                 self.frontLeftModule.getPosition(),
                 self.frontRightModule.getPosition(),
@@ -493,12 +475,12 @@ class SwerveDrive:
         For PathPlannerLib
         Return Swerve module states
         """
-        states = [
+        states = (
             self.frontLeftModule.getState(),
             self.frontRightModule.getState(),
             self.rearLeftModule.getState(),
             self.rearRightModule.getState(),
-        ]
+        )
         return states
 
     def getEstimatedPose(self) -> geometry.Pose2d:
@@ -519,7 +501,7 @@ class SwerveDrive:
         self.rearRightModule.resetPose()
 
         self.odometry.resetPosition(
-            self.getRotation2d(),
+            self.get_gyro_angle(),
             (
                 self.frontLeftModule.getPosition(),
                 self.frontRightModule.getPosition(),
@@ -541,20 +523,9 @@ class SwerveDrive:
         """
         speed = kinematics.ChassisSpeeds.fromRobotRelativeSpeeds(
             self.kinematics.toChassisSpeeds(self.getModuleStates()),
-            self.getRotation2d(),
+            self.getEstimatedPose().rotation(),
         )
         return speed
-
-    def driveFieldRelative(self, fieldRelativeSpeeds: kinematics.ChassisSpeeds):
-        """
-        Method that will drive the robot given FIELD RELATIVE ChassisSpeeds
-        """
-        self.chassis_speed = fieldRelativeSpeeds
-        self.driveRobotRelative(
-            kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(
-                fieldRelativeSpeeds, self.getEstimatedPose().rotation()
-            )
-        )
 
     def driveRobotRelative(self, robotRelativeSpeeds: kinematics.ChassisSpeeds):
         """
@@ -565,7 +536,15 @@ class SwerveDrive:
         targetStates = self.kinematics.toSwerveModuleStates(targetSpeeds)
         self.setStates(targetStates)
 
-    def setStates(self, targetStates: list[kinematics.SwerveModuleState]):
+    def setStates(
+        self,
+        targetStates: tuple[
+            kinematics.SwerveModuleState,
+            kinematics.SwerveModuleState,
+            kinematics.SwerveModuleState,
+            kinematics.SwerveModuleState,
+        ],
+    ):
         """
         Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
         """
@@ -583,7 +562,7 @@ class SwerveDrive:
         """
         # Évaluation de la commande selon le mode d'opération
         self.updateOdometry()
-        self.compute_move()
+        self._compute_move()
         self.controller_forward = 0
         self.controller_strafe = 0
         self.controller_angle_stick_x = 0
@@ -598,5 +577,3 @@ class SwerveDrive:
         # Remets les vitesse à zéro
         self._requested_speeds = dict.fromkeys(self._requested_speeds, 0)
         self.request_wheel_lock = False
-
-        self.update_nt()

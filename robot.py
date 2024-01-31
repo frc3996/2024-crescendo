@@ -94,9 +94,6 @@ class MyRobot(MagicRobot):
     # Intake
     intake: Intake
 
-    # NAVX
-    navx: AHRS
-
     # Networktables pour de la configuration et retour d'information
     nt: ntcore.NetworkTable
 
@@ -208,16 +205,13 @@ class MyRobot(MagicRobot):
             rotation_zero=318,
         )
 
-        # Et le navx nécessaire pour un control "Field Centric"
-        self.navx = AHRS.create_spi(update_rate_hz=50)
-
     def disabledPeriodic(self):
         """Mets à jours le dashboard, même quand le robot est désactivé"""
         self.update_nt()
 
     def autonomousInit(self):
         """Cette fonction est appelée une seule fois lorsque le robot entre en mode autonome."""
-        self.drivetrain.init()
+        pass
 
     def autonomous(self):
         """Pour les modes auto de MagicBot, voir le dossier ./autonomous"""
@@ -225,7 +219,6 @@ class MyRobot(MagicRobot):
 
     def teleopInit(self):
         """Cette fonction est appelée une seule fois lorsque le robot entre en mode téléopéré."""
-        self.drivetrain.init()
         self.arduino_light.set_RGB(0, 0, 0)
         self.status_light.set(0)
 
