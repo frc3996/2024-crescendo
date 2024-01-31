@@ -135,8 +135,8 @@ class MyRobot(MagicRobot):
         # On utilise également les encodeurs absolues CAN pour orienter la roue
         self.drivetrain_cfg = swervedrive.SwerveDriveConfig(
             field_centric=True,
-            base_width=27,
-            base_length=19,
+            base_width=20.75,
+            base_length=22.75,
             is_simulation=self.isSimulation(),
         )
 
@@ -209,7 +209,7 @@ class MyRobot(MagicRobot):
         )
 
         # Et le navx nécessaire pour un control "Field Centric"
-        self.navx = AHRS.create_spi(update_rate_hz=50)
+        self.navx = AHRS.create_i2c(wpilib.I2C.Port.kOnboard, update_rate_hz=50)
 
     def disabledPeriodic(self):
         """Mets à jours le dashboard, même quand le robot est désactivé"""

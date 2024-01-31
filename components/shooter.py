@@ -28,6 +28,12 @@ class Shooter:
         )
 
         self.motor.restoreFactoryDefaults()
+        self.motor.setControlFramePeriodMs(0)  # Control frame from the rio?
+        self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus0, 20)  # Faults and output (default 10ms)
+        self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus3, 500)   # Analog sensor (default 50ms)
+        self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus4, 60000)   # Alternate encoder (default 20ms)
+        self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus5, 60000)   # Absolute encoder Pos/Angle (default 200ms)
+        self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus6, 60000)   # Absolute encoder Vel/Freq (default 200ms)
         self.motor.setInverted(True)
         self.encoder = self.motor.getEncoder()
         self.pid = self.motor.getPIDController()
@@ -83,6 +89,12 @@ class ShooterFollower:
         # Factory reset, on remet les spark dans un etat connu avant de les
         # configurer. C'est utile si on dois les remplacer
         self.motor.restoreFactoryDefaults()
+        self.motor.setControlFramePeriodMs(0)  # Control frame from the rio?
+        self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus0, 20)  # Faults and output (default 10ms)
+        self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus3, 500)   # Analog sensor (default 50ms)
+        self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus4, 60000)   # Alternate encoder (default 20ms)
+        self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus5, 60000)   # Absolute encoder Pos/Angle (default 200ms)
+        self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus6, 60000)   # Absolute encoder Vel/Freq (default 200ms)
 
         # En mode CAN, un SPARK MAX est configurer pour suivre un autre
         self.motor.follow(self.shooter.motor, invert=self.kFollowerInverted)
