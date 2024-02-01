@@ -45,8 +45,7 @@ from wpimath.geometry import Rotation2d
 import constants
 from common import arduino_light, limelight
 from components import *
-from components.robot_actions import (ActionGrab, ActionShoot, ActionStow,
-                                      RobotActions)
+from components.robot_actions import ActionGrab, ActionShoot, ActionStow
 
 
 class MyRobot(MagicRobot):
@@ -70,7 +69,6 @@ class MyRobot(MagicRobot):
     actionGrab: ActionGrab
     actionShoot: ActionShoot
     actionStow: ActionStow
-    robot_actions: RobotActions
 
     # LOW Level components after
 
@@ -85,7 +83,6 @@ class MyRobot(MagicRobot):
     lobras_arm: LoBrasArm
     lobras_arm_follower: LoBrasArmFollower
     lobras_head: LoBrasHead
-    lobras: LoBras
 
     # Shooter
     shooter: Shooter
@@ -134,7 +131,6 @@ class MyRobot(MagicRobot):
         # Il est important d'utiliser le logiciel de la compagnie pour trouver (ou configurer) les CAN id
         # On utilise également les encodeurs absolues CAN pour orienter la roue
         self.drivetrain_cfg = swervedrive.SwerveDriveConfig(
-            field_centric=True,
             base_width=20.75,
             base_length=22.75,
             is_simulation=self.isSimulation(),
@@ -240,18 +236,18 @@ class MyRobot(MagicRobot):
         )
 
         # Reset navx zero
-        if self.gamepad1.getYButton():
+        if self.gamepad1.getLeftStickButton():
             self.drivetrain.navx_zero_angle()
 
         if self.gamepad1.getStartButton():
             self.drivetrain.request_wheel_lock = True
 
         if self.gamepad1.getAButton():
-            self.actionStow.engage()
-        if self.gamepad1.getBButton():
             self.actionGrab.engage()
-        if self.gamepad1.getXButton():
+        elif self.gamepad1.getYButton():
             self.actionShoot.engage()
+        else:
+            self.actionStow.engage()
 
     def update_nt(self):
         """Affiche les données sur le ShuffleBoard"""

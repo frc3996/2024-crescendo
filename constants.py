@@ -4,6 +4,9 @@ from enum import IntEnum
 MAX_ANGULAR_VEL = math.degrees(math.pi * 2)
 MAX_ANGULAR_ACCEL = math.degrees(math.pi * 5)
 
+MAX_WHEEL_SPEED = 4  # meter per second
+MAX_MODULE_SPEED = 4.5
+
 
 class CANIds(IntEnum):
     SWERVE_ROTATE_FL = 25

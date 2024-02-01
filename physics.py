@@ -18,7 +18,6 @@ from pyfrc.physics.core import PhysicsInterface
 from pyfrc.physics.drivetrains import four_motor_swerve_drivetrain, linear_deadzone
 import wpimath.geometry
 import wpimath.kinematics
-from components.swervedrive import rotate_vector
 
 
 # import typing

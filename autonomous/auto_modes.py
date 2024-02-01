@@ -14,10 +14,11 @@ class Path1(BaseAuto):
     # Injection
     drivetrain: swervedrive.SwerveDrive
     nt: ntcore.NetworkTable
-    robot_actions: robot_actions.RobotActions
+    actionShoot: robot_actions.ActionShoot
 
     @timed_state(duration=10, next_state="execute_path_1", first=True)
     def init(self):
+        self.auto_file = path_helper.AutoHelper(self.drivetrain, "test_auto")
         self.path_part_1 = path_helper.PathHelper(self.drivetrain, "part_1")
         self.path_part_1.init_path(force_robot_starting_position=True)
 
@@ -34,7 +35,7 @@ class Path1(BaseAuto):
     @timed_state(duration=10, next_state="path_part_2_init")
     def shoot(self):
         self.next_state("path_part_2_init")
-        if self.robot_actions.autoshoot_speaker():
+        if self.actionShoot.engage():
             self.next_state("path_part_2_init")
 
     @timed_state(duration=10, next_state="execute_path_2")

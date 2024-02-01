@@ -41,10 +41,10 @@ class Intake:
 
     @feedback
     def has_object(self):
-        if self.beam.getValue() > ((self.beamWithObject - self.beamNoObject) / 2):
-            return False
-        else:
+        if self.beam.getValue() < ((self.beamWithObject - self.beamNoObject) / 2):
             return True
+        else:
+            return False
 
     def execute(self):
         pass

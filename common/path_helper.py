@@ -4,6 +4,27 @@ from pathplannerlib.path import PathPlannerPath
 from wpimath import controller, kinematics, geometry, controller, trajectory
 import constants
 import wpilib
+import json
+
+class AutoHelper:
+    def __init__(self, drivetrain, auto_name):
+        self.drivetrain: swervedrive.SwerveDrive = drivetrain
+        if not auto_name.endswith(".auto"):
+            auto_name += ".auto"
+
+        data = ""
+        file = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "deploy",
+            "pathplanner",
+            "autos",
+            auto_name,
+        )
+
+        with open(file, 'r') as f:
+            data = f.read()
+        self.path = json.loads(data)
 
 
 class PathHelper:
@@ -68,7 +89,7 @@ class PathHelper:
         )
         # speed = kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(adjustedSpeeds.vx, adjustedSpeeds.vy, adjustedSpeeds.omega, goal.heading)
         self.drivetrain.set_absolute_automove_value(
-            adjustedSpeeds.vx, -adjustedSpeeds.vy
+            adjustedSpeeds.vx, adjustedSpeeds.vy
         )
         self.drivetrain.set_angle(target_rotation)
 

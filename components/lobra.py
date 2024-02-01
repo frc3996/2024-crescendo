@@ -136,10 +136,12 @@ class LoBrasHead:
         angle += self.kSoftLimitReverse
         self.pid.setReference(angle, rev.CANSparkMax.ControlType.kPosition)
 
+    @feedback
     def get_angle(self) -> float:
         return math.degrees(self.encoder.getPosition() - self.kSoftLimitReverse)
 
-    def get_encoder_angle(self) -> float:
+    @feedback
+    def get_raw_encoder_angle(self) -> float:
         return math.degrees(self.encoder.getPosition())
 
     def is_ready(self, acceptable_error=5):
@@ -295,10 +297,12 @@ class LoBrasArm:
         angle += self.kSoftLimitReverse
         self.pid.setReference(angle, rev.CANSparkMax.ControlType.kPosition)
 
+    @feedback
     def get_angle(self) -> float:
         return math.degrees(self.encoder.getPosition() - self.kSoftLimitReverse)
 
-    def get_encoder_angle(self) -> float:
+    @feedback
+    def get_raw_encoder_angle(self) -> float:
         return math.degrees(self.encoder.getPosition())
 
     def is_ready(self, acceptable_error=5):
@@ -347,48 +351,6 @@ class LoBrasArmFollower:
         self.motor.follow(self.lobras_arm.motor, invert=self.kFollowerInverted)
 
         self.motor.burnFlash()
-
-    def execute(self):
-        pass
-
-
-class LoBras:
-    """
-    This is only for diagnostics!
-    """
-
-    lobras_arm: LoBrasArm
-    lobras_arm_follower: LoBrasArmFollower
-    lobras_head: LoBrasHead
-
-    def set_arm_angle(self, arm_position: float):
-        """Set the target angles, in degrees, from 0 to 360"""
-        self.lobras_arm.set_angle(arm_position)
-
-    def set_head_angle(self, head_position: float):
-        """Set the target angles, in degrees, from 0 to 360"""
-        self.lobras_head.set_angle(head_position)
-
-    def set_angle(self, arm_position: float, head_position: float):
-        """Set the target angles, in degrees, from 0 to 360"""
-        self.lobras_arm.set_angle(arm_position)
-        self.lobras_head.set_angle(head_position)
-
-    @feedback
-    def arm_angle(self):
-        return self.lobras_arm.get_angle()
-
-    @feedback
-    def head_angle(self):
-        return self.lobras_head.get_angle()
-
-    @feedback
-    def arm_encoder_angle(self):
-        return self.lobras_arm.get_encoder_angle()
-
-    @feedback
-    def head_encoder_angle(self):
-        return self.lobras_head.get_encoder_angle()
 
     def execute(self):
         pass
