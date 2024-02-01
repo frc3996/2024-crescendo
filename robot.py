@@ -213,7 +213,7 @@ class MyRobot(MagicRobot):
 
     def autonomousInit(self):
         """Cette fonction est appelée une seule fois lorsque le robot entre en mode autonome."""
-        self.drivetrain.init()
+        pass
 
     def autonomous(self):
         """Pour les modes auto de MagicBot, voir le dossier ./autonomous"""
@@ -221,7 +221,6 @@ class MyRobot(MagicRobot):
 
     def teleopInit(self):
         """Cette fonction est appelée une seule fois lorsque le robot entre en mode téléopéré."""
-        self.drivetrain.init()
         self.arduino_light.set_RGB(0, 0, 0)
         self.status_light.set(0)
 

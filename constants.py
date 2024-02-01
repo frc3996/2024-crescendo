@@ -1,9 +1,10 @@
 import math
 from enum import IntEnum
 
+# Swerve
 MAX_ANGULAR_VEL = math.degrees(math.pi * 2)
 MAX_ANGULAR_ACCEL = math.degrees(math.pi * 5)
-
+LOWER_INPUT_THRESH = 0.1  # Minimum speed before considered 0
 MAX_WHEEL_SPEED = 4  # meter per second
 MAX_MODULE_SPEED = 4.5
 

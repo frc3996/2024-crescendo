@@ -9,16 +9,25 @@ Angle:  The angle of the robot as measured by a gyroscope. The robot's angle
 """
 
 import math
+from dataclasses import dataclass
+
 import magicbot
 import ntcore
-from dataclasses import dataclass
-from wpimath import geometry, filter, kinematics, controller, trajectory, estimator
+import pathplannerlib.telemetry
 from navx import AHRS
+from wpimath import (
+    controller,
+    estimator,
+    filter,
+    geometry,
+    kinematics,
+    trajectory,
+    units,
+)
+
+import constants
 from common import tools
 from components import swervemodule
-import pathplannerlib.telemetry
-import constants
-
 
 constants.MAX_WHEEL_SPEED = 4  # meter per second
 constants.MAX_MODULE_SPEED = 4.5
@@ -43,8 +52,6 @@ class SwerveDrive:
 
     controller_forward = magicbot.will_reset_to(0)
     controller_strafe = magicbot.will_reset_to(0)
-    controller_angle_stick_x = magicbot.will_reset_to(0)
-    controller_angle_stick_y = magicbot.will_reset_to(0)
     request_wheel_lock = magicbot.will_reset_to(False)
     automove_forward = magicbot.will_reset_to(0)
     automove_strafe = magicbot.will_reset_to(0)
@@ -63,14 +70,13 @@ class SwerveDrive:
         Appelé après l'injection
         """
         self.chassis_speed = kinematics.ChassisSpeeds()
-        self.sim_angle = 0
-        self.lower_input_thresh = 0.1
         self.NavxPitchZero = 0
         self.NavxRollZero = 0
         self.zero_done = False
 
         self.lost_navx = False
-        self.target_angle = 0
+        self.target_angle = units.degrees(0)
+        self.sim_angle = units.degrees(0)
 
         self.fwd_limiter = filter.SlewRateLimiter(16)
         self.strafe_limiter = filter.SlewRateLimiter(16)
@@ -86,24 +92,11 @@ class SwerveDrive:
         self.angle_pid.enableContinuousInput(-180, 180)
         self.angle_pid.setTolerance(-1, 1)
 
-
-        self.frontLeftLocation = geometry.Translation2d(
-            self.cfg.base_width / 2, self.cfg.base_length / 2
-        )
-        self.frontRightLocation = geometry.Translation2d(
-            self.cfg.base_width / 2, -self.cfg.base_length / 2
-        )
-        self.backLeftLocation = geometry.Translation2d(
-            -self.cfg.base_width / 2, self.cfg.base_length / 2
-        )
-        self.backRightLocation = geometry.Translation2d(
-            -self.cfg.base_width / 2, -self.cfg.base_length / 2
-        )
         self.kinematics = kinematics.SwerveDrive4Kinematics(
-            self.frontLeftLocation,
-            self.frontRightLocation,
-            self.backLeftLocation,
-            self.backRightLocation,
+            geometry.Translation2d(self.cfg.base_width / 2, self.cfg.base_length / 2),
+            geometry.Translation2d(self.cfg.base_width / 2, -self.cfg.base_length / 2),
+            geometry.Translation2d(-self.cfg.base_width / 2, self.cfg.base_length / 2),
+            geometry.Translation2d(-self.cfg.base_width / 2, -self.cfg.base_length / 2),
         )
 
         self.navx_zero_angle()
@@ -121,12 +114,6 @@ class SwerveDrive:
             geometry.Pose2d(),
         )
         self.odometry.setVisionMeasurementStdDevs((0.5, 0.5, math.pi / 2))
-
-    def init_navx(self):
-        if self.zero_done is True:
-            return
-        self.zero_done = True
-        self.navx_zero_all()
 
     def navx_zero_angle(self):
         self.navx.reset()
@@ -148,16 +135,12 @@ class SwerveDrive:
         self.rearLeftModule.flush()
         self.rearRightModule.flush()
 
-    def init(self):
-        self.init_navx()
+    def on_enable(self):
+        if self.zero_done is False:
+            self.zero_done = True
+            self.navx_zero_all()
         self.flush()
-        self.refresh_nt_config()
-        self.frontLeftModule.refresh_nt_config()
-        self.frontRightModule.refresh_nt_config()
-        self.rearLeftModule.refresh_nt_config()
-        self.rearRightModule.refresh_nt_config()
 
-    def refresh_nt_config(self):
         self.angle_pid.setPID(
             self.angle_kp,
             self.angle_ki,
@@ -168,6 +151,11 @@ class SwerveDrive:
             self.angle_max_acc,
         )
         self.angle_pid.setConstraints(constraint)
+
+        self.frontLeftModule.refresh_nt_config()
+        self.frontRightModule.refresh_nt_config()
+        self.rearLeftModule.refresh_nt_config()
+        self.rearRightModule.refresh_nt_config()
 
     def getRotation2d(self):
         if self.cfg.is_simulation:
@@ -203,18 +191,24 @@ class SwerveDrive:
     def set_controller_values(self, forward, strafe, angle_stick_x, angle_stick_y):
         self.controller_forward = -forward
         self.controller_strafe = -strafe
-        self.controller_angle_stick_x = angle_stick_x
-        self.controller_angle_stick_y = angle_stick_y
-        self.compute_look_at_stick_angle()
+
+        # Élimite la zone morte du joystick (petits déplacements)
+        if math.sqrt(angle_stick_x**2 + angle_stick_y**2) > 0.5:
+            angle = (math.degrees(math.atan2(angle_stick_y, angle_stick_x)) + 360) % 360
+            angle += 270
+            angle %= 360
+            angle -= 180
+            angle = -angle
+            self.set_angle(angle)
 
     def __compute_move(self):
         """Fait bouger le robot avec un contrôleur"""
         forward = tools.square_input(self.controller_forward)
         strafe = tools.square_input(self.controller_strafe)
 
-        if abs(forward) < self.lower_input_thresh:
+        if abs(forward) < constants.LOWER_INPUT_THRESH:
             forward = 0
-        if abs(strafe) < self.lower_input_thresh:
+        if abs(strafe) < constants.LOWER_INPUT_THRESH:
             strafe = 0
 
         forward *= constants.MAX_WHEEL_SPEED
@@ -227,19 +221,6 @@ class SwerveDrive:
             strafe = new_strafe
 
         return forward, strafe
-
-    def compute_look_at_stick_angle(self):
-        angle_stick_x = self.controller_angle_stick_x
-        angle_stick_y = self.controller_angle_stick_y
-
-        # Élimite la zone morte du joystick (petits déplacements)
-        if math.sqrt(angle_stick_x**2 + angle_stick_y**2) > 0.5:
-            angle = (math.degrees(math.atan2(angle_stick_y, angle_stick_x)) + 360) % 360
-            angle += 270
-            angle %= 360
-            angle -= 180
-            angle = -angle
-            self.set_angle(angle)
 
     def snap_angle_nearest_180(self):
         """Force le robot à regarder vers l'avant ou l'arrière"""
@@ -274,15 +255,12 @@ class SwerveDrive:
             self.lost_navx = False
 
         # Compute error if navx is okay
-        angle_error = self.angle_pid.calculate(
-            self.get_angle(), self.target_angle
-        )
+        angle_error = self.angle_pid.calculate(self.get_angle(), self.target_angle)
         angle_error = max(min(angle_error, 2), -2)
         if abs(angle_error) <= 0.002:
             angle_error = 0
 
         return angle_error
-
 
     def __calculate_vectors(self):
         """
@@ -302,9 +280,7 @@ class SwerveDrive:
             ),
             0.02,
         )
-        swerveModuleStates = self.kinematics.toSwerveModuleStates(
-            self.chassis_speed
-        )
+        swerveModuleStates = self.kinematics.toSwerveModuleStates(self.chassis_speed)
         self.sim_angle = self.sim_angle + (rot * 0.02 * 20)
 
         # Non field centric, kept as reference
@@ -318,7 +294,6 @@ class SwerveDrive:
         kinematics.SwerveDrive4Kinematics.desaturateWheelSpeeds(
             swerveModuleStates, constants.MAX_WHEEL_SPEED
         )
-
 
         # Ne fais rien si les vecteurs sont trop petits
         if fwdSpeed == 0 and strafeSpeed == 0 and self.request_wheel_lock:
@@ -368,19 +343,6 @@ class SwerveDrive:
         current_pose = self.getEstimatedPose()
         pathplannerlib.telemetry.PPLibTelemetry.setCurrentPose(current_pose)
 
-    def getModuleStates(self):
-        """
-        For PathPlannerLib
-        Return Swerve module states
-        """
-        states = [
-            self.frontLeftModule.getState(),
-            self.frontRightModule.getState(),
-            self.rearLeftModule.getState(),
-            self.rearRightModule.getState(),
-        ]
-        return states
-
     def getEstimatedPose(self) -> geometry.Pose2d:
         """
         For PathPlannerLib
@@ -409,54 +371,6 @@ class SwerveDrive:
             pose,
         )
 
-    def getRobotRelativeSpeeds(self):
-        """
-        ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
-        """
-        return self.kinematics.toChassisSpeeds(self.getModuleStates())
-
-    def getFieldRelativeSpeeds(self):
-        """
-        ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
-        """
-        speed = kinematics.ChassisSpeeds.fromRobotRelativeSpeeds(
-            self.kinematics.toChassisSpeeds(self.getModuleStates()),
-            self.getRotation2d(),
-        )
-        return speed
-
-    def driveFieldRelative(self, fieldRelativeSpeeds: kinematics.ChassisSpeeds):
-        """
-        Method that will drive the robot given FIELD RELATIVE ChassisSpeeds
-        """
-        self.chassis_speed = fieldRelativeSpeeds
-        self.driveRobotRelative(
-            kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(
-                fieldRelativeSpeeds, self.getEstimatedPose().rotation()
-            )
-        )
-
-    def driveRobotRelative(self, robotRelativeSpeeds: kinematics.ChassisSpeeds):
-        """
-        Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
-        """
-        targetSpeeds = kinematics.ChassisSpeeds.discretize(robotRelativeSpeeds, 0.02)
-
-        targetStates = self.kinematics.toSwerveModuleStates(targetSpeeds)
-        self.setStates(targetStates)
-
-    def setStates(self, targetStates: list[kinematics.SwerveModuleState]):
-        """
-        Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
-        """
-        targetStates = kinematics.SwerveDrive4Kinematics.desaturateWheelSpeeds(
-            targetStates, constants.MAX_MODULE_SPEED
-        )
-        self.frontLeftModule.setTargetState(targetStates[0])
-        self.frontRightModule.setTargetState(targetStates[1])
-        self.rearLeftModule.setTargetState(targetStates[2])
-        self.rearRightModule.setTargetState(targetStates[3])
-
     def execute(self):
         """
         Calcul et transmet la commande de vitesse et d'angle à chaque swerve module.
@@ -467,3 +381,64 @@ class SwerveDrive:
         # Calcul des vecteurs
         self.__calculate_vectors()
         self.update_nt()
+
+    # def getModuleStates(self):
+    #     """
+    #     For PathPlannerLib
+    #     Return Swerve module states
+    #     """
+    #     states = [
+    #         self.frontLeftModule.getState(),
+    #         self.frontRightModule.getState(),
+    #         self.rearLeftModule.getState(),
+    #         self.rearRightModule.getState(),
+    #     ]
+    #     return states
+
+    # def getRobotRelativeSpeeds(self):
+    #     """
+    #     ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
+    #     """
+    #     return self.kinematics.toChassisSpeeds(self.getModuleStates())
+
+    # def getFieldRelativeSpeeds(self):
+    #     """
+    #     ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
+    #     """
+    #     speed = kinematics.ChassisSpeeds.fromRobotRelativeSpeeds(
+    #         self.kinematics.toChassisSpeeds(self.getModuleStates()),
+    #         self.getRotation2d(),
+    #     )
+    #     return speed
+
+    # def driveFieldRelative(self, fieldRelativeSpeeds: kinematics.ChassisSpeeds):
+    #     """
+    #     Method that will drive the robot given FIELD RELATIVE ChassisSpeeds
+    #     """
+    #     self.chassis_speed = fieldRelativeSpeeds
+    #     self.driveRobotRelative(
+    #         kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(
+    #             fieldRelativeSpeeds, self.getEstimatedPose().rotation()
+    #         )
+    #     )
+
+    # def driveRobotRelative(self, robotRelativeSpeeds: kinematics.ChassisSpeeds):
+    #     """
+    #     Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
+    #     """
+    #     targetSpeeds = kinematics.ChassisSpeeds.discretize(robotRelativeSpeeds, 0.02)
+
+    #     targetStates = self.kinematics.toSwerveModuleStates(targetSpeeds)
+    #     self.setStates(targetStates)
+
+    # def setStates(self, targetStates: list[kinematics.SwerveModuleState]):
+    #     """
+    #     Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
+    #     """
+    #     targetStates = kinematics.SwerveDrive4Kinematics.desaturateWheelSpeeds(
+    #         targetStates, constants.MAX_MODULE_SPEED
+    #     )
+    #     self.frontLeftModule.setTargetState(targetStates[0])
+    #     self.frontRightModule.setTargetState(targetStates[1])
+    #     self.rearLeftModule.setTargetState(targetStates[2])
+    #     self.rearRightModule.setTargetState(targetStates[3])
