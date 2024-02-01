@@ -39,11 +39,12 @@ class Intake:
     def disable(self):
         self.motor.set(0)
 
+    @feedback
     def has_object(self):
         if self.beam.getValue() > ((self.beamWithObject - self.beamNoObject) / 2):
-            return True
-        else:
             return False
+        else:
+            return True
 
     def execute(self):
         pass

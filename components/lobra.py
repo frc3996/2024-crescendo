@@ -38,8 +38,8 @@ class LoBrasHead:
     kMotorCurrentLimit = 20
 
     # Valeurs de PID
-    kP = magicbot.tunable(0.2)
-    kI = magicbot.tunable(0.0)
+    kP = magicbot.tunable(0.5)
+    kI = magicbot.tunable(0.0002)
     kD = magicbot.tunable(0.0)
     kFF = magicbot.tunable(0.0)
 
@@ -128,19 +128,22 @@ class LoBrasHead:
         self._target_position = self.get_angle()
 
     def set_angle(self, angle: float):
-        # Rotation 2D returns from -pi to +pi. Normalize from 0 to 2pi.
+        """Set target angle from 0 to 360 degree"""
+        self._target_position = angle
+        if self.get_angle() > 180 and angle <= 90:
+            angle = 90
         angle = math.radians(angle)
         angle += self.kSoftLimitReverse
         self.pid.setReference(angle, rev.CANSparkMax.ControlType.kPosition)
 
     def get_angle(self) -> float:
-        return self.encoder.getPosition() - self.kSoftLimitReverse
+        return math.degrees(self.encoder.getPosition() - self.kSoftLimitReverse)
 
     def get_encoder_angle(self) -> float:
-        return self.encoder.getPosition()
+        return math.degrees(self.encoder.getPosition())
 
-    def is_ready(self):
-        if abs(self.get_angle() - self._target_position) < 1:
+    def is_ready(self, acceptable_error=5):
+        if abs(self.get_angle() - self._target_position) < acceptable_error:
             return True
         else:
             return False
@@ -170,7 +173,7 @@ class LoBrasArm:
     kEncoderInverted = False
 
     ## Position minimale
-    kSoftLimitReverse = math.radians(105)
+    kSoftLimitReverse = math.radians(101)
 
     ## Position maximale
     kSoftLimitForward = math.radians(210)
@@ -191,16 +194,16 @@ class LoBrasArm:
     kMotorIdleMode = rev.CANSparkMax.IdleMode.kBrake
 
     # Limit de courant (MAX 80, defaut=20)
-    kMotorCurrentLimit = 20
+    kMotorCurrentLimit = 30
 
     # Valeurs de PID
-    kP = magicbot.tunable(1)
+    kP = magicbot.tunable(1.5)
     kI = magicbot.tunable(0.0)
     kD = magicbot.tunable(0.0)
     kFF = magicbot.tunable(0.0)
 
     ## On rampe la vitesse
-    kMotorClosedLoopRampRate = magicbot.tunable(0.2)
+    kMotorClosedLoopRampRate = magicbot.tunable(0.1)
 
     _target_position: float
 
@@ -286,19 +289,20 @@ class LoBrasArm:
         self._target_position = self.get_angle()
 
     def set_angle(self, angle: float):
-        # Rotation 2D returns from -pi to +pi. Normalize from 0 to 2pi.
+        """Set target angle from 0 to 360 degree"""
+        self._target_position = angle
         angle = math.radians(angle)
         angle += self.kSoftLimitReverse
         self.pid.setReference(angle, rev.CANSparkMax.ControlType.kPosition)
 
     def get_angle(self) -> float:
-        return self.encoder.getPosition() - self.kSoftLimitReverse
+        return math.degrees(self.encoder.getPosition() - self.kSoftLimitReverse)
 
     def get_encoder_angle(self) -> float:
-        return self.encoder.getPosition()
+        return math.degrees(self.encoder.getPosition())
 
-    def is_ready(self):
-        if abs(self.get_angle() - self._target_position) < 1:
+    def is_ready(self, acceptable_error=5):
+        if abs(self.get_angle() - self._target_position) < acceptable_error:
             return True
         else:
             return False
@@ -372,19 +376,19 @@ class LoBras:
 
     @feedback
     def arm_angle(self):
-        return math.degrees(self.lobras_arm.get_angle())
+        return self.lobras_arm.get_angle()
 
     @feedback
     def head_angle(self):
-        return math.degrees(self.lobras_head.get_angle())
+        return self.lobras_head.get_angle()
 
     @feedback
     def arm_encoder_angle(self):
-        return math.degrees(self.lobras_arm.get_encoder_angle())
+        return self.lobras_arm.get_encoder_angle()
 
     @feedback
     def head_encoder_angle(self):
-        return math.degrees(self.lobras_head.get_encoder_angle())
+        return self.lobras_head.get_encoder_angle()
 
     def execute(self):
         pass

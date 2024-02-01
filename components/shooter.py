@@ -1,25 +1,25 @@
 import magicbot
 import rev
-from magicbot import StateMachine, default_state, state, timed_state
+from magicbot import StateMachine, default_state, state, timed_state, will_reset_to
 
 import constants
 
 
 class Shooter:
     # Valeurs de PID
-    kP = magicbot.tunable(0.0003)
+    kP = magicbot.tunable(0.003)
     kI = magicbot.tunable(0.0)
     kD = magicbot.tunable(0.0)
     kFF = magicbot.tunable(0.0)
 
     # MAX SPEED IS 5676
-    velocity = magicbot.tunable(5000)
+    velocity = magicbot.tunable(4000)
 
     ## On rampe la vitesse
     kMotorClosedLoopRampRate = magicbot.tunable(0.3)
 
     # Duty cycle maximal utiliser par le PID
-    kMinOutput = -1
+    kMinOutput = 0
     kMaxOutput = 1
 
     def setup(self):
@@ -29,6 +29,7 @@ class Shooter:
 
         self.motor.restoreFactoryDefaults()
         self.motor.setControlFramePeriodMs(0)  # Control frame from the rio?
+        self.motor.setIdleMode(self.motor.IdleMode.kCoast)
         self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus0, 20)  # Faults and output (default 10ms)
         self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus3, 500)   # Analog sensor (default 50ms)
         self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus4, 60000)   # Alternate encoder (default 20ms)
@@ -64,7 +65,7 @@ class Shooter:
         return False
 
     def is_ready(self):
-        return abs(self.encoder.getVelocity() - self.velocity) < 100
+        return abs(self.encoder.getVelocity() - self.velocity) < 1000
 
     def execute(self):
         return

@@ -200,6 +200,7 @@ class SwerveDrive:
     def navx_zero_angle(self):
         self.navx.reset()
         self.target_angle = self.get_angle()
+        self.angle_pid.reset(trajectory.TrapezoidProfile.State(0, 0))
 
     def navx_zero_all(self):
         self.navx_zero_angle()

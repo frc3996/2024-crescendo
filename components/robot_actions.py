@@ -1,5 +1,6 @@
 import ntcore
 import wpilib
+import math
 from magicbot import StateMachine, default_state, feedback, state, timed_state
 from wpimath import controller, geometry
 
@@ -136,9 +137,9 @@ class ActionGrab(StateMachine):
     @state(first=True)
     def position_head(self):
         """Premier etat, position la tete"""
-        self.lobras_head.set_angle(110)
+        self.lobras_head.set_angle(100)
 
-        if self.lobras_head.is_ready():
+        if self.lobras_head.is_ready(acceptable_error=10):
             self.next_state("position_arm")
 
     @state
@@ -168,35 +169,41 @@ class ActionShoot(StateMachine):
     @state(first=True)
     def position_arm(self):
         self.lobras_arm.set_angle(100)
-        if self.lobras_arm.is_ready():
+        print("arm Current Angle", round(self.lobras_arm.get_angle()), "Target", round(self.lobras_arm._target_position))
+        if self.lobras_arm.is_ready(acceptable_error=90):
             self.next_state("position_head")
 
     @state
     def position_head(self):
         """Premier etat, position la tete"""
-        self.lobras_head.set_angle(195)
+        self.lobras_head.set_angle(175)
 
-        if self.lobras_head.is_ready():
+        if self.lobras_head.is_ready(acceptable_error=10):
             self.next_state("prepare_to_fire")
 
-    @timed_state(duration=2, next_state="feed_start")
+    @state
     def prepare_to_fire(self, initial_call):
         """First state -- waits until shooter is ready before going to the
         next action in the sequence"""
-        if initial_call:
-            self.shooter.enable()
+        print("PREPARE_TO_FIRE")
+        self.shooter.enable()
+        print(self.shooter.encoder.getVelocity())
 
         # Use a normal state
-        # if self.shooter.is_ready():
-        #     self.next_state("firing")
+        if self.shooter.is_ready():
+            self.next_state("feed_start")
 
-    @state
+    @timed_state(duration=2, next_state="done")
     def feed_start(self):
+        print("FEEDING")
+        self.shooter.enable()
         self.intake.enable()
+        print("HAS_OBJCET", self.intake.has_object())
         if not self.intake.has_object():
             self.done()
 
     def done(self) -> None:
+        print("DONE")
         self.shooter.disable()
         self.intake.disable()
         return super().done()
@@ -214,18 +221,16 @@ class ActionStow(StateMachine):
         self.engage()
 
     @state(first=True)
-    def position_head(self):
+    def position_all(self):
         """Premier etat, position la tete, et on s'assure que plu rien tourne"""
         self.shooter.disable()
         self.intake.disable()
 
         self.lobras_head.set_angle(0)
+        if self.lobras_head.get_angle() < 90:
+            self.lobras_arm.set_angle(0)
+        else:
+            self.lobras_arm.set_angle(30)
 
-        if self.lobras_head.is_ready():
-            self.next_state("position_arm")
-
-    @state
-    def position_arm(self):
-        self.lobras_arm.set_angle(0)
-        if self.lobras_arm.is_ready():
+        if self.lobras_arm.is_ready() and self.lobras_head.is_ready():
             self.done()

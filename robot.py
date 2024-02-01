@@ -209,7 +209,7 @@ class MyRobot(MagicRobot):
         )
 
         # Et le navx nécessaire pour un control "Field Centric"
-        self.navx = AHRS.create_i2c(wpilib.I2C.Port.kOnboard, update_rate_hz=50)
+        self.navx = AHRS.create_i2c(wpilib.I2C.Port.kMXP, update_rate_hz=50)
 
     def disabledPeriodic(self):
         """Mets à jours le dashboard, même quand le robot est désactivé"""
@@ -246,11 +246,6 @@ class MyRobot(MagicRobot):
         if self.gamepad1.getStartButton():
             self.drivetrain.request_wheel_lock = True
 
-        joystick = self.gamepad1.getLeftX() * 360
-        if self.gamepad1.getLeftBumper():
-            self.lobras.set_arm_angle(joystick)
-        if self.gamepad1.getRightBumper():
-            self.lobras.set_head_angle(joystick)
         if self.gamepad1.getAButton():
             self.actionStow.engage()
         if self.gamepad1.getBButton():
