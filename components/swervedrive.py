@@ -136,6 +136,7 @@ class SwerveDrive:
         self.rearRightModule.flush()
 
     def on_enable(self):
+        """Automatic robotpy call when robot enter teleop or auto"""
         if self.zero_done is False:
             self.zero_done = True
             self.navx_zero_all()
