@@ -114,7 +114,8 @@ class MyRobot(MagicRobot):
         self.initSwerve()
 
         # General
-        self.gamepad1 = wpilib.XboxController(0)
+        # self.joystick = wpilib.XboxController(0)
+        self.joystick = wpilib.PS5Controller(0)
         # self.gamepad1 = wpilib.PS5Controller(0)
         self.pdp = wpilib.PowerDistribution()
         self.digitaltest = wpilib.DigitalInput(9)
@@ -220,36 +221,41 @@ class MyRobot(MagicRobot):
     def teleopInit(self):
         """Cette fonction est appelée une seule fois lorsque le robot entre en mode téléopéré."""
         self.arduino_light.set_RGB(0, 0, 0)
-        self.status_light.set(0)
+        self.status_light.set(True)
 
     def teleopPeriodic(self):
         """Cette fonction est appelée de façon périodique lors du mode téléopéré."""
+        # TODO ADD MINUS IN FRONT OF FORWARD
 
         self.drivetrain.set_controller_values(
-            self.gamepad1.getLeftY(),
-            self.gamepad1.getLeftX(),
-            self.gamepad1.getRightX(),
-            self.gamepad1.getRightY(),
+            # -self.joystick.getLeftY(),
+            # self.joystick.getLeftX(),
+            # self.joystick.getRightX(),
+            # self.joystick.getRightY(),
+            self.joystick.getRawAxis(0),
+            self.joystick.getRawAxis(1),
+            self.joystick.getRawAxis(5),
+            -self.joystick.getRawAxis(4),
         )
 
-        # Reset navx zero
-        if self.gamepad1.getYButton():
-            self.drivetrain.navx_zero_angle()
-
-        if self.gamepad1.getStartButton():
-            self.drivetrain.request_wheel_lock = True
-
-        joystick = self.gamepad1.getLeftX() * 360
-        if self.gamepad1.getLeftBumper():
-            self.lobras.set_arm_angle(joystick)
-        if self.gamepad1.getRightBumper():
-            self.lobras.set_head_angle(joystick)
-        if self.gamepad1.getAButton():
-            self.actionStow.engage()
-        if self.gamepad1.getBButton():
-            self.actionGrab.engage()
-        if self.gamepad1.getXButton():
-            self.actionShoot.engage()
+        # # Reset navx zero
+        # if self.joystick.getYButton():
+        #     self.drivetrain.navx_zero_angle()
+        #
+        # if self.joystick.getStartButton():
+        #     self.drivetrain.request_wheel_lock = True
+        #
+        # joystick = self.joystick.getLeftX() * 360
+        # if self.joystick.getLeftBumper():
+        #     self.lobras.set_arm_angle(joystick)
+        # if self.joystick.getRightBumper():
+        #     self.lobras.set_head_angle(joystick)
+        # if self.joystick.getAButton():
+        #     self.actionStow.engage()
+        # if self.joystick.getBButton():
+        #     self.actionGrab.engage()
+        # if self.joystick.getXButton():
+        #     self.actionShoot.engage()
 
     def update_nt(self):
         """Affiche les données sur le ShuffleBoard"""

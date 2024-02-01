@@ -11,8 +11,8 @@ Angle:  The angle of the robot as measured by a gyroscope. The robot's angle
 import math
 from dataclasses import dataclass
 
-import ntcore
 import pathplannerlib.telemetry
+import wpimath.units
 from magicbot import feedback, tunable
 from navx import AHRS
 from wpimath import (controller, estimator, filter, geometry, kinematics,
@@ -23,6 +23,7 @@ from components import swervemodule
 
 MAX_WHEEL_SPEED = 4  # meter per second
 MAX_MODULE_SPEED = 4.5
+LOWER_INPUT_THRESH = 0.1
 
 
 def rotate_vector(vector, angle):
@@ -47,7 +48,6 @@ class SwerveDrive:
     frontRightModule: swervemodule.SwerveModule
     rearLeftModule: swervemodule.SwerveModule
     rearRightModule: swervemodule.SwerveModule
-    nt: ntcore.NetworkTable
 
     # Pid de rotation. Ajuster via le ShuffleBoard et écrire la nouvelle valeur ici
     kP = tunable(0.004)
@@ -56,53 +56,40 @@ class SwerveDrive:
     max_vel = tunable(constants.MAX_ANGULAR_VEL)
     max_accel = tunable(constants.MAX_ANGULAR_ACCEL)
 
+    target_angle = wpimath.units.degrees(0)
+    sim_angle = wpimath.units.degrees(0)
+
+    # Mets les commandes à zéro
+    vector_fwd = wpimath.units.meters_per_second(0.0)
+    _vector_strafe = wpimath.units.meters_per_second(0.0)
+    vector_rcw = wpimath.units.radians_per_second(0.0)
+
+    _requested_angles = {
+        "front_left": 0,
+        "front_right": 0,
+        "rear_left": 0,
+        "rear_right": 0,
+    }
+
+    _requested_speeds = {
+        "front_left": 0,
+        "front_right": 0,
+        "rear_left": 0,
+        "rear_right": 0,
+    }
+
+    request_wheel_lock = False
+    automove_forward = 0
+    automove_strafe = 0
+    automove_strength = 0
+
     def setup(self):
         """
         Appelé après l'injection
         """
-        self.chassis_speed = kinematics.ChassisSpeeds()
-        self.sim_angle = 0
-        self.lower_input_thresh = 0.1
-        self.zero_done = False
-
-        # Place les modules dans un dictionaire
-        self.modules = {
-            "front_left": self.frontLeftModule,
-            "front_right": self.frontRightModule,
-            "rear_left": self.rearLeftModule,
-            "rear_right": self.rearRightModule,
-        }
-
-        # Mets les commandes à zéro
-        self._requested_vectors = {"fwd": 0.0, "strafe": 0.0, "rcw": 0.0}
-
-        self._requested_angles = {
-            "front_left": 0,
-            "front_right": 0,
-            "rear_left": 0,
-            "rear_right": 0,
-        }
-
-        self._requested_speeds = {
-            "front_left": 0,
-            "front_right": 0,
-            "rear_left": 0,
-            "rear_right": 0,
-        }
-
         self.navx = AHRS.create_spi(update_rate_hz=50)
 
-        self.field_centric = self.cfg.field_centric
-
-        self.controller_forward = 0
-        self.controller_strafe = 0
-        self.controller_angle_stick_x = 0
-        self.controller_angle_stick_y = 0
-        self.target_angle = 0
-        self.request_wheel_lock = False
-        self.automove_forward = 0
-        self.automove_strafe = 0
-        self.automove_strength = 0
+        self.chassis_speed = kinematics.ChassisSpeeds()
 
         self.fwd_limiter = filter.SlewRateLimiter(16)
         self.strafe_limiter = filter.SlewRateLimiter(16)
@@ -118,23 +105,11 @@ class SwerveDrive:
         self.angle_pid.enableContinuousInput(-180, 180)
         self.angle_pid.setTolerance(-1, 1)
 
-        self.frontLeftLocation = geometry.Translation2d(
-            self.cfg.base_width / 2, self.cfg.base_length / 2
-        )
-        self.frontRightLocation = geometry.Translation2d(
-            self.cfg.base_width / 2, -self.cfg.base_length / 2
-        )
-        self.backLeftLocation = geometry.Translation2d(
-            -self.cfg.base_width / 2, self.cfg.base_length / 2
-        )
-        self.backRightLocation = geometry.Translation2d(
-            -self.cfg.base_width / 2, -self.cfg.base_length / 2
-        )
         self.kinematics = kinematics.SwerveDrive4Kinematics(
-            self.frontLeftLocation,
-            self.frontRightLocation,
-            self.backLeftLocation,
-            self.backRightLocation,
+            geometry.Translation2d(self.cfg.base_width / 2, self.cfg.base_length / 2),
+            geometry.Translation2d(self.cfg.base_width / 2, -self.cfg.base_length / 2),
+            geometry.Translation2d(-self.cfg.base_width / 2, self.cfg.base_length / 2),
+            geometry.Translation2d(-self.cfg.base_width / 2, -self.cfg.base_length / 2),
         )
 
         self.odometry = estimator.SwerveDrive4PoseEstimator(
@@ -151,9 +126,13 @@ class SwerveDrive:
         self.odometry.setVisionMeasurementStdDevs((0.5, 0.5, math.pi / 2))
 
     def on_enable(self):
+        # Zero the navx
         self.navx_zero_angle()
+
+        # Make sure nothing is moving
         self.flush()
 
+        # Adjust the network table PID values
         self.angle_pid.setP(self.kP)
         self.angle_pid.setI(self.kI)
         self.angle_pid.setD(self.kD)
@@ -164,53 +143,24 @@ class SwerveDrive:
         self.angle_pid.setConstraints(constraint)
 
         # TODO: Move this on on_enable of swervemodule
-        for key in self.modules:
-            self.modules[key].refresh_nt_config()
+        self.frontLeftModule.refresh_nt_config()
+        self.frontRightModule.refresh_nt_config()
+        self.rearLeftModule.refresh_nt_config()
+        self.rearRightModule.refresh_nt_config()
 
     @staticmethod
     def square_input(input):
         """Retourne la valeur au carré en conservant le signe"""
         return math.copysign(input * input, input)
 
-    @staticmethod
-    def normalize(data):
-        """
-        Rends les vecteurs unitaire (S'assure que la longueur du vecteur est de 1)
-        :param data: Données à normaliser
-        :returns: Les données normalisées
-        """
-        maxMagnitude = max(abs(x) for x in data)
-
-        if maxMagnitude > 1.0:
-            for i in range(len(data)):
-                data[i] = data[i] / maxMagnitude
-
-        return data
-
-    @staticmethod
-    def normalizeDictionary(data):
-        """
-        Trouve le vecteur de taille maximale dans les données et
-        divise les autres par sa longueur.
-        :param data: Le dictionaire à normaliser
-        :returns: Le dictionaire normalisé
-        """
-        maxMagnitude = max(abs(x) for x in data.values())
-
-        if maxMagnitude > 1.0:
-            for key in data:
-                data[key] = data[key] / maxMagnitude
-
-        return data
-
     def flush(self):
         """
         Cette méthode devrait être appelé pour remettre à zéro le drivetrain.
         Remotes les module swerve à zéro en même temps.
         """
-        self._requested_vectors["fwd"] = 0.0
-        self._requested_vectors["strafe"] = 0.0
-        self._requested_vectors["rcw"] = 0.0
+        self.vector_fwd = 0.0
+        self.vector_strafe = 0.0
+        self.vector_rcw = 0.0
 
         self._requested_angles["front_left"] = 0
         self._requested_angles["front_right"] = 0
@@ -222,8 +172,10 @@ class SwerveDrive:
         self._requested_speeds["rear_left"] = 0
         self._requested_speeds["rear_right"] = 0
 
-        for module in self.modules.values():
-            module.flush()
+        self.frontLeftModule.flush()
+        self.frontRightModule.flush()
+        self.rearLeftModule.flush()
+        self.rearRightModule.flush()
 
     def get_gyro_angle(self):
         if self.cfg.is_simulation:
@@ -271,26 +223,18 @@ class SwerveDrive:
         Écrit le vecteur 'forward'
         :param fwd: Valeur en m/s
         """
-        self._requested_vectors["fwd"] = fwd
+        self.vector_fwd = fwd
 
     def set_strafe(self, strafe):
         """
         Écrit la valeur 'strafe'
         :param strafe: Valeur en m/s
         """
-        self._requested_vectors["strafe"] = strafe
+        self.vector_strafe = strafe
 
     def set_angle(self, angle):
         """Écrit l'angle absolue à atteindre de 0 à 360"""
         self.target_angle = angle
-
-    def _rotate_robot(self, rcw):
-        """
-        ROTATION NON FIELD CENTRIC!!
-        Écrit la valeur de rotation
-        :param rcw: Valeur de -1 à 1
-        """
-        self._requested_vectors["rcw"] = rcw
 
     def set_absolute_automove_value(self, forward, strafe, strength=0.2):
         self.automove_forward = forward
@@ -306,10 +250,7 @@ class SwerveDrive:
         self.automove_strafe = vector[1]
         self.automove_strength = strength
 
-    def compute_look_at_stick_angle(self):
-        angle_stick_x = self.controller_angle_stick_x
-        angle_stick_y = self.controller_angle_stick_y
-
+    def set_controller_values(self, forward, strafe, angle_stick_x, angle_stick_y):
         # Élimite la zone morte du joystick (petits déplacements)
         if math.sqrt(angle_stick_x**2 + angle_stick_y**2) > 0.5:
             angle = (math.degrees(math.atan2(angle_stick_y, angle_stick_x)) + 360) % 360
@@ -319,22 +260,12 @@ class SwerveDrive:
             angle = -angle
             self.set_angle(angle)
 
-    def set_controller_values(self, forward, strafe, angle_stick_x, angle_stick_y):
-        self.controller_forward = forward
-        self.controller_strafe = strafe
-        self.controller_angle_stick_x = angle_stick_x
-        self.controller_angle_stick_y = angle_stick_y
+        forward = self.square_input(forward)
+        strafe = self.square_input(strafe)
 
-        self.compute_look_at_stick_angle()
-
-    def _compute_move(self):
-        """Fait bouger le robot avec un contrôleur"""
-        forward = self.square_input(-self.controller_forward)
-        strafe = self.square_input(self.controller_strafe)
-
-        if abs(forward) < self.lower_input_thresh:
+        if abs(forward) < LOWER_INPUT_THRESH:
             forward = 0
-        if abs(strafe) < self.lower_input_thresh:
+        if abs(strafe) < LOWER_INPUT_THRESH:
             strafe = 0
 
         forward *= MAX_WHEEL_SPEED
@@ -348,12 +279,6 @@ class SwerveDrive:
 
         self.set_fwd(forward)
         self.set_strafe(strafe)
-
-    def controller_relative_rotate(self):
-        """Fait bouger le robot avec un contrôleur"""
-        angle_stick_x = self.controller_angle_stick_x
-        rotate = self.square_input(angle_stick_x)
-        self._rotate_robot(rotate)
 
     def snap_angle_nearest_180(self):
         """Force le robot à regarder vers l'avant ou l'arrière"""
@@ -375,24 +300,28 @@ class SwerveDrive:
             rounded_angle_deg = (angle_deg // 90 + 1) * 90
         self.set_angle((rounded_angle_deg % 360) - 180)
 
+    @property
+    def vector_strafe(self) -> wpimath.units.meters_per_second:
+        return self._vector_strafe
+
+    @vector_strafe.setter
+    def vector_strafe(self, value: wpimath.units.meters_per_second):
+        self._vector_strafe = self.strafe_limiter.calculate(value)
+
     def _calculate_vectors(self):
         """
         Réalise le calcul des angles et vitesses pour chaque swerve module
         en fonction des commandes reçues
         """
 
-        if self.field_centric:
+        if self.cfg.field_centric:
             angle_error = self.angle_pid.calculate(self.get_angle(), self.target_angle)
             angle_error = max(min(angle_error, 2), -2)
             # print(f"{self.get_angle():.3f}, {self.target_angle:.3f}, {angle_error:.3f}")
-            self._requested_vectors["rcw"] = angle_error
+            self.vector_rcw = angle_error
 
         # Ne fais rien si les vecteurs sont trop petits
-        if (
-            self._requested_vectors["strafe"] == 0
-            and self._requested_vectors["fwd"] == 0
-            and self.request_wheel_lock
-        ):
+        if self.vector_strafe == 0 and self.vector_fwd == 0 and self.request_wheel_lock:
             # On remets à zéro la vitesse
             self._requested_speeds = dict.fromkeys(self._requested_speeds, 0)
             # Place les roues à 45 degrées, utile pour la défense
@@ -403,16 +332,14 @@ class SwerveDrive:
             self.request_wheel_lock = False
             return
 
-        fwdSpeed = self._requested_vectors["fwd"]
-        strafeSpeed = -self._requested_vectors["strafe"]
-        if abs(self._requested_vectors["rcw"]) <= 0.002:
-            self._requested_vectors["rcw"] = 0
-        rot = self._requested_vectors["rcw"]
-        fwdSpeed = self.fwd_limiter.calculate(fwdSpeed)
-        strafeSpeed = self.strafe_limiter.calculate(strafeSpeed)
-        self.nt.putNumber("debug/fwdSpeed", fwdSpeed)
-        self.nt.putNumber("debug/strageSpeed", strafeSpeed)
-        if self.field_centric:
+        if abs(self.vector_rcw) <= 0.002:
+            self.vector_rcw = 0
+        rot = self.vector_rcw
+
+        fwdSpeed = self.fwd_limiter.calculate(self.vector_fwd)
+        strafeSpeed = self.strafe_limiter.calculate(-self.vector_strafe)
+
+        if self.cfg.field_centric:
             self.chassis_speed = kinematics.ChassisSpeeds.discretize(
                 kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(
                     fwdSpeed, strafeSpeed, rot, self.getEstimatedPose().rotation()
@@ -441,9 +368,9 @@ class SwerveDrive:
         self.rearRightModule.setTargetState(swerveModuleStates[3])
 
         # Remise à zéro des valeurs demandées par sécurité
-        self._requested_vectors["fwd"] = 0.0
-        self._requested_vectors["strafe"] = 0.0
-        self._requested_vectors["rcw"] = 0.0
+        self.vector_fwd = 0.0
+        self.vector_strafe = 0.0
+        self.vector_rcw = 0.0
 
     def updateOdometry(self) -> None:
         """Updates the field relative position of the robot."""
@@ -511,62 +438,12 @@ class SwerveDrive:
             pose,
         )
 
-    def getRobotRelativeSpeeds(self):
-        """
-        ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
-        """
-        return self.kinematics.toChassisSpeeds(self.getModuleStates())
-
-    def getFieldRelativeSpeeds(self):
-        """
-        ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
-        """
-        speed = kinematics.ChassisSpeeds.fromRobotRelativeSpeeds(
-            self.kinematics.toChassisSpeeds(self.getModuleStates()),
-            self.getEstimatedPose().rotation(),
-        )
-        return speed
-
-    def driveRobotRelative(self, robotRelativeSpeeds: kinematics.ChassisSpeeds):
-        """
-        Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
-        """
-        targetSpeeds = kinematics.ChassisSpeeds.discretize(robotRelativeSpeeds, 0.02)
-
-        targetStates = self.kinematics.toSwerveModuleStates(targetSpeeds)
-        self.setStates(targetStates)
-
-    def setStates(
-        self,
-        targetStates: tuple[
-            kinematics.SwerveModuleState,
-            kinematics.SwerveModuleState,
-            kinematics.SwerveModuleState,
-            kinematics.SwerveModuleState,
-        ],
-    ):
-        """
-        Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
-        """
-        targetStates = kinematics.SwerveDrive4Kinematics.desaturateWheelSpeeds(
-            targetStates, MAX_MODULE_SPEED
-        )
-        self.frontLeftModule.setTargetState(targetStates[0])
-        self.frontRightModule.setTargetState(targetStates[1])
-        self.rearLeftModule.setTargetState(targetStates[2])
-        self.rearRightModule.setTargetState(targetStates[3])
-
     def execute(self):
         """
         Calcul et transmet la commande de vitesse et d'angle à chaque swerve module.
         """
         # Évaluation de la commande selon le mode d'opération
         self.updateOdometry()
-        self._compute_move()
-        self.controller_forward = 0
-        self.controller_strafe = 0
-        self.controller_angle_stick_x = 0
-        self.controller_angle_stick_y = 0
         self.automove_forward = 0
         self.automove_strafe = 0
         self.automove_strength = 0
@@ -577,3 +454,63 @@ class SwerveDrive:
         # Remets les vitesse à zéro
         self._requested_speeds = dict.fromkeys(self._requested_speeds, 0)
         self.request_wheel_lock = False
+
+    # def getRobotRelativeSpeeds(self):
+    #     """
+    #     ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
+    #     """
+    #     return self.kinematics.toChassisSpeeds(self.getModuleStates())
+    #
+    # def getFieldRelativeSpeeds(self):
+    #     """
+    #     ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
+    #     """
+    #     speed = kinematics.ChassisSpeeds.fromRobotRelativeSpeeds(
+    #         self.kinematics.toChassisSpeeds(self.getModuleStates()),
+    #         self.getEstimatedPose().rotation(),
+    #     )
+    #     return speed
+    #
+
+    # def driveRobotRelative(self, robotRelativeSpeeds: kinematics.ChassisSpeeds):
+    #     """
+    #     Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
+    #     """
+    #     targetSpeeds = kinematics.ChassisSpeeds.discretize(robotRelativeSpeeds, 0.02)
+    #
+    #     targetStates = self.kinematics.toSwerveModuleStates(targetSpeeds)
+    #     self.setStates(targetStates)
+    #
+    # def setStates(
+    #     self,
+    #     targetStates: tuple[
+    #         kinematics.SwerveModuleState,
+    #         kinematics.SwerveModuleState,
+    #         kinematics.SwerveModuleState,
+    #         kinematics.SwerveModuleState,
+    #     ],
+    # ):
+    #     """
+    #     Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
+    #     """
+    #     targetStates = kinematics.SwerveDrive4Kinematics.desaturateWheelSpeeds(
+    #         targetStates, MAX_MODULE_SPEED
+    #     )
+    #     self.frontLeftModule.setTargetState(targetStates[0])
+    #     self.frontRightModule.setTargetState(targetStates[1])
+    #     self.rearLeftModule.setTargetState(targetStates[2])
+    #     self.rearRightModule.setTargetState(targetStates[3])
+
+    # def controller_relative_rotate(self):
+    #     """Fait bouger le robot avec un contrôleur"""
+    #     angle_stick_x = self.controller_angle_stick_x
+    #     rotate = self.square_input(angle_stick_x)
+    #     self._rotate_robot(rotate)
+
+    # def _rotate_robot(self, rcw):
+    #     """
+    #     ROTATION NON FIELD CENTRIC!!
+    #     Écrit la valeur de rotation
+    #     :param rcw: Valeur de -1 à 1
+    #     """
+    #     self.vector_rcw = rcw
