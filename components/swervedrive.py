@@ -153,11 +153,6 @@ class SwerveDrive:
         )
         self.angle_pid.setConstraints(constraint)
 
-        self.frontLeftModule.refresh_nt_config()
-        self.frontRightModule.refresh_nt_config()
-        self.rearLeftModule.refresh_nt_config()
-        self.rearRightModule.refresh_nt_config()
-
     def getRotation2d(self):
         if self.cfg.is_simulation:
             return geometry.Rotation2d(self.sim_angle)
