@@ -14,11 +14,12 @@ class ActionGrab(StateMachine):
     intake: Intake
     arduino_light: arduino_light.I2CArduinoLight
     drivetrain: swervedrive.SwerveDrive
-    limelight_intake: limelight.Limelight
-    auto_intake_kp = tunable(0.7)
+    pixy: Pixy
+    auto_intake_kp = tunable(0.015)
     auto_intake_ki = tunable(0)
     auto_intake_kd = tunable(0)
     auto_intake_pid = controller.PIDController(0, 0, 0)
+    intake_target_angle = tunable(113)
 
     @state(first=True)
     def position_head(self):
@@ -30,7 +31,7 @@ class ActionGrab(StateMachine):
         )
         self.auto_intake_pid.reset()
 
-        self.lobras_head.set_angle(100)
+        self.lobras_head.set_angle(self.intake_target_angle)
 
         if self.lobras_head.is_ready(acceptable_error=10):
             self.next_state("position_arm")
@@ -46,25 +47,29 @@ class ActionGrab(StateMachine):
         if initial_call:
             self.intake.enable()
 
-        # Automove to target
-        if self.limelight_intake.is_target_in_view():
-            offset = self.limelight_intake.get_tx()
-            res = tools.map_value(abs(offset), 0, 50, 0, 1)
-            fwd = 0.5 * res
+        # # Automove to target
+        if self.pixy.get_target_valid():
+            offset = self.pixy.get_offset()
+            res = tools.map_value(abs(offset), 0, 1000, 0, 1)
+            fwd = 0.5 * (1 - res)
             error = self.auto_intake_pid.calculate(offset, 0)
         else:
             fwd = 0.5
             error = 0
         self.drivetrain.relative_rotate(-error)
-        self.drivetrain.set_relative_automove_value(fwd, 0)
+        self.drivetrain.set_relative_automove_value(-fwd, 0)
 
         if self.intake.has_object():
-            self.next_state("finish_intake")
+            self.arduino_light.set_RGB(0, 0, 255)
+            self.next_state("finish")
 
-    @timed_state(duration=0.2, next_state="done")
-    def finish_intake(self):
-        self.arduino_light.set_RGB(0, 0, 255)
-        pass
+    # @timed_state(duration=0.05, next_state="finish")
+    # def finish_intake(self):
+    #     pass
+
+    @state
+    def finish(self):
+        self.done()
 
     def done(self) -> None:
         self.intake.disable()
@@ -101,12 +106,17 @@ class ActionShoot(StateMachine):
 
         # Use a normal state
         if self.shooter.is_ready():
+            print("READY")
             self.next_state("feed_start")
 
-    @timed_state(duration=1.5, next_state="done")
+    @timed_state(duration=1.5, next_state="finish")
     def feed_start(self, initial_call):
         if initial_call:
             self.intake.enable()
+
+    @state
+    def finish(self):
+        self.done()
 
 
     def done(self) -> None:

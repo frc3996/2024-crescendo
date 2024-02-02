@@ -2,6 +2,15 @@
 import math
 
 
+def fit_to_boundaries(value, minimum_value=None, maximum_value=None):
+    """Fits a value to boundaries. None to dismiss a boundary."""
+    if minimum_value is not None:
+        value = max(minimum_value, value)
+    if maximum_value is not None:
+        value = min(maximum_value, value)
+    return value
+
+
 def square_input(input):
     """Retourne la valeur au carré en conservant le signe"""
     return math.copysign(input * input, input)

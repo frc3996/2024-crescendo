@@ -1,15 +1,18 @@
 import wpilib  # Librairie de base de la FRC
 import ntcore
+from magicbot import feedback
 
 
 class Pixy:
-    def __init__(self, analogPort=0, digitalPort=0):
-        self.offset = wpilib.AnalogInput(analogPort)
-        self.isTarget = wpilib.DigitalInput(digitalPort)
+    def setup(self):
+        self.offset = wpilib.AnalogInput(1)
+        self.isTarget = wpilib.DigitalInput(0)
 
+    @feedback
     def get_target_valid(self):
         return self.isTarget.get()
 
+    @feedback
     def get_offset(self):
         """Returns offset value"""
         return self.offset.getValue() - 1350
@@ -22,6 +25,5 @@ class Pixy:
             return True
         return False
 
-    def update_sd(self, network_table: ntcore.NetworkTable):
-        network_table.putNumber("pixy/valid", self.get_target_valid())
-        network_table.putNumber("pixy/offset", self.get_offset())
+    def execute(self):
+        pass

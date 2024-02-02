@@ -93,6 +93,7 @@ class MyRobot(MagicRobot):
 
     # NAVX
     navx: AHRS
+    pixy: Pixy
 
     # Networktables pour de la configuration et retour d'information
     nt: ntcore.NetworkTable
@@ -235,15 +236,12 @@ class MyRobot(MagicRobot):
         )
 
         # Reset navx zero
-        if self.gamepad1.getLeftStickButton():
+        if self.gamepad1.getRightStickButton():
             self.drivetrain.navx_zero_angle()
 
-        if self.gamepad1.getStartButton():
-            self.drivetrain.request_wheel_lock = True
-
-        if self.gamepad1.getAButton():
+        if self.gamepad1.getAButton() and self.intake.has_object() is False:
             self.actionGrab.engage()
-        elif self.gamepad1.getYButton():
+        elif self.gamepad1.getYButton() and self.intake.has_object() is True:
             self.actionShoot.engage()
         else:
             self.actionStow.engage()

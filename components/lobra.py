@@ -3,7 +3,7 @@ import math
 import magicbot
 import rev
 from magicbot import feedback
-
+from common import tools
 import constants
 
 
@@ -14,7 +14,7 @@ class LoBrasHead:
     kEncoderInverted = True
 
     ## Position minimale
-    kSoftLimitReverse = math.radians(46)
+    kSoftLimitReverse = math.radians(43)
 
     ## Position maximale
     kSoftLimitForward = math.radians(212)
@@ -38,13 +38,13 @@ class LoBrasHead:
     kMotorCurrentLimit = 20
 
     # Valeurs de PID
-    kP = magicbot.tunable(0.5)
-    kI = magicbot.tunable(0.0002)
+    kP = magicbot.tunable(0.65)
+    kI = magicbot.tunable(0.0)
     kD = magicbot.tunable(0.0)
     kFF = magicbot.tunable(0.0)
 
     ## On ne se teleporte pas a une position
-    kMotorClosedLoopRampRate = magicbot.tunable(0.2)
+    kMotorClosedLoopRampRate = magicbot.tunable(0.5)
 
     _target_position: float
 
@@ -178,7 +178,7 @@ class LoBrasArm:
     kSoftLimitReverse = math.radians(101)
 
     ## Position maximale
-    kSoftLimitForward = math.radians(210)
+    kSoftLimitForward = math.radians(327)
 
     # Duty cycle maximal utiliser par le PID
     kMinOutput = -1
@@ -199,7 +199,8 @@ class LoBrasArm:
     kMotorCurrentLimit = 30
 
     # Valeurs de PID
-    kP = magicbot.tunable(1.5)
+    # kP = magicbot.tunable(1.5)
+    kP = magicbot.tunable(0.5)
     kI = magicbot.tunable(0.0)
     kD = magicbot.tunable(0.0)
     kFF = magicbot.tunable(0.0)
@@ -292,6 +293,16 @@ class LoBrasArm:
 
     def set_angle(self, angle: float):
         """Set target angle from 0 to 360 degree"""
+        if self.get_angle() > 250 and angle < 200:
+            angle = 200
+        elif self.get_angle() > 200 and angle < 150:
+            angle = 150
+        elif self.get_angle() > 150 and angle < 100:
+            angle = 100
+        elif self.get_angle() > 100 and angle < 50:
+            angle = 50
+
+        angle = tools.fit_to_boundaries(angle, 0, 120)
         self._target_position = angle
         angle = math.radians(angle)
         angle += self.kSoftLimitReverse

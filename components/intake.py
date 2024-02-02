@@ -34,7 +34,7 @@ class Intake:
         return self.beam.getValue()
 
     def enable(self):
-        self.motor.set(0.5)
+        self.motor.set(1)
 
     def disable(self):
         self.motor.set(0)
