@@ -39,31 +39,31 @@ class Shooter:
         self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus6, 60000)   # Absolute encoder Vel/Freq (default 200ms)
         self.motor.setInverted(True)
         self.encoder = self.motor.getEncoder()
-        # self.pid = self.motor.getPIDController()
-        # self.pid.setFeedbackDevice(self.encoder)
-        self.software_pid = controller.PIDController(self.kP, self.kI, self.kD)
-        self.__target_velocity = 0
+        self.pid = self.motor.getPIDController()
+        self.pid.setFeedbackDevice(self.encoder)
+        # self.software_pid = controller.PIDController(self.kP, self.kI, self.kD)
+        # self.__target_velocity = 0
 
         # On rampe la vitesse
         self.motor.setClosedLoopRampRate(self.kMotorClosedLoopRampRate)
 
         # Configurer le PID pour le moteur
-        # self.pid.setP(self.kP)
-        # self.pid.setI(self.kI)
-        # self.pid.setD(self.kD)
-        # self.pid.setFF(self.kFF)
-        # self.pid.setOutputRange(self.kMinOutput, self.kMaxOutput)
+        self.pid.setP(self.kP)
+        self.pid.setI(self.kI)
+        self.pid.setD(self.kD)
+        self.pid.setFF(self.kFF)
+        self.pid.setOutputRange(self.kMinOutput, self.kMaxOutput)
 
         self.motor.burnFlash()
 
     # Control methods
     def enable(self):
-        self.__target_velocity = self.velocity
-        # self.pid.setReference(self.velocity, rev.CANSparkMax.ControlType.kDutyCycle)
+        # self.__target_velocity = self.velocity
+        self.pid.setReference(self.velocity, rev.CANSparkMax.ControlType.kVelocity)
 
     def disable(self):
-        self.__target_velocity = 0
-        # self.pid.setReference(0, rev.CANSparkMax.ControlType.kDutyCycle)
+        # self.__target_velocity = 0
+        self.pid.setReference(0, rev.CANSparkMax.ControlType.kVelocity)
 
     def is_enabled(self):
         if self.getVelocity() > 0:
@@ -77,19 +77,20 @@ class Shooter:
     def is_ready(self):
         return abs(self.getVelocity()*2 - self.velocity) < 400
 
-    def execute(self):
-        error = self.software_pid.calculate(self.getVelocity(), self.__target_velocity)
-        self.motor.set(error)
-        return
-
     def on_enable(self):
         # Update the tunables
         self.motor.setClosedLoopRampRate(self.kMotorClosedLoopRampRate)
-        self.software_pid.setPID(self.kP, self.kI, self.kD)
-        # self.pid.setP(self.kP)
-        # self.pid.setI(self.kI)
-        # self.pid.setD(self.kD)
-        # self.pid.setFF(self.kFF)
+        # self.software_pid.setPID(self.kP, self.kI, self.kD)
+        self.pid.setP(self.kP)
+        self.pid.setI(self.kI)
+        self.pid.setD(self.kD)
+        self.pid.setFF(self.kFF)
+
+    def execute(self):
+        # error = self.software_pid.calculate(self.getVelocity(), self.__target_velocity)
+        # self.motor.set(error)
+        return
+
 
 
 class ShooterFollower:
