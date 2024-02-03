@@ -309,6 +309,10 @@ class LoBrasArm:
         self.pid.setReference(angle, rev.CANSparkMax.ControlType.kPosition)
 
     @feedback
+    def get_target_position(self):
+        return self._target_position
+
+    @feedback
     def get_angle(self) -> float:
         return math.degrees(self.encoder.getPosition() - self.kSoftLimitReverse)
 
