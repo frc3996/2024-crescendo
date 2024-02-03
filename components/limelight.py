@@ -5,6 +5,8 @@ from ntcore import NetworkTableInstance
 from wpimath.filter import MedianFilter
 from wpimath.geometry import Pose3d, Rotation3d, Translation3d
 
+from .field import BLUE_ALLIANCE, RED_ALLIANCE, FieldLayout
+
 
 class LimeLightVision:
     def __init__(self, name="limelight"):
@@ -18,12 +20,20 @@ class LimeLightVision:
         self.Cl = self.nt.getFloatTopic("cl").subscribe(0)
         self.Tl = self.nt.getFloatTopic("tl").subscribe(0)
 
-        self.pose = self.nt.getFloatArrayTopic("botpose").subscribe(
+        self.botpose = self.nt.getFloatArrayTopic("botpose").subscribe(
+            [-99, -99, -99, 0, 0, 0, -1]
+        )
+        self.botpose_wpiblue = self.nt.getFloatArrayTopic("botpose_wpiblue").subscribe(
+            [-99, -99, -99, 0, 0, 0, -1]
+        )
+        self.botpose_wpired = self.nt.getFloatArrayTopic("botpose_wpired").subscribe(
             [-99, -99, -99, 0, 0, 0, -1]
         )
 
         # create the timer that we can use to the the FPGA timestamp
         self.timer = wpilib.Timer()
+
+        self.fieldLayout = FieldLayout()
 
     def get_latency(self):
         return (self.Cl.get() + self.Tl.get()) / 1000
@@ -32,7 +42,15 @@ class LimeLightVision:
         return self.Pipe.get()
 
     def get_pose(self) -> Tuple[Pose3d, Any]:
-        return (*self.array_to_bot_pose(self.pose.get()),)
+        return (*self.botpose_to_pose3d(self.botpose.get()),)
+
+    def get_alliance_pose(self) -> Tuple[Pose3d, Any]:
+        if self.fieldLayout.alliance == RED_ALLIANCE:
+            return (*self.botpose_to_pose3d(self.botpose_wpired.get()),)
+        elif self.fieldLayout.alliance == BLUE_ALLIANCE:
+            return (*self.botpose_to_pose3d(self.botpose_wpiblue.get()),)
+        else:
+            raise RuntimeError("No alliance set")
 
     def get_tid(self) -> float:
         return self.nt.getNumber("tid", -1.0)
@@ -105,13 +123,7 @@ class LimeLightVision:
     def set_pipeline(self, value: int):
         self.nt.putNumber("pipeline", value)
 
-    # def arrayToPose3d(poseArray) -> Pose3d:
-    #     return Pose3d(
-    #         Translation3d(poseArray[0], poseArray[1], poseArray[2]),
-    #         Rotation3d.fromDegrees(poseArray[3], poseArray[4], poseArray[5]),
-    #     )
-
-    def array_to_bot_pose(self, poseArray) -> Tuple[Pose3d, Any]:
+    def botpose_to_pose3d(self, poseArray) -> Tuple[Pose3d, Any]:
         """Takes limelight array data and creates a Pose3d object for
            robot position and a timestamp reprepresenting the time
            the position was observed.
