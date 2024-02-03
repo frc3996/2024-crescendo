@@ -5,7 +5,7 @@ from ntcore import NetworkTableInstance
 from wpimath.filter import MedianFilter
 from wpimath.geometry import Pose3d, Rotation3d, Translation3d
 
-from .field import BLUE_ALLIANCE, RED_ALLIANCE, FieldLayout
+from common.field import BLUE_ALLIANCE, RED_ALLIANCE, FieldLayout
 
 
 class LimeLightVision:

@@ -44,7 +44,7 @@ class SwerveDrive:
     rearRightModule: swervemodule.SwerveModule
     navx: AHRS
     nt: ntcore.NetworkTable
-    limelight: limelight.LimeLightVision
+    limelight_vision: limelight.LimeLightVision
 
     controller_forward = magicbot.will_reset_to(0)
     controller_strafe = magicbot.will_reset_to(0)
@@ -322,7 +322,7 @@ class SwerveDrive:
             ),
         )
 
-        visionPose, visionTime = self.limelight.get_alliance_pose()
+        visionPose, visionTime = self.limelight_vision.get_alliance_pose()
         if visionPose:
             if (
                 abs(visionPose.x - self.getEstimatedPose().x) < 0.5

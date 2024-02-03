@@ -95,7 +95,6 @@ class SwerveModule:
         self.driveMotor.optimize_bus_utilization()
         self.rotateMotor.optimize_bus_utilization()
         self.encoder.optimize_bus_utilization()
-        self.encoder.get_absolute_position()
 
     def on_enable(self):
         self.rotation_pid.setP(self.kP)
@@ -181,19 +180,19 @@ class SwerveModule:
         # print(f"{self.cfg.nt_name} rotation abs position: {self.get_encoder_abs_position()}")
         return kinematics.SwerveModulePosition(-current_position, current_angle)
 
-    @feedback
+    # @feedback
     def get_angle_degrees(self):
         return self.get_encoder_abs_position()
 
-    @feedback
+    # @feedback
     def get_angle_error(self):
         return self._requested_degree - self.get_encoder_abs_position()
 
-    @feedback
+    # @feedback
     def get_requested_degree(self):
         return self._requested_degree
 
-    @feedback
+    # @feedback
     def get_requested_speed(self):
         return self._requested_speed
 

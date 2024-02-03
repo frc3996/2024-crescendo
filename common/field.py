@@ -63,11 +63,11 @@ def getAlliance():
     return wpilib.DriverStation.getAlliance()
 
 
-class FieldLayout(AprilTagFieldLayout):
+class FieldLayout:
     def __init__(self):
         self.logger = logging.getLogger("FieldLayout")
-        super().__init__(apriltagsLayoutPath)
-        self.alliance = wpilib.DriverStation.Alliance.kInvalid
+        # super().__init__(apriltagsLayoutPath)
+        self.alliance = wpilib.DriverStation.Alliance.kBlue
         # set layout to be specific to the alliance end
 
     def getTagtoRobotTransform(self, fieldPose: Pose3d, tagID: int) -> Transform3d:

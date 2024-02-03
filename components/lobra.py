@@ -42,8 +42,6 @@ class LoBrasHead:
     kI = magicbot.tunable(0.0)
     kD = magicbot.tunable(0.0)
     kFF = magicbot.tunable(0.0)
-
-    ## On ne se teleporte pas a une position
     kMotorClosedLoopRampRate = magicbot.tunable(0.5)
 
     _target_position: float
@@ -135,6 +133,10 @@ class LoBrasHead:
         angle = math.radians(angle)
         angle += self.kSoftLimitReverse
         self.pid.setReference(angle, rev.CANSparkMax.ControlType.kPosition)
+
+    @feedback
+    def get_target_angle(self) -> float:
+        return self._target_position
 
     @feedback
     def get_angle(self) -> float:

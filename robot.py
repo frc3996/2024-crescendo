@@ -43,9 +43,10 @@ from navx import AHRS
 from wpimath.geometry import Rotation2d
 
 import constants
-from common import arduino_light, limelight
+from common import arduino_light #, limelight
 from components import *
-from components.robot_actions import ActionGrab, ActionShoot, ActionStow
+from components import limelight
+from components.robot_actions import ActionGrab, ActionShoot, ActionStow, ActionLowShoot, ActionShootAmp
 
 
 class MyRobot(MagicRobot):
@@ -69,6 +70,8 @@ class MyRobot(MagicRobot):
     actionGrab: ActionGrab
     actionShoot: ActionShoot
     actionStow: ActionStow
+    actionLowShoot: ActionLowShoot
+    actionShootAmp: ActionShootAmp
 
     # LOW Level components after
 
@@ -94,6 +97,7 @@ class MyRobot(MagicRobot):
     # NAVX
     navx: AHRS
     pixy: Pixy
+    limelight_vision: limelight.LimeLightVision
 
     # Networktables pour de la configuration et retour d'information
     nt: ntcore.NetworkTable
@@ -106,8 +110,8 @@ class MyRobot(MagicRobot):
         # NetworkTable
         self.nt = ntcore.NetworkTableInstance.getDefault().getTable("robotpy")
 
-        self.limelight_intake = limelight.Limelight("limelight")
-        self.limelight_shoot = limelight.Limelight("limelight-shoot")
+        # self.limelight_intake = limelight.LimeLightVision("limelight")
+        # self.limelight_shoot = limelight.LimeLightVision("limelight-shoot")
         self.arduino_light = arduino_light.I2CArduinoLight(wpilib.I2C.Port.kMXP, 0x42)
         self.status_light = wpilib.Solenoid(10, wpilib.PneumaticsModuleType.CTREPCM, 1)
 
@@ -120,7 +124,7 @@ class MyRobot(MagicRobot):
         self.pdp = wpilib.PowerDistribution()
         self.digitaltest = wpilib.DigitalInput(9)
 
-    @feedback
+    # @feedback
     def getDigitalIO(self):
         return self.digitaltest.get()
 
@@ -241,9 +245,13 @@ class MyRobot(MagicRobot):
 
         if self.gamepad1.getAButton() and self.intake.has_object() is False:
             self.actionGrab.engage()
-        elif self.gamepad1.getYButton() and self.intake.has_object() is True:
+        elif self.gamepad1.getYButton():#  and self.intake.has_object() is True:
             self.actionShoot.engage()
-        else:
+        elif self.gamepad1.getXButton():#  and self.intake.has_object() is True:
+            self.actionLowShoot.engage()
+        elif self.gamepad1.getBButton():#  and self.intake.has_object() is True:
+            self.actionShootAmp.engage()
+        elif self.gamepad1.getRightBumper():
             self.actionStow.engage()
 
     def update_nt(self):

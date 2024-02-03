@@ -9,16 +9,17 @@ import constants
 
 class Shooter:
     # Valeurs de PID
-    kP = magicbot.tunable(0.005)
-    kI = magicbot.tunable(0.0)
+    CANID = constants.CANIds.SHOOTER_LEFT
+    kP = magicbot.tunable(0.00037)
+    kI = magicbot.tunable(0.0000007)
     kD = magicbot.tunable(0.0)
     kFF = magicbot.tunable(0.0)
+    kMotorClosedLoopRampRate = magicbot.tunable(0.0)
+    kInverted = True
 
     # MAX SPEED IS 5676
-    velocity = magicbot.tunable(8000)
-
-    ## On rampe la vitesse
-    kMotorClosedLoopRampRate = magicbot.tunable(0.3)
+    speaker_velocity = magicbot.tunable(3996)
+    amp_velocity = magicbot.tunable(1500)
 
     # Duty cycle maximal utiliser par le PID
     kMinOutput = -1
@@ -26,9 +27,8 @@ class Shooter:
 
     def setup(self):
         self.motor = rev.CANSparkMax(
-            constants.CANIds.SHOOTER_LEFT, rev.CANSparkMax.MotorType.kBrushless
+            self.CANID, rev.CANSparkMax.MotorType.kBrushless
         )
-
         self.motor.restoreFactoryDefaults()
         self.motor.setControlFramePeriodMs(0)  # Control frame from the rio?
         self.motor.setIdleMode(self.motor.IdleMode.kCoast)
@@ -37,12 +37,12 @@ class Shooter:
         self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus4, 60000)   # Alternate encoder (default 20ms)
         self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus5, 60000)   # Absolute encoder Pos/Angle (default 200ms)
         self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus6, 60000)   # Absolute encoder Vel/Freq (default 200ms)
-        self.motor.setInverted(True)
+        self.motor.setInverted(self.kInverted)
         self.encoder = self.motor.getEncoder()
         self.pid = self.motor.getPIDController()
         self.pid.setFeedbackDevice(self.encoder)
         # self.software_pid = controller.PIDController(self.kP, self.kI, self.kD)
-        # self.__target_velocity = 0
+        self.__target_velocity = 0
 
         # On rampe la vitesse
         self.motor.setClosedLoopRampRate(self.kMotorClosedLoopRampRate)
@@ -56,14 +56,22 @@ class Shooter:
 
         self.motor.burnFlash()
 
+    def __set_velocity(self, velocity):
+        self.__target_velocity = velocity
+        self.pid.setReference(velocity, rev.CANSparkMax.ControlType.kVelocity)
+
     # Control methods
-    def enable(self):
-        # self.__target_velocity = self.velocity
-        self.pid.setReference(self.velocity, rev.CANSparkMax.ControlType.kVelocity)
+    def shoot_amp(self):
+        self.__set_velocity(self.amp_velocity)
+
+    # Control methods
+    def shoot_speaker(self):
+        self.__set_velocity(self.speaker_velocity)
 
     def disable(self):
-        # self.__target_velocity = 0
-        self.pid.setReference(0, rev.CANSparkMax.ControlType.kVelocity)
+        self.__target_velocity = 0
+        self.motor.set(0)
+        # self.pid.setReference(0, rev.CANSparkMax.ControlType.kVelocity)
 
     def is_enabled(self):
         if self.getVelocity() > 0:
@@ -75,7 +83,7 @@ class Shooter:
         return self.encoder.getVelocity()
 
     def is_ready(self):
-        return abs(self.getVelocity()*2 - self.velocity) < 400
+        return abs(self.getVelocity() - self.__target_velocity) < 25
 
     def on_enable(self):
         # Update the tunables
@@ -92,29 +100,19 @@ class Shooter:
         return
 
 
+class ShooterFollower(Shooter):
+    # Valeurs de PID
+    CANID = constants.CANIds.SHOOTER_RIGHT
+    kP = magicbot.tunable(0.00030)
+    kI = magicbot.tunable(0.0000008)
+    kD = magicbot.tunable(0.0)
+    kFF = magicbot.tunable(0.0)
+    kMotorClosedLoopRampRate = magicbot.tunable(0.0)
+    kInverted = False
 
-class ShooterFollower:
-    kFollowerInverted = True
-    shooter: Shooter
+    # MAX SPEED IS 5676
+    speaker_velocity = magicbot.tunable(3000)
 
-    def setup(self):
-        self.motor = rev.CANSparkMax(
-            constants.CANIds.SHOOTER_RIGHT, rev.CANSparkMax.MotorType.kBrushless
-        )
-        # Factory reset, on remet les spark dans un etat connu avant de les
-        # configurer. C'est utile si on dois les remplacer
-        self.motor.restoreFactoryDefaults()
-        self.motor.setControlFramePeriodMs(0)  # Control frame from the rio?
-        self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus0, 20)  # Faults and output (default 10ms)
-        self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus3, 500)   # Analog sensor (default 50ms)
-        self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus4, 60000)   # Alternate encoder (default 20ms)
-        self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus5, 60000)   # Absolute encoder Pos/Angle (default 200ms)
-        self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus6, 60000)   # Absolute encoder Vel/Freq (default 200ms)
-
-        # En mode CAN, un SPARK MAX est configurer pour suivre un autre
-        self.motor.follow(self.shooter.motor, invert=self.kFollowerInverted)
-
-        self.motor.burnFlash()
-
-    def execute(self):
-        pass
+    # Duty cycle maximal utiliser par le PID
+    kMinOutput = -1
+    kMaxOutput = 1
