@@ -1,5 +1,7 @@
 import math
 
+import wpimath.units
+
 
 def fit_to_boundaries(value, minimum_value=None, maximum_value=None):
     """Fits a value to boundaries. None to dismiss a boundary."""
@@ -34,7 +36,9 @@ def rotate_vector(vector, angle):
     return (x, y)
 
 
-def calculate_optimal_launch_angle(distance, height_difference, initial_velocity):
+def calculate_optimal_launch_angle(
+    distance, height_difference, initial_velocity
+) -> wpimath.units.degrees | None:
     """
     Calculates the optimal launch angle to hit a target at a given distance and height difference.
 
@@ -54,7 +58,7 @@ def calculate_optimal_launch_angle(distance, height_difference, initial_velocity
     # Check if the discriminant is positive to ensure a real solution exists.
     discriminant = b**2 - 4 * a * c
     if discriminant < 0:
-        raise ValueError("No real solution exists for the given parameters.")
+        return None
 
     # Calculate the two possible angles and select the smaller one for the optimal trajectory.
     theta1 = math.atan2(v**2 + math.sqrt(discriminant), g * distance)

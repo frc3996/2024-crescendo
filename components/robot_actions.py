@@ -1,3 +1,6 @@
+import math
+from dataclasses import field
+
 from magicbot import (StateMachine, default_state, feedback, state,
                       timed_state, tunable)
 from magicbot.state_machine import StateRef
@@ -345,14 +348,20 @@ class ActionLowShootAuto(StateMachine):
 
     @state
     def calculate_launch_angle(self):
-        pass
-        # tools.calculate_optimal_launch_angle()
+        amp_position = self.field.getSpeakerRelativePosition()
+        if amp_position is None:
+            return
+        distance = math.sqrt(amp_position.x**2 + amp_position.y**2)
+        angle = tools.calculate_optimal_launch_angle(distance, amp_position.z, 10)
+        if angle:
+            self.next_state("prepare_to_fire1")
 
     @state
     def prepare_to_fire1(self):
         self.shooter.shoot_speaker()
         self.shooter_follower.shoot_speaker()
         self.intake.intake()
+        # TODO ADJUST THE HEAD
         print(self.intake.getVelocity())
         if self.intake.has_object():
             self.next_state("prepare_to_fire2")

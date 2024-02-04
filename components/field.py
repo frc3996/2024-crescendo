@@ -75,6 +75,7 @@ class FieldLayout(AprilTagFieldLayout):
         super().__init__(apriltagsLayoutPath)
         # set layout to be specific to the alliance end
         self.alliance = wpilib.DriverStation.Alliance.kBlue
+        self.gridPositions = blueGridPositions
 
     def getTagtoRobotTransform(
         self, field_pose: Pose3d, tagID: int
@@ -85,49 +86,51 @@ class FieldLayout(AprilTagFieldLayout):
         return field_pose - tag_pose
 
     # get position
-    def getTagRelativePosition(self, tagID: int, position: int) -> Pose3d | None:
+    def getTagRelativePosition(self, tagID: int) -> Transform3d | None:
         """
         Calculate the relative position of the tag
         """
         tag_pose = self.getTagPose(tagID)
         if tag_pose is None:
             return None
-        bot_pose = Pose3d(
-            self.drivetrain.getEstimatedPose().x_feet,
-            self.drivetrain.getEstimatedPose().y_feet,
-            wpimath.units.feet(0),
-            Rotation3d(0, 0, 0),
+        odometry = self.drivetrain.getEstimatedPose()
+
+        # TODO: Maybe implement a pose3d in the swerve, pass in the height??
+        odometry_3d = Pose3d(
+            odometry.x,
+            odometry.y,
+            wpimath.units.meters(0),  # TODO: This should be the height of the head
+            Rotation3d(0, 0, odometry.rotation().degrees()),
         )
-        transform = tag_pose - bot_pose
-        return tag_pose + transform
+        return tag_pose - odometry_3d
 
-    def getPosition(self, position: int) -> Pose3d | None:
-        """Returns the field pose for the robot to use to be in front
-        of the given grid position
+    # def getPosition(self, position: int) -> Pose3d | None:
+    #     """Returns the field pose for the robot to use to be in front
+    #     of the given grid position
+    #
+    #     Args:
+    #         position (int): Grid position, from 1 to 9 with 1 being the furthest right
+    #
+    #     Returns:
+    #         Pose3d: Field pose
+    #     """
+    #     return self.getTagRelativePosition(*self.gridPositions[position])
 
-        Args:
-            position (int): Grid position, from 1 to 9 with 1 being the furthest right
-
-        Returns:
-            Pose3d: Field pose
-        """
-        return self.getTagRelativePosition(*self.gridPositions[position])
-
-    def getAmpRelativePosition(self) -> Pose3d | None:
-        AMP_HEIGHT_MIN_FT = 6.5  # 6'6
-        AMP_HEIGHT_HIGH_FT = 6.90626  # 6'10 7/8
+    def getSpeakerRelativePosition(self) -> Transform3d | None:
+        AMP_HEIGHT_MIN = wpimath.units.feetToMeters(6.5)  # 6'6
+        AMP_HEIGHT_HIGH = wpimath.units.feetToMeters(6.90626)  # 6'10 7/8
+        # Tag under the Speaker
         tag_pose = self.getTagRelativePosition(7)
         if tag_pose is None:
             return None
-        # Why are those feets?, so stupid
-        return Pose3d(
-            tag_pose.x_feet,
-            tag_pose.y_feet,
-            wpimath.units.feet(
-                AMP_HEIGHT_MIN_FT + (AMP_HEIGHT_HIGH_FT - AMP_HEIGHT_MIN_FT)
-            ),
-            tag_pose.rotation(),
+        # Adjust it for the speaker
+        speaker_pose = Transform3d(
+            0,
+            0,
+            wpimath.units.meters(AMP_HEIGHT_MIN + (AMP_HEIGHT_HIGH - AMP_HEIGHT_MIN)),
+            Rotation3d(0, 0, 0),
         )
+        return tag_pose + speaker_pose
 
     # set alliance/change origin
     def syncAlliance(self, alliance=getAlliance()):
@@ -135,9 +138,11 @@ class FieldLayout(AprilTagFieldLayout):
         if alliance == RED_ALLIANCE:
             self.setOrigin(self.OriginPosition.kRedAllianceWallRightSide)
             self.alliance = RED_ALLIANCE
+            self.gridPositions = redGridPositions
         elif alliance == BLUE_ALLIANCE:
             self.setOrigin(self.OriginPosition.kBlueAllianceWallRightSide)
             self.alliance = BLUE_ALLIANCE
+            self.gridPositions = blueGridPositions
 
     def execute(self):
         pass
