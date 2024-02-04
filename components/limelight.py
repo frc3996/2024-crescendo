@@ -5,7 +5,7 @@ from ntcore import NetworkTableInstance
 from wpimath.filter import MedianFilter
 from wpimath.geometry import Pose3d, Rotation3d, Translation3d
 
-from common.field import BLUE_ALLIANCE, RED_ALLIANCE, FieldLayout
+from components import field
 
 
 class LimeLightVision:
@@ -33,7 +33,7 @@ class LimeLightVision:
         # create the timer that we can use to the the FPGA timestamp
         self.timer = wpilib.Timer()
 
-        self.fieldLayout = FieldLayout()
+        self.fieldLayout = field.FieldLayout()
 
     def get_latency(self):
         return (self.Cl.get() + self.Tl.get()) / 1000
@@ -45,9 +45,9 @@ class LimeLightVision:
         return (*self.botpose_to_pose3d(self.botpose.get()),)
 
     def get_alliance_pose(self) -> Tuple[Pose3d, Any]:
-        if self.fieldLayout.alliance == RED_ALLIANCE:
+        if self.fieldLayout.alliance == field.RED_ALLIANCE:
             return (*self.botpose_to_pose3d(self.botpose_wpired.get()),)
-        elif self.fieldLayout.alliance == BLUE_ALLIANCE:
+        elif self.fieldLayout.alliance == field.BLUE_ALLIANCE:
             return (*self.botpose_to_pose3d(self.botpose_wpiblue.get()),)
         else:
             raise RuntimeError("No alliance set")
@@ -118,7 +118,8 @@ class LimeLightVision:
         return False
 
     def execute(self) -> None:
-        self.get_target()
+        return
+        # self.get_target()
 
     def set_pipeline(self, value: int):
         self.nt.putNumber("pipeline", value)

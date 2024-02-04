@@ -1,20 +1,23 @@
-from typing import Optional
+from magicbot import (StateMachine, default_state, feedback, state,
+                      timed_state, tunable)
 from magicbot.state_machine import StateRef
-import ntcore
-import wpilib
-import math
-from magicbot import StateMachine, default_state, feedback, state, timed_state, tunable
-from wpimath import controller, geometry
+from wpimath import controller
 
-from common import arduino_light, limelight, path_helper, tools
-from components import *
+from common import arduino_light, tools
+from components.field import FieldLayout
+from components.intake import Intake
+from components.lobra import LoBrasArm, LoBrasHead
+from components.pixy import Pixy
+from components.shooter import Shooter, ShooterFollower
+from components.swervedrive import SwerveDrive
 
-class ActionGrab(StateMachine):
+
+class ActionManualGrab(StateMachine):
     lobras_arm: LoBrasArm
     lobras_head: LoBrasHead
     intake: Intake
     arduino_light: arduino_light.I2CArduinoLight
-    drivetrain: swervedrive.SwerveDrive
+    drivetrain: SwerveDrive
     pixy: Pixy
     auto_intake_kp = tunable(0.015)
     auto_intake_ki = tunable(0)
@@ -22,7 +25,9 @@ class ActionGrab(StateMachine):
     auto_intake_pid = controller.PIDController(0, 0, 0)
     intake_target_angle = tunable(113)
 
-    def engage(self, initial_state: StateRef | None = None, force: bool = False) -> None:
+    def engage(
+        self, initial_state: StateRef | None = None, force: bool = False
+    ) -> None:
         return super().engage(initial_state, force)
 
     @state(first=True)
@@ -39,68 +44,71 @@ class ActionGrab(StateMachine):
         self.lobras_head.set_angle(0)
         return super().done()
 
-# class ActionGrab(StateMachine):
-#     lobras_arm: LoBrasArm
-#     lobras_head: LoBrasHead
-#     intake: Intake
-#     arduino_light: arduino_light.I2CArduinoLight
-#     drivetrain: swervedrive.SwerveDrive
-#     pixy: Pixy
-#     auto_intake_kp = tunable(0.015)
-#     auto_intake_ki = tunable(0)
-#     auto_intake_kd = tunable(0)
-#     auto_intake_pid = controller.PIDController(0, 0, 0)
-#     intake_target_angle = tunable(113)
 
-#     def engage(self, initial_state: StateRef | None = None, force: bool = False) -> None:
-#         return super().engage(initial_state, force)
+class ActionGrab(StateMachine):
+    lobras_arm: LoBrasArm
+    lobras_head: LoBrasHead
+    intake: Intake
+    arduino_light: arduino_light.I2CArduinoLight
+    drivetrain: SwerveDrive
+    pixy: Pixy
+    auto_intake_kp = tunable(0.015)
+    auto_intake_ki = tunable(0)
+    auto_intake_kd = tunable(0)
+    auto_intake_pid = controller.PIDController(0, 0, 0)
+    intake_target_angle = tunable(113)
 
-#     @state(first=True)
-#     def position_head(self):
-#         """Premier etat, position la tete"""
-#         self.auto_intake_pid.setPID(
-#             self.auto_intake_kp,
-#             self.auto_intake_ki,
-#             self.auto_intake_kd,
-#         )
-#         self.auto_intake_pid.reset()
+    def engage(
+        self, initial_state: StateRef | None = None, force: bool = False
+    ) -> None:
+        return super().engage(initial_state, force)
 
-#         self.lobras_head.set_angle(self.intake_target_angle)
+    @state(first=True)
+    def position_head(self):
+        """Premier etat, position la tete"""
+        self.auto_intake_pid.setPID(
+            self.auto_intake_kp,
+            self.auto_intake_ki,
+            self.auto_intake_kd,
+        )
+        self.auto_intake_pid.reset()
 
-#         if self.lobras_head.is_ready(acceptable_error=10):
-#             self.next_state("position_arm")
+        self.lobras_head.set_angle(self.intake_target_angle)
 
-#     @state
-#     def position_arm(self):
-#         self.lobras_arm.set_angle(0)
-#         if self.lobras_arm.is_ready(acceptable_error=10):
-#             self.next_state("start_intake")
+        if self.lobras_head.is_ready(acceptable_error=10):
+            self.next_state("position_arm")
 
-#     @state
-#     def start_intake(self, initial_call):
-#         if initial_call:
-#             self.intake.enable()
+    @state
+    def position_arm(self):
+        self.lobras_arm.set_angle(0)
+        if self.lobras_arm.is_ready(acceptable_error=10):
+            self.next_state("start_intake")
 
-#         # # Automove to target
-#         if self.pixy.get_target_valid():
-#             offset = self.pixy.get_offset()
-#             res = tools.map_value(abs(offset), 0, 1000, 0, 1)
-#             fwd = 0.5 * (1 - res)
-#             error = self.auto_intake_pid.calculate(offset, 0)
-#         else:
-#             fwd = 0.5
-#             error = 0
-#         self.drivetrain.relative_rotate(-error)
-#         self.drivetrain.set_relative_automove_value(-fwd, 0)
+    @state
+    def start_intake(self, initial_call):
+        if initial_call:
+            self.intake.intake()
 
-#         if self.intake.has_object():
-#             self.arduino_light.set_RGB(0, 0, 255)
-#             self.done()
+        # # Automove to target
+        if self.pixy.get_target_valid():
+            offset = self.pixy.get_offset()
+            res = tools.map_value(abs(offset), 0, 1000, 0, 1)
+            fwd = 0.5 * (1 - res)
+            error = self.auto_intake_pid.calculate(offset, 0)
+        else:
+            fwd = 0.5
+            error = 0
+        self.drivetrain.relative_rotate(-error)
+        self.drivetrain.set_relative_automove_value(-fwd, 0)
 
-#     def done(self) -> None:
-#         self.intake.disable()
-#         self.lobras_head.set_angle(0)
-#         return super().done()
+        if self.intake.has_object():
+            self.arduino_light.set_RGB(0, 0, 255)
+            self.done()
+
+    def done(self) -> None:
+        self.intake.disable()
+        self.lobras_head.set_angle(0)
+        return super().done()
 
 
 class ActionShoot(StateMachine):
@@ -109,7 +117,9 @@ class ActionShoot(StateMachine):
     shooter: Shooter
     intake: Intake
 
-    def engage(self, initial_state: StateRef | None = None, force: bool = False) -> None:
+    def engage(
+        self, initial_state: StateRef | None = None, force: bool = False
+    ) -> None:
         return super().engage(initial_state, force)
 
     @state(first=True)
@@ -156,7 +166,9 @@ class ActionLowShoot(StateMachine):
     intake: Intake
     start_shoot_angle = tunable(81)
 
-    def engage(self, initial_state: StateRef | None = None, force: bool = False) -> None:
+    def engage(
+        self, initial_state: StateRef | None = None, force: bool = False
+    ) -> None:
         return super().engage(initial_state, force)
 
     @state(first=True)
@@ -220,7 +232,9 @@ class ActionShootAmp(StateMachine):
     arm_angle = tunable(104)
     head_angle = tunable(130)
 
-    def engage(self, initial_state: StateRef | None = None, force: bool = False) -> None:
+    def engage(
+        self, initial_state: StateRef | None = None, force: bool = False
+    ) -> None:
         return super().engage(initial_state, force)
 
     @state(first=True)
@@ -268,7 +282,9 @@ class ActionStow(StateMachine):
     shooter_follower: ShooterFollower
     intake: Intake
 
-    def engage(self, initial_state: StateRef | None = None, force: bool = False) -> None:
+    def engage(
+        self, initial_state: StateRef | None = None, force: bool = False
+    ) -> None:
         return super().engage(initial_state, force)
 
     @state(first=True)
@@ -289,7 +305,82 @@ class ActionStow(StateMachine):
             self.lobras_arm.set_angle(0)
         # Only move the arm half-way if the current angle was already > 30
         elif self.lobras_arm.get_angle() > 30:
-                self.lobras_arm.set_angle(30)
+            self.lobras_arm.set_angle(30)
 
         if self.lobras_arm.is_ready() and self.lobras_head.is_ready():
             self.done()
+
+
+class ActionLowShootAuto(StateMachine):
+    lobras_arm: LoBrasArm
+    lobras_head: LoBrasHead
+    shooter: Shooter
+    shooter_follower: ShooterFollower
+    intake: Intake
+    start_shoot_angle = tunable(81)
+    drivetrain: SwerveDrive
+    field: FieldLayout
+
+    def engage(
+        self, initial_state: StateRef | None = None, force: bool = False
+    ) -> None:
+        return super().engage(initial_state, force)
+
+    @state(first=True)
+    def position_arm(self):
+        self.lobras_arm.set_angle(0)
+        if self.lobras_arm.is_ready(acceptable_error=5):
+            self.next_state("adjust_robot_pose")
+
+    @state
+    def adjust_robot_pose(self):
+        """
+        Adjusts the robot's position and orientation to match the target pose.
+        """
+
+        # Assume the robot can directly move and rotate to these differences
+        # move_to_position(dx, dy, dz)
+        # rotate_to(dyaw)  # Assuming yaw rotation aligns the robot towards the target accurately
+        self.next_state("calculate_launch_angle")
+
+    @state
+    def calculate_launch_angle(self):
+        pass
+        # tools.calculate_optimal_launch_angle()
+
+    @state
+    def prepare_to_fire1(self):
+        self.shooter.shoot_speaker()
+        self.shooter_follower.shoot_speaker()
+        self.intake.intake()
+        print(self.intake.getVelocity())
+        if self.intake.has_object():
+            self.next_state("prepare_to_fire2")
+
+    @timed_state(duration=1, next_state="prepare_to_fire")
+    def prepare_to_fire2(self):
+        self.intake.disable()
+        pass
+
+    @state
+    def prepare_to_fire(self, initial_call):
+        """First state -- waits until shooter is ready before going to the
+        next action in the sequence"""
+        # if initial_call:
+        self.shooter.shoot_speaker()
+        self.shooter_follower.shoot_speaker()
+
+        # Use a normal state
+        if self.shooter.is_ready() and self.shooter_follower.is_ready():
+            self.next_state("feed_start")
+
+    @timed_state(duration=1.5)
+    def feed_start(self, initial_call):
+        if initial_call:
+            self.intake.feed()
+
+    def done(self) -> None:
+        # self.shooter.disable()
+        # self.shooter_follower.disable()
+        self.intake.disable()
+        return super().done()

@@ -32,21 +32,25 @@ INDICATEUR LUMINEUX
 
 """
 
-import math
-
 import ntcore
 import phoenix6
-import rev
 import wpilib
 from magicbot import MagicRobot, feedback
 from navx import AHRS
 from wpimath.geometry import Rotation2d
 
 import constants
-from common import arduino_light #, limelight
-from components import *
-from components import limelight
-from components.robot_actions import ActionGrab, ActionShoot, ActionStow, ActionLowShoot, ActionShootAmp
+from common import arduino_light
+from components.field import FieldLayout
+from components.intake import Intake
+from components.limelight import LimeLightVision
+from components.lobra import LoBrasArm, LoBrasArmFollower, LoBrasHead
+from components.pixy import Pixy
+from components.robot_actions import (ActionGrab, ActionLowShoot, ActionShoot,
+                                      ActionShootAmp, ActionStow)
+from components.shooter import Shooter, ShooterFollower
+from components.swervedrive import SwerveDrive, SwerveDriveConfig
+from components.swervemodule import SwerveModule, SwerveModuleConfig
 
 
 class MyRobot(MagicRobot):
@@ -75,17 +79,20 @@ class MyRobot(MagicRobot):
 
     # LOW Level components after
 
-    # SwerveDrive
-    frontLeftModule: swervemodule.SwerveModule
-    frontRightModule: swervemodule.SwerveModule
-    rearLeftModule: swervemodule.SwerveModule
-    rearRightModule: swervemodule.SwerveModule
-    drivetrain: swervedrive.SwerveDrive
+    # NAVX
+    navx: AHRS
 
-    # LoBras
+    # Lobras
     lobras_arm: LoBrasArm
     lobras_arm_follower: LoBrasArmFollower
     lobras_head: LoBrasHead
+
+    # SwerveDrive
+    frontLeftModule: SwerveModule
+    frontRightModule: SwerveModule
+    rearLeftModule: SwerveModule
+    rearRightModule: SwerveModule
+    drivetrain: SwerveDrive
 
     # Shooter
     shooter: Shooter
@@ -94,10 +101,13 @@ class MyRobot(MagicRobot):
     # Intake
     intake: Intake
 
-    # NAVX
-    navx: AHRS
+    # Pixy
     pixy: Pixy
-    limelight_vision: limelight.LimeLightVision
+
+    # FieldLayout
+    field: FieldLayout
+
+    limelight_vision: LimeLightVision
 
     # Networktables pour de la configuration et retour d'information
     nt: ntcore.NetworkTable
@@ -135,7 +145,7 @@ class MyRobot(MagicRobot):
         # On assigne nos moteurs à nos swerve
         # Il est important d'utiliser le logiciel de la compagnie pour trouver (ou configurer) les CAN id
         # On utilise également les encodeurs absolues CAN pour orienter la roue
-        self.drivetrain_cfg = swervedrive.SwerveDriveConfig(
+        self.drivetrain_cfg = SwerveDriveConfig(
             base_width=20.75,
             base_length=22.75,
             is_simulation=self.isSimulation(),
@@ -150,7 +160,7 @@ class MyRobot(MagicRobot):
         self.frontLeftModule_encoder = phoenix6.hardware.CANcoder(
             constants.CANIds.SWERVE_CANCODER_FL
         )
-        self.frontLeftModule_cfg = swervemodule.SwerveModuleConfig(
+        self.frontLeftModule_cfg = SwerveModuleConfig(
             nt_name="frontLeftModule",
             inverted=False,
             allow_reverse=True,
@@ -167,7 +177,7 @@ class MyRobot(MagicRobot):
         self.frontRightModule_encoder = phoenix6.hardware.CANcoder(
             constants.CANIds.SWERVE_CANCODER_FR
         )
-        self.frontRightModule_cfg = swervemodule.SwerveModuleConfig(
+        self.frontRightModule_cfg = SwerveModuleConfig(
             nt_name="frontRightModule",
             inverted=True,
             allow_reverse=True,
@@ -184,7 +194,7 @@ class MyRobot(MagicRobot):
         self.rearLeftModule_encoder = phoenix6.hardware.CANcoder(
             constants.CANIds.SWERVE_CANCODER_RL
         )
-        self.rearLeftModule_cfg = swervemodule.SwerveModuleConfig(
+        self.rearLeftModule_cfg = SwerveModuleConfig(
             nt_name="rearLeftModule",
             inverted=True,
             allow_reverse=True,
@@ -201,7 +211,7 @@ class MyRobot(MagicRobot):
         self.rearRightModule_encoder = phoenix6.hardware.CANcoder(
             constants.CANIds.SWERVE_CANCODER_RR
         )
-        self.rearRightModule_cfg = swervemodule.SwerveModuleConfig(
+        self.rearRightModule_cfg = SwerveModuleConfig(
             nt_name="rearRightModule",
             inverted=False,
             allow_reverse=True,
@@ -245,11 +255,11 @@ class MyRobot(MagicRobot):
 
         if self.gamepad1.getAButton() and self.intake.has_object() is False:
             self.actionGrab.engage()
-        elif self.gamepad1.getYButton():#  and self.intake.has_object() is True:
+        elif self.gamepad1.getYButton():  #  and self.intake.has_object() is True:
             self.actionShoot.engage()
-        elif self.gamepad1.getXButton():#  and self.intake.has_object() is True:
+        elif self.gamepad1.getXButton():  #  and self.intake.has_object() is True:
             self.actionLowShoot.engage()
-        elif self.gamepad1.getBButton():#  and self.intake.has_object() is True:
+        elif self.gamepad1.getBButton():  #  and self.intake.has_object() is True:
             self.actionShootAmp.engage()
         elif self.gamepad1.getRightBumper():
             self.actionStow.engage()

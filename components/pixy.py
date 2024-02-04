@@ -1,6 +1,4 @@
 import wpilib  # Librairie de base de la FRC
-import ntcore
-from magicbot import feedback
 
 
 class Pixy:

@@ -1,4 +1,3 @@
-
 import math
 
 
@@ -33,3 +32,35 @@ def rotate_vector(vector, angle):
     x = vector[0] * math.cos(rad) - vector[1] * math.sin(rad)
     y = vector[0] * math.sin(rad) + vector[1] * math.cos(rad)
     return (x, y)
+
+
+def calculate_optimal_launch_angle(distance, height_difference, initial_velocity):
+    """
+    Calculates the optimal launch angle to hit a target at a given distance and height difference.
+
+    :param distance: The horizontal distance to the target (meters).
+    :param height_difference: The height difference to the target (meters).
+    :param initial_velocity: The initial velocity of the disk (meters/second).
+    :return: The optimal launch angle (degrees) to hit the target.
+    """
+    g = 9.81  # Acceleration due to gravity (m/s^2)
+    v = initial_velocity
+
+    # The quadratic formula components (a, b, and c) are used in solving for the angle.
+    a = g * distance**2
+    b = 2 * height_difference * v**2 - 2 * g * distance**2
+    c = v**4 - g * (g * distance**2 + 2 * height_difference * v**2)
+
+    # Check if the discriminant is positive to ensure a real solution exists.
+    discriminant = b**2 - 4 * a * c
+    if discriminant < 0:
+        raise ValueError("No real solution exists for the given parameters.")
+
+    # Calculate the two possible angles and select the smaller one for the optimal trajectory.
+    theta1 = math.atan2(v**2 + math.sqrt(discriminant), g * distance)
+    theta2 = math.atan2(v**2 - math.sqrt(discriminant), g * distance)
+
+    # Convert the optimal angle to degrees.
+    angle_deg = math.degrees(min(theta1, theta2))
+
+    return angle_deg

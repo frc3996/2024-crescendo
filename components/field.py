@@ -8,11 +8,15 @@ import logging
 import os
 
 import wpilib
-from robotpy_apriltag import AprilTagFieldLayout
+import wpimath
+import wpimath.units
+from robotpy_apriltag import AprilTagField, AprilTagFieldLayout
 from wpimath.geometry import Pose3d, Rotation3d, Transform3d, Translation3d
 from wpimath.units import inchesToMeters
 
-apriltagsFilename = r"apriltags_layout.json"
+from components.swervedrive import SwerveDrive
+
+apriltagsFilename = r"2024-crescendo.json"
 # get the dir of THIS file (vision.py), go up one level (..), and use the specified filename
 apriltagsLayoutPath = os.path.join(os.path.dirname(__file__), r"..", apriltagsFilename)
 
@@ -63,24 +67,41 @@ def getAlliance():
     return wpilib.DriverStation.getAlliance()
 
 
-class FieldLayout:
+class FieldLayout(AprilTagFieldLayout):
+    drivetrain: SwerveDrive
+
     def __init__(self):
         self.logger = logging.getLogger("FieldLayout")
-        # super().__init__(apriltagsLayoutPath)
-        self.alliance = wpilib.DriverStation.Alliance.kBlue
+        super().__init__(apriltagsLayoutPath)
         # set layout to be specific to the alliance end
+        self.alliance = wpilib.DriverStation.Alliance.kBlue
 
-    def getTagtoRobotTransform(self, fieldPose: Pose3d, tagID: int) -> Transform3d:
-        return fieldPose - self.getTagPose(tagID)
+    def getTagtoRobotTransform(
+        self, field_pose: Pose3d, tagID: int
+    ) -> Transform3d | None:
+        tag_pose = self.getTagPose(tagID)
+        if tag_pose is None:
+            return None
+        return field_pose - tag_pose
 
     # get position
-    def getTagRelativePosition(self, tagID: int, position: int) -> Pose3d:
-        return self.getTagPose(tagID) + botPositionsFromTag[position - 1]
+    def getTagRelativePosition(self, tagID: int, position: int) -> Pose3d | None:
+        """
+        Calculate the relative position of the tag
+        """
+        tag_pose = self.getTagPose(tagID)
+        if tag_pose is None:
+            return None
+        bot_pose = Pose3d(
+            self.drivetrain.getEstimatedPose().x_feet,
+            self.drivetrain.getEstimatedPose().y_feet,
+            wpimath.units.feet(0),
+            Rotation3d(0, 0, 0),
+        )
+        transform = tag_pose - bot_pose
+        return tag_pose + transform
 
-    def getGridRelativePosition(self, gridNum: int, position: int) -> Pose3d:
-        return self.getTagRelativePosition(self.tagList[gridNum - 1], position)
-
-    def getPosition(self, position: int) -> Pose3d:
+    def getPosition(self, position: int) -> Pose3d | None:
         """Returns the field pose for the robot to use to be in front
         of the given grid position
 
@@ -92,20 +113,31 @@ class FieldLayout:
         """
         return self.getTagRelativePosition(*self.gridPositions[position])
 
+    def getAmpRelativePosition(self) -> Pose3d | None:
+        AMP_HEIGHT_MIN_FT = 6.5  # 6'6
+        AMP_HEIGHT_HIGH_FT = 6.90626  # 6'10 7/8
+        tag_pose = self.getTagRelativePosition(7)
+        if tag_pose is None:
+            return None
+        # Why are those feets?, so stupid
+        return Pose3d(
+            tag_pose.x_feet,
+            tag_pose.y_feet,
+            wpimath.units.feet(
+                AMP_HEIGHT_MIN_FT + (AMP_HEIGHT_HIGH_FT - AMP_HEIGHT_MIN_FT)
+            ),
+            tag_pose.rotation(),
+        )
+
     # set alliance/change origin
-    def setAlliance(self, alliance=getAlliance()):
-        self.logger.info(f"FieldLayout.setAlliance() called with {alliance}")
+    def syncAlliance(self, alliance=getAlliance()):
+        self.logger.info(f"FROGFieldLayout.setAlliance() called with {alliance}")
         if alliance == RED_ALLIANCE:
             self.setOrigin(self.OriginPosition.kRedAllianceWallRightSide)
-            self.gridPositions = redGridPositions
-            self.tagList = redTagList
             self.alliance = RED_ALLIANCE
         elif alliance == BLUE_ALLIANCE:
             self.setOrigin(self.OriginPosition.kBlueAllianceWallRightSide)
-            self.gridPositions = blueGridPositions
-            self.tagList = blueTagList
             self.alliance = BLUE_ALLIANCE
 
-
-if __name__ == "__main__":
-    pass
+    def execute(self):
+        pass
