@@ -20,36 +20,47 @@ class Climber:
 
         # Intake motor
         self.motor = rev.CANSparkMax(
-            constants.CANIds.CLIMB_RIGHT, rev.CANSparkMax.MotorType.kBrushless
+            constants.CANIds.CLIMB_RIGHT, rev.CANSparkMax.MotorType.kBrushed
         )
-        self.motor.setIdleMode(rev.CANSparkMax.IdleMode.kBrake)
+
+        self.limit_switch_left = wpilib.DigitalInput(constants.DigitalIO.CLIMBER_LIMIT_SWITCH_LEFT)
+        self.limit_switch_right = wpilib.DigitalInput(constants.DigitalIO.CLIMBER_LIMIT_SWITCH_RIGHT)
 
 
         self.motor.restoreFactoryDefaults()
-        self.motor.setControlFramePeriodMs(0)  # Control frame from the rio?
-        self.motor.setPeriodicFramePeriod(
-            self.motor.PeriodicFrame.kStatus0, 20
-        )  # Faults and output (default 10ms)
-        self.motor.setPeriodicFramePeriod(
-            self.motor.PeriodicFrame.kStatus3, 500
-        )  # Analog sensor (default 50ms)
-        self.motor.setPeriodicFramePeriod(
-            self.motor.PeriodicFrame.kStatus4, 60000
-        )  # Alternate encoder (default 20ms)
-        self.motor.setPeriodicFramePeriod(
-            self.motor.PeriodicFrame.kStatus5, 60000
-        )  # Absolute encoder Pos/Angle (default 200ms)
-        self.motor.setPeriodicFramePeriod(
-            self.motor.PeriodicFrame.kStatus6, 60000
-        )  # Absolute encoder Vel/Freq (default 200ms)
-        self.motor.setInverted(self.kInverted)
-        self.encoder = self.motor.getEncoder()
-
+        # self.motor.setIdleMode(rev.CANSparkMax.IdleMode.kBrake)
+        # self.motor.setControlFramePeriodMs(0)  # Control frame from the rio?
+        # self.motor.setPeriodicFramePeriod(
+        #     self.motor.PeriodicFrame.kStatus0, 20
+        # )  # Faults and output (default 10ms)
+        # self.motor.setPeriodicFramePeriod(
+        #     self.motor.PeriodicFrame.kStatus3, 500
+        # )  # Analog sensor (default 50ms)
+        # self.motor.setPeriodicFramePeriod(
+        #     self.motor.PeriodicFrame.kStatus4, 60000
+        # )  # Alternate encoder (default 20ms)
+        # self.motor.setPeriodicFramePeriod(
+        #     self.motor.PeriodicFrame.kStatus5, 60000
+        # )  # Absolute encoder Pos/Angle (default 200ms)
+        # self.motor.setPeriodicFramePeriod(
+        #     self.motor.PeriodicFrame.kStatus6, 60000
+        # )  # Absolute encoder Vel/Freq (default 200ms)
+        # self.motor.setInverted(self.kInverted)
 
         self.motor.burnFlash()
 
+    @feedback
+    def climber_in_closed_position(self):
+        return self.limit_switch_left.get() or self.limit_switch_right.get()
+
     def winch(self):
         self.target_speed = 1
+        return
+        # TODO ADD LIMIT SWITCH
+        if not self.climber_in_closed_position():
+            self.target_speed = 1
+        else:
+            self.target_speed = 0
 
     def dewinch(self):
         self.target_speed = -1
@@ -74,33 +85,31 @@ class ClimberFollower:
 
         # Intake motor
         self.motor = rev.CANSparkMax(
-            constants.CANIds.CLIMB_LEFT, rev.CANSparkMax.MotorType.kBrushless
+            constants.CANIds.CLIMB_LEFT, rev.CANSparkMax.MotorType.kBrushed
         )
-        self.motor.setIdleMode(rev.CANSparkMax.IdleMode.kBrake)
-
-
         self.motor.restoreFactoryDefaults()
-        self.motor.setControlFramePeriodMs(0)  # Control frame from the rio?
-        self.motor.setPeriodicFramePeriod(
-            self.motor.PeriodicFrame.kStatus0, 20
-        )  # Faults and output (default 10ms)
-        self.motor.setPeriodicFramePeriod(
-            self.motor.PeriodicFrame.kStatus3, 500
-        )  # Analog sensor (default 50ms)
-        self.motor.setPeriodicFramePeriod(
-            self.motor.PeriodicFrame.kStatus4, 60000
-        )  # Alternate encoder (default 20ms)
-        self.motor.setPeriodicFramePeriod(
-            self.motor.PeriodicFrame.kStatus5, 60000
-        )  # Absolute encoder Pos/Angle (default 200ms)
-        self.motor.setPeriodicFramePeriod(
-            self.motor.PeriodicFrame.kStatus6, 60000
-        )  # Absolute encoder Vel/Freq (default 200ms)
-        self.motor.setInverted(self.kInverted)
-        self.encoder = self.motor.getEncoder()
 
+        # self.motor.setIdleMode(rev.CANSparkMax.IdleMode.kBrake)
 
-        self.motor.burnFlash()
+        # self.motor.setControlFramePeriodMs(0)  # Control frame from the rio?
+        # self.motor.setPeriodicFramePeriod(
+        #     self.motor.PeriodicFrame.kStatus0, 20
+        # )  # Faults and output (default 10ms)
+        # self.motor.setPeriodicFramePeriod(
+        #     self.motor.PeriodicFrame.kStatus3, 500
+        # )  # Analog sensor (default 50ms)
+        # self.motor.setPeriodicFramePeriod(
+        #     self.motor.PeriodicFrame.kStatus4, 60000
+        # )  # Alternate encoder (default 20ms)
+        # self.motor.setPeriodicFramePeriod(
+        #     self.motor.PeriodicFrame.kStatus5, 60000
+        # )  # Absolute encoder Pos/Angle (default 200ms)
+        # self.motor.setPeriodicFramePeriod(
+        #     self.motor.PeriodicFrame.kStatus6, 60000
+        # )  # Absolute encoder Vel/Freq (default 200ms)
+        # self.motor.setInverted(self.kInverted)
+
+        # self.motor.burnFlash()
         self.motor.follow(self.climber.motor, invert=self.kInverted)
 
     def execute(self):

@@ -9,6 +9,11 @@ MAX_WHEEL_SPEED = 4  # meter per second
 MAX_MODULE_SPEED = 4.5
 
 
+class DigitalIO(IntEnum):
+    CLIMBER_LIMIT_SWITCH_LEFT = 1
+    CLIMBER_LIMIT_SWITCH_RIGHT = 2
+
+
 class CANIds(IntEnum):
     SWERVE_ROTATE_FL = 25
     SWERVE_DRIVE_FL = 26
