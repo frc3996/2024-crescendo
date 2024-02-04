@@ -35,4 +35,4 @@ class CANIds(IntEnum):
     SHOOTER_RIGHT = 53
 
     CLIMB_RIGHT = 60
-    CLIB_LEFT = 61
+    CLIMB_LEFT = 61

@@ -95,12 +95,11 @@ class SwerveDrive:
             geometry.Translation2d(-self.cfg.base_width / 2, -self.cfg.base_length / 2),
         )
 
-        self.navx_zero_angle()
 
         # self.odometry = kinematics.SwerveDrive4Odometry(
         self.odometry = estimator.SwerveDrive4PoseEstimator(
             self.kinematics,
-            self.getRotation2d(),
+            geometry.Rotation2d(0),
             (
                 self.frontLeftModule.getPosition(),
                 self.frontRightModule.getPosition(),
@@ -110,6 +109,8 @@ class SwerveDrive:
             geometry.Pose2d(),
         )
         self.odometry.setVisionMeasurementStdDevs((0.5, 0.5, math.pi / 2))
+
+        self.navx_zero_angle()
 
     def navx_zero_angle(self):
         self.navx.reset()
@@ -150,10 +151,13 @@ class SwerveDrive:
         self.angle_pid.setConstraints(constraint)
 
     def getRotation2d(self):
-        if self.cfg.is_simulation:
-            return geometry.Rotation2d(self.sim_angle)
-        else:
-            return self.navx.getRotation2d()
+        return self.getEstimatedPose().rotation()
+
+    def angle_reached(self, acceptable_error=5):
+        """Returns if the target angle have been reached"""
+        if abs(self.target_angle - self.get_angle()) < acceptable_error:
+            return True
+        return False
 
     def get_angle(self):
         """
@@ -312,8 +316,14 @@ class SwerveDrive:
 
     def __updateOdometry(self) -> None:
         """Updates the field relative position of the robot."""
+
+        if self.cfg.is_simulation:
+            gyro_angle = geometry.Rotation2d(self.sim_angle)
+        else:
+            gyro_angle = self.navx.getRotation2d()
+
         self.odometry.update(
-            self.getRotation2d(),
+            gyro_angle,
             (
                 self.frontLeftModule.getPosition(),
                 self.frontRightModule.getPosition(),
@@ -323,18 +333,18 @@ class SwerveDrive:
         )
 
         visionPose, visionTime = self.limelight_vision.get_alliance_pose()
-        if visionPose:
-            if (
-                abs(visionPose.x - self.getEstimatedPose().x) < 0.5
-                and abs(visionPose.y - self.getEstimatedPose().y) < 0.5
-            ):
-                stddevupdate = map_value(visionPose.x, 2.0, 8.0, 0.3, 2.0)
-                # self.logger.info(f'Adding vision measuerment with StdDev of {stddevupdate} and distance of {visionPose.x} ')
-                self.odometry.addVisionMeasurement(
-                    visionPose.toPose2d(),
-                    visionTime,
-                    (stddevupdate, stddevupdate, math.pi / 2),
-                )
+        if visionPose is not None and visionPose.x > 0 and visionPose.y > 0:
+            # if (
+            #     abs(visionPose.x - self.getEstimatedPose().x) < 0.5
+            #     and abs(visionPose.y - self.getEstimatedPose().y) < 0.5
+            # ):
+            stddevupdate = map_value(visionPose.x, 2.0, 8.0, 0.3, 2.0)
+            # self.logger.info(f'Adding vision measuerment with StdDev of {stddevupdate} and distance of {visionPose.x} ')
+            self.odometry.addVisionMeasurement(
+                visionPose.toPose2d(),
+                visionTime,
+                (stddevupdate, stddevupdate, math.pi / 2),
+            )
 
         current_pose = self.getEstimatedPose()
         pathplannerlib.telemetry.PPLibTelemetry.setCurrentPose(current_pose)

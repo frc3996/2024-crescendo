@@ -1,16 +1,16 @@
 import wpilib  # Librairie de base de la FRC
-
+from magicbot import feedback
 
 class Pixy:
     def setup(self):
         self.offset = wpilib.AnalogInput(1)
         self.isTarget = wpilib.DigitalInput(0)
 
-    # @feedback
+    @feedback
     def get_target_valid(self):
         return self.isTarget.get()
 
-    # @feedback
+    @feedback
     def get_offset(self):
         """Returns offset value"""
         return self.offset.getValue() - 1350

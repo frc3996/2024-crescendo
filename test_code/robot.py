@@ -167,7 +167,6 @@ class MyRobot(magicbot.MagicRobot):
         self.arm_pid_controller.setFF(self.kArmFF)
 
         rotation = Rotation2d.fromDegrees(self.joystick.getLeftX() * 360)
-        print(rotation.degrees(), rotation.radians())
         self.arm_pid_controller.setReference(
             rotation.radians(), rev.CANSparkMax.ControlType.kPosition
         )

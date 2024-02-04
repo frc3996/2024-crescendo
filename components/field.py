@@ -100,7 +100,7 @@ class FieldLayout(AprilTagFieldLayout):
             odometry.x,
             odometry.y,
             wpimath.units.meters(0),  # TODO: This should be the height of the head
-            Rotation3d(0, 0, odometry.rotation().degrees()),
+            Rotation3d(0, 0, 0),
         )
         return tag_pose - odometry_3d
 
@@ -117,7 +117,7 @@ class FieldLayout(AprilTagFieldLayout):
     #     return self.getTagRelativePosition(*self.gridPositions[position])
 
     def getSpeakerRelativePosition(self) -> Transform3d | None:
-        AMP_HEIGHT_MIN = wpimath.units.feetToMeters(6.5)  # 6'6
+        AMP_HEIGHT_LOW = wpimath.units.feetToMeters(6.5)  # 6'6
         AMP_HEIGHT_HIGH = wpimath.units.feetToMeters(6.90626)  # 6'10 7/8
         # Tag under the Speaker
         tag_pose = self.getTagRelativePosition(7)
@@ -125,12 +125,12 @@ class FieldLayout(AprilTagFieldLayout):
             return None
         # Adjust it for the speaker
         speaker_pose = Transform3d(
-            0,
-            0,
-            wpimath.units.meters(AMP_HEIGHT_MIN + (AMP_HEIGHT_HIGH - AMP_HEIGHT_MIN)),
+            tag_pose.x,
+            tag_pose.y,
+            wpimath.units.meters(AMP_HEIGHT_LOW + (AMP_HEIGHT_HIGH - AMP_HEIGHT_LOW)),
             Rotation3d(0, 0, 0),
         )
-        return tag_pose + speaker_pose
+        return speaker_pose
 
     # set alliance/change origin
     def syncAlliance(self, alliance=getAlliance()):

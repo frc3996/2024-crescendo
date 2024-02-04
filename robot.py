@@ -37,7 +37,7 @@ import phoenix6
 import wpilib
 from magicbot import MagicRobot, feedback
 from navx import AHRS
-from wpimath.geometry import Rotation2d
+from wpimath.geometry import Rotation2d, Pose2d
 
 import constants
 from common import arduino_light
@@ -46,11 +46,12 @@ from components.intake import Intake
 from components.limelight import LimeLightVision
 from components.lobra import LoBrasArm, LoBrasArmFollower, LoBrasHead
 from components.pixy import Pixy
-from components.robot_actions import (ActionGrab, ActionLowShoot, ActionShoot,
-                                      ActionShootAmp, ActionStow)
-from components.shooter import Shooter, ShooterFollower
+from components.robot_actions import (ActionGrab, ActionLowShoot, ActionLowShootAuto, ActionShoot,
+                                      ActionShootAmp, ActionStow, ActionDewinch, ActionWinch)
+from components.shooter import Shooter, ShooterFollower, ShooterMain
 from components.swervedrive import SwerveDrive, SwerveDriveConfig
 from components.swervemodule import SwerveModule, SwerveModuleConfig
+from components.climber import Climber  #, ClimberFollower
 
 
 class MyRobot(MagicRobot):
@@ -75,7 +76,10 @@ class MyRobot(MagicRobot):
     actionShoot: ActionShoot
     actionStow: ActionStow
     actionLowShoot: ActionLowShoot
+    actionLowShootAuto: ActionLowShootAuto
     actionShootAmp: ActionShootAmp
+    actionDewinch: ActionDewinch
+    actionWinch: ActionWinch
 
     # LOW Level components after
 
@@ -96,7 +100,12 @@ class MyRobot(MagicRobot):
 
     # Shooter
     shooter: Shooter
+    shooter_main: ShooterMain
     shooter_follower: ShooterFollower
+
+    # Climber
+    climber: Climber
+    # climber_follower: ClimberFollower
 
     # Intake
     intake: Intake
@@ -238,6 +247,7 @@ class MyRobot(MagicRobot):
         """Cette fonction est appelée une seule fois lorsque le robot entre en mode téléopéré."""
         self.arduino_light.set_RGB(0, 0, 0)
         self.status_light.set(0)
+        # self.drivetrain.resetPose(Pose2d(-0.038099999999999995, 5.547867999999999, 0))
 
     def teleopPeriodic(self):
         """Cette fonction est appelée de façon périodique lors du mode téléopéré."""
@@ -258,10 +268,15 @@ class MyRobot(MagicRobot):
         elif self.gamepad1.getYButton():  #  and self.intake.has_object() is True:
             self.actionShoot.engage()
         elif self.gamepad1.getXButton():  #  and self.intake.has_object() is True:
-            self.actionLowShoot.engage()
+            # self.actionLowShoot.engage()
+            self.actionLowShootAuto.engage()
         elif self.gamepad1.getBButton():  #  and self.intake.has_object() is True:
             self.actionShootAmp.engage()
+        elif self.gamepad1.getLeftBumper():
+            self.actionDewinch.engage()
         elif self.gamepad1.getRightBumper():
+            self.actionWinch.engage()
+        else:
             self.actionStow.engage()
 
     def update_nt(self):

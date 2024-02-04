@@ -45,6 +45,7 @@ class LoBrasHead:
     kFF = magicbot.tunable(0.0)
     kMotorClosedLoopRampRate = magicbot.tunable(0.5)
 
+    horizon_offset = magicbot.tunable(62)
     _target_position: float
 
     def setup(self):
@@ -140,6 +141,9 @@ class LoBrasHead:
         angle = math.radians(angle)
         angle += self.kSoftLimitReverse
         self.pid.setReference(angle, rev.CANSparkMax.ControlType.kPosition)
+
+    def set_angle_from_horizon(self, angle_from_horizon):
+        self.set_angle(angle_from_horizon + self.horizon_offset)
 
     @feedback
     def get_target_angle(self) -> float:

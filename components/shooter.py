@@ -7,7 +7,7 @@ from common import tools
 import constants
 
 
-class Shooter:
+class ShooterMain:
     # Valeurs de PID
     CANID = constants.CANIds.SHOOTER_LEFT
     kP = magicbot.tunable(0.00037)
@@ -16,10 +16,6 @@ class Shooter:
     kFF = magicbot.tunable(0.0)
     kMotorClosedLoopRampRate = magicbot.tunable(0.0)
     kInverted = True
-
-    # MAX SPEED IS 5676
-    speaker_velocity = magicbot.tunable(3996)
-    amp_velocity = magicbot.tunable(1500)
 
     # Duty cycle maximal utiliser par le PID
     kMinOutput = -1
@@ -56,17 +52,9 @@ class Shooter:
 
         self.motor.burnFlash()
 
-    def __set_velocity(self, velocity):
+    def set_velocity(self, velocity):
         self.__target_velocity = velocity
         self.pid.setReference(velocity, rev.CANSparkMax.ControlType.kVelocity)
-
-    # Control methods
-    def shoot_amp(self):
-        self.__set_velocity(self.amp_velocity)
-
-    # Control methods
-    def shoot_speaker(self):
-        self.__set_velocity(self.speaker_velocity)
 
     def disable(self):
         self.__target_velocity = 0
@@ -100,7 +88,7 @@ class Shooter:
         return
 
 
-class ShooterFollower(Shooter):
+class ShooterFollower(ShooterMain):
     # Valeurs de PID
     CANID = constants.CANIds.SHOOTER_RIGHT
     kP = magicbot.tunable(0.00030)
@@ -110,9 +98,38 @@ class ShooterFollower(Shooter):
     kMotorClosedLoopRampRate = magicbot.tunable(0.0)
     kInverted = False
 
-    # MAX SPEED IS 5676
-    speaker_velocity = magicbot.tunable(3000)
-
     # Duty cycle maximal utiliser par le PID
     kMinOutput = -1
     kMaxOutput = 1
+
+
+class Shooter:
+    shooter_main: ShooterMain
+    shooter_follower: ShooterFollower
+
+    # MAX SPEED IS 5676
+    main_speaker_velocity = magicbot.tunable(3996)
+    follower_speaker_velocity = magicbot.tunable(3000)
+
+    amp_velocity = magicbot.tunable(1500)
+
+
+    # Control methods
+    def shoot_amp(self):
+        self.shooter_main.set_velocity(self.amp_velocity)
+        self.shooter_follower.set_velocity(self.amp_velocity)
+
+    # Control methods
+    def shoot_speaker(self):
+        self.shooter_main.set_velocity(self.main_speaker_velocity)
+        self.shooter_follower.set_velocity(self.follower_speaker_velocity)
+
+    # Control methods
+    def disable(self):
+        self.shooter_main.disable()
+        self.shooter_follower.disable()
+
+    def is_ready(self):
+        return self.shooter_main.is_ready() and self.shooter_follower.is_ready()
+    def execute(self):
+        pass
