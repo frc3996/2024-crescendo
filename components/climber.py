@@ -7,6 +7,7 @@ import constants
 
 
 class Climber:
+    running_in_simulation: bool
     kMotorClosedLoopRampRate = tunable(0.5)
     kInverted = False
 
@@ -19,9 +20,9 @@ class Climber:
         # Beam
 
         # Intake motor
-
+        motor_type = rev.CANSparkLowLevel.MotorType.kBrushless if self.running_in_simulation else rev.CANSparkLowLevel.MotorType.kBrushed
         self.motor = rev.CANSparkMax(
-            constants.CANIds.CLIMB_RIGHT, rev.CANSparkLowLevel.MotorType.kBrushed
+            constants.CANIds.CLIMB_RIGHT, motor_type
         )
 
         self.limit_switch = wpilib.DigitalInput(constants.DigitalIO.CLIMBER_LIMIT_SWITCH)
@@ -67,6 +68,7 @@ class Climber:
 
 
 class ClimberFollower:
+    running_in_simulation: bool
     climber: Climber
 
     kMotorClosedLoopRampRate = tunable(0.5)
@@ -82,8 +84,9 @@ class ClimberFollower:
         # Beam
 
         # Intake motor
+        motor_type = rev.CANSparkLowLevel.MotorType.kBrushless if self.running_in_simulation else rev.CANSparkLowLevel.MotorType.kBrushed
         self.motor = rev.CANSparkMax(
-            constants.CANIds.CLIMB_LEFT, rev.CANSparkLowLevel.MotorType.kBrushed
+            constants.CANIds.CLIMB_LEFT, motor_type
         )
         # self.motor.restoreFactoryDefaults()
 

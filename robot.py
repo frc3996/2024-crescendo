@@ -122,6 +122,7 @@ class MyRobot(MagicRobot):
 
     # Networktables pour de la configuration et retour d'information
     nt: ntcore.NetworkTable
+    running_in_simulation: bool
 
     def createObjects(self):
         """
@@ -130,6 +131,7 @@ class MyRobot(MagicRobot):
         """
         # NetworkTable
         self.nt = ntcore.NetworkTableInstance.getDefault().getTable("robotpy")
+        self.running_in_simulation = self.isSimulation()
 
         # self.limelight_intake = limelight.LimeLightVision("limelight")
         # self.limelight_shoot = limelight.LimeLightVision("limelight-shoot")
@@ -159,7 +161,6 @@ class MyRobot(MagicRobot):
         self.drivetrain_cfg = SwerveDriveConfig(
             base_width=20.75,
             base_length=22.75,
-            is_simulation=self.isSimulation(),
         )
 
         self.frontLeftModule_driveMotor = phoenix6.hardware.TalonFX(
@@ -175,7 +176,6 @@ class MyRobot(MagicRobot):
             nt_name="frontLeftModule",
             inverted=False,
             allow_reverse=True,
-            is_simulation=self.isSimulation(),
             rotation_zero=193,
         )
 
@@ -192,7 +192,6 @@ class MyRobot(MagicRobot):
             nt_name="frontRightModule",
             inverted=True,
             allow_reverse=True,
-            is_simulation=self.isSimulation(),
             rotation_zero=76,
         )
 
@@ -209,7 +208,6 @@ class MyRobot(MagicRobot):
             nt_name="rearLeftModule",
             inverted=True,
             allow_reverse=True,
-            is_simulation=self.isSimulation(),
             rotation_zero=216,
         )
 
@@ -226,7 +224,6 @@ class MyRobot(MagicRobot):
             nt_name="rearRightModule",
             inverted=False,
             allow_reverse=True,
-            is_simulation=self.isSimulation(),
             rotation_zero=318,
         )
 
@@ -282,8 +279,8 @@ class MyRobot(MagicRobot):
             self.actionDewinch.engage()
         elif self.gamepad1.getBButton():
             self.actionWinch.engage()
-        # else:
-        #     self.actionStow.engage()
+        else:
+            self.actionStow.engage()
 
     def update_nt(self):
         """Affiche les données sur le ShuffleBoard"""

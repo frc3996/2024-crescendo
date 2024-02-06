@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import cast
 
 import phoenix6
-from magicbot import feedback, tunable
+from magicbot import feedback, tunable, will_reset_to
 from wpimath import controller, geometry, kinematics, units
 
 
@@ -13,16 +13,19 @@ class SwerveModuleConfig:
     nt_name: str
     inverted: bool
     allow_reverse: bool
-    is_simulation: bool
     rotation_zero: int
 
 
 class SwerveModule:
     # Vas chercher moteur, encodeur et configuration par injection
+    running_in_simulation: bool
     driveMotor: phoenix6.hardware.TalonFX
     rotateMotor: phoenix6.hardware.TalonFX
     encoder: phoenix6.hardware.CANcoder
     cfg: SwerveModuleConfig
+
+    current_encoder_pos = will_reset_to(None)
+    get_current_position = will_reset_to(None)
 
     kP = tunable(0.008)
     kI = tunable(0.0)
@@ -112,8 +115,11 @@ class SwerveModule:
 
     def get_encoder_abs_position(self):
         """Retourne la position actuelle de l'encodeur"""
+        if self.current_encoder_pos is not None:
+            return self.current_encoder_pos
         abs_pos = (self.encoder.get_absolute_position().value + 0.5) * 360
         computed_value = (abs_pos + self.encoder_zero) % 359
+        self.current_encoder_pos = computed_value
         return computed_value
 
     def kinematic_move(self):
@@ -138,7 +144,7 @@ class SwerveModule:
         self._requested_speed = speed
 
     def resetPose(self):
-        if self.cfg.is_simulation:
+        if self.running_in_simulation:
             self.sim_currentPosition = kinematics.SwerveModulePosition(
                 0, self.currentState.angle
             )
@@ -149,7 +155,7 @@ class SwerveModule:
         self.currentState = kinematics.SwerveModuleState.optimize(
             targetState, self.currentState.angle
         )
-        if self.cfg.is_simulation:
+        if self.running_in_simulation:
             self.sim_currentPosition = kinematics.SwerveModulePosition(
                 self.sim_currentPosition.distance + (self.currentState.speed * 0.02),
                 self.currentState.angle,
@@ -167,7 +173,10 @@ class SwerveModule:
         For PathPlannerLib
         Return Swerve module position
         """
-        if self.cfg.is_simulation:
+        if self.get_current_position is not None:
+            return self.get_current_position
+
+        if self.running_in_simulation:
             return self.sim_currentPosition
 
         current_position = (
@@ -177,8 +186,10 @@ class SwerveModule:
         current_angle = geometry.Rotation2d.fromDegrees(
             self.get_encoder_abs_position() - 180
         )
+        result = kinematics.SwerveModulePosition(-current_position, current_angle)
+        self.get_current_position = result
         # print(f"{self.cfg.nt_name} rotation abs position: {self.get_encoder_abs_position()}")
-        return kinematics.SwerveModulePosition(-current_position, current_angle)
+        return result
 
     # @feedback
     def get_angle_degrees(self):

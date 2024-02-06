@@ -32,12 +32,12 @@ constants.MAX_MODULE_SPEED = 4.5
 class SwerveDriveConfig:
     base_width: float
     base_length: float
-    is_simulation: bool
 
 
 class SwerveDrive:
     # Modules injectés depuis le code de ../robot.py
     cfg: SwerveDriveConfig
+    running_in_simulation: bool
     frontLeftModule: swervemodule.SwerveModule
     frontRightModule: swervemodule.SwerveModule
     rearLeftModule: swervemodule.SwerveModule
@@ -60,6 +60,8 @@ class SwerveDrive:
     angle_kd = magicbot.tunable(0)
     angle_max_acc = magicbot.tunable(constants.MAX_ANGULAR_VEL)
     angle_max_vel = magicbot.tunable(constants.MAX_ANGULAR_ACCEL)
+
+    vision_filter = tools.VisionFilter()
 
     def setup(self):
         """
@@ -94,7 +96,6 @@ class SwerveDrive:
             geometry.Translation2d(-self.cfg.base_width / 2, self.cfg.base_length / 2),
             geometry.Translation2d(-self.cfg.base_width / 2, -self.cfg.base_length / 2),
         )
-
 
         # self.odometry = kinematics.SwerveDrive4Odometry(
         self.odometry = estimator.SwerveDrive4PoseEstimator(
@@ -317,7 +318,7 @@ class SwerveDrive:
     def __updateOdometry(self) -> None:
         """Updates the field relative position of the robot."""
 
-        if self.cfg.is_simulation:
+        if self.running_in_simulation:
             gyro_angle = geometry.Rotation2d(self.sim_angle)
         else:
             gyro_angle = self.navx.getRotation2d()
@@ -332,19 +333,21 @@ class SwerveDrive:
             ),
         )
 
+
         visionPose, visionTime = self.limelight_vision.get_alliance_pose()
-        if visionPose is not None and visionPose.x > 0 and visionPose.y > 0:
-            # if (
-            #     abs(visionPose.x - self.getEstimatedPose().x) < 0.5
-            #     and abs(visionPose.y - self.getEstimatedPose().y) < 0.5
-            # ):
-            stddevupdate = map_value(visionPose.x, 2.0, 8.0, 0.3, 2.0)
-            # self.logger.info(f'Adding vision measuerment with StdDev of {stddevupdate} and distance of {visionPose.x} ')
-            self.odometry.addVisionMeasurement(
-                visionPose.toPose2d(),
-                visionTime,
-                (stddevupdate, stddevupdate, math.pi / 2),
-            )
+        if visionPose and visionPose.x > 0 and visionPose.y > 0:
+            visionPose = self.vision_filter.update(visionPose, visionTime)
+            if visionPose:
+                # if (
+                #     abs(visionPose.x - self.getEstimatedPose().x) < 0.5
+                #     and abs(visionPose.y - self.getEstimatedPose().y) < 0.5
+                # ):
+                stddevupdate = map_value(visionPose.x, 2.0, 8.0, 0.3, 2.0)
+                self.odometry.addVisionMeasurement(
+                    visionPose.toPose2d(),
+                    visionTime,
+                    (stddevupdate, stddevupdate, math.pi / 2),
+                )
 
         current_pose = self.getEstimatedPose()
         pathplannerlib.telemetry.PPLibTelemetry.setCurrentPose(current_pose)
