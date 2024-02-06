@@ -19,16 +19,16 @@ class Climber:
         # Beam
 
         # Intake motor
+
         self.motor = rev.CANSparkMax(
-            constants.CANIds.CLIMB_RIGHT, rev.CANSparkMax.MotorType.kBrushed
+            constants.CANIds.CLIMB_RIGHT, rev.CANSparkLowLevel.MotorType.kBrushed
         )
 
-        self.limit_switch_left = wpilib.DigitalInput(constants.DigitalIO.CLIMBER_LIMIT_SWITCH_LEFT)
-        self.limit_switch_right = wpilib.DigitalInput(constants.DigitalIO.CLIMBER_LIMIT_SWITCH_RIGHT)
+        self.limit_switch = wpilib.DigitalInput(constants.DigitalIO.CLIMBER_LIMIT_SWITCH)
 
 
-        self.motor.restoreFactoryDefaults()
-        # self.motor.setIdleMode(rev.CANSparkMax.IdleMode.kBrake)
+        # self.motor.restoreFactoryDefaults()
+        self.motor.setIdleMode(rev.CANSparkMax.IdleMode.kBrake)
         # self.motor.setControlFramePeriodMs(0)  # Control frame from the rio?
         # self.motor.setPeriodicFramePeriod(
         #     self.motor.PeriodicFrame.kStatus0, 20
@@ -51,19 +51,16 @@ class Climber:
 
     @feedback
     def climber_in_closed_position(self):
-        return self.limit_switch_left.get() or self.limit_switch_right.get()
+        return self.limit_switch.get()
 
     def winch(self):
-        self.target_speed = 1
-        return
-        # TODO ADD LIMIT SWITCH
         if not self.climber_in_closed_position():
-            self.target_speed = 1
+            self.target_speed = -1
         else:
             self.target_speed = 0
 
     def dewinch(self):
-        self.target_speed = -1
+        self.target_speed = 1
 
     def execute(self):
         self.motor.set(self.target_speed)
@@ -81,13 +78,14 @@ class ClimberFollower:
     target_speed = will_reset_to(0)
 
     def setup(self):
+        pass
         # Beam
 
         # Intake motor
         self.motor = rev.CANSparkMax(
-            constants.CANIds.CLIMB_LEFT, rev.CANSparkMax.MotorType.kBrushed
+            constants.CANIds.CLIMB_LEFT, rev.CANSparkLowLevel.MotorType.kBrushed
         )
-        self.motor.restoreFactoryDefaults()
+        # self.motor.restoreFactoryDefaults()
 
         # self.motor.setIdleMode(rev.CANSparkMax.IdleMode.kBrake)
 
@@ -109,7 +107,7 @@ class ClimberFollower:
         # )  # Absolute encoder Vel/Freq (default 200ms)
         # self.motor.setInverted(self.kInverted)
 
-        # self.motor.burnFlash()
+        self.motor.burnFlash()
         self.motor.follow(self.climber.motor, invert=self.kInverted)
 
     def execute(self):

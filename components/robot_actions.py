@@ -14,6 +14,7 @@ from components.pixy import Pixy
 from components.shooter import Shooter, ShooterFollower
 from components.swervedrive import SwerveDrive
 from components.climber import Climber
+from common.path_helper import PathHelper
 
 
 class ActionManualGrab(StateMachine):
@@ -61,6 +62,7 @@ class ActionGrab(StateMachine):
     auto_intake_kd = tunable(0)
     auto_intake_pid = controller.PIDController(0, 0, 0)
     intake_target_angle = tunable(113)
+    intake_target_speed = tunable(1.25)
 
     def engage(
         self, initial_state: StateRef | None = None, force: bool = False
@@ -97,7 +99,7 @@ class ActionGrab(StateMachine):
         if self.pixy.get_target_valid():
             offset = self.pixy.get_offset()
             res = tools.map_value(abs(offset), 0, 1000, 0, 1)
-            fwd = 0.5 * (1 - res)
+            fwd = self.intake_target_speed * (1 - res)
             error = self.auto_intake_pid.calculate(offset, 0)
         else:
             fwd = 0.5
@@ -271,6 +273,79 @@ class ActionShootAmp(StateMachine):
         return super().done()
 
 
+class ActionShootAmpAuto(StateMachine):
+    lobras_arm: LoBrasArm
+    lobras_head: LoBrasHead
+    shooter: Shooter
+    intake: Intake
+    arm_angle = tunable(120)
+    head_angle = tunable(120)
+    drivetrain: SwerveDrive
+    path_kp = tunable(1)
+    path_ki = tunable(0)
+    path_kd = tunable(0)
+    path_profile = tunable(2)
+    speed_to_wall = tunable(0.5)
+
+    def engage(
+        self, initial_state: StateRef | None = None, force: bool = False
+    ) -> None:
+        return super().engage(initial_state, force)
+
+    @state(first=False)
+    def position_arm(self):
+        self.lobras_arm.set_angle(self.arm_angle)
+        if self.lobras_arm.is_ready(acceptable_error=5):
+            self.next_state("position_head")
+
+    @state
+    def position_head(self):
+        """Premier etat, position la tete"""
+        self.lobras_head.set_angle(self.head_angle)
+
+        if self.lobras_head.is_ready(acceptable_error=5):
+            self.next_state("go_to_place")
+
+    @state(first=True)
+    def go_to_place(self, initial_call):
+        """First state -- waits until shooter is ready before going to the
+        next action in the sequence"""
+        if initial_call:
+            self.auto_path = PathHelper(self.drivetrain, "amp_shoot", kp=self.path_kp, ki=self.path_ki, kd=self.path_kd, profile_kp=self.path_profile)
+            self.auto_path.init_path()
+
+        if self.auto_path.distance_to_end() < 2:
+            self.lobras_arm.set_angle(self.arm_angle)
+            self.lobras_head.set_angle(self.head_angle)
+        if self.auto_path.distance_to_end() < 0.5:
+            self.shooter.shoot_amp()
+
+        self.auto_path.move_to_end()
+
+        if self.auto_path.robot_reached_end_position():
+            self.next_state("prepare_to_fire")
+
+    @timed_state(duration=0.2, next_state="feed_start")
+    def prepare_to_fire(self, initial_call):
+        """First state -- waits until shooter is ready before going to the
+        next action in the sequence"""
+        ##if initial_call:
+          ##  self.shooter.shoot_amp()
+        self.drivetrain.set_absolute_automove_value(0, self.speed_to_wall)
+        # Use a normal state
+        # if self.shooter.is_ready():
+        #     self.next_state("feed_start")
+
+    @timed_state(duration=0.5)
+    def feed_start(self, initial_call):
+        self.intake.feed()
+
+    def done(self) -> None:
+        self.shooter.disable()
+        self.intake.disable()
+        return super().done()
+
+
 class ActionStow(StateMachine):
     lobras_arm: LoBrasArm
     lobras_head: LoBrasHead
@@ -344,31 +419,30 @@ class ActionLowShootAuto(StateMachine):
 
     @state
     def calculate_launch_angle(self):
-        amp_position = self.field.getSpeakerRelativePosition()
-        if amp_position is None:
+        self.shooter.shoot_speaker()
+
+        speaker_position = self.field.getSpeakerRelativePosition()
+        if speaker_position is None:
             return
-        distance = math.sqrt(amp_position.x**2 + amp_position.y**2)
-        angle = tools.calculate_optimal_launch_angle(distance, amp_position.z, 1000000)
+        distance = math.sqrt(speaker_position.x**2 + speaker_position.y**2)
+        angle = tools.calculate_optimal_launch_angle(distance - self.LOW_SHOOT_X_OFFSET, speaker_position.z - self.LOW_SHOOT_Z_OFFSET, 1000000)
         if angle is None and angle < 20:
             return
         self.lobras_head.set_angle_from_horizon(angle)
-        target_angle = tools.compute_angle(amp_position.X(), amp_position.Y())
+        target_angle = tools.compute_angle(speaker_position.X(), speaker_position.Y())
         self.drivetrain.set_angle(target_angle + 180)
-        if self.drivetrain.angle_reached(acceptable_error=10):
+        if self.drivetrain.angle_reached(acceptable_error=5):
             self.next_state("prepare_to_fire")
 
     @state
     def prepare_to_fire(self):
-        self.shooter.shoot_speaker()
         if self.shooter.is_ready():
-            print("AMA READY")
             self.intake.feed()
 
         if self.intake.has_object() is False:
-            print("OHN OES NO OJET")
             self.next_state("finish_fire")
 
-    @timed_state(duration=1, next_state="done_firing")
+    @timed_state(duration=0.2, next_state="done_firing")
     def finish_fire(self):
         pass
 

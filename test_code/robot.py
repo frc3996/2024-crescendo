@@ -78,7 +78,7 @@ class MyRobot(magicbot.MagicRobot):
 
         # Factory reset, on remet les spark dans un etat connu avant de les
         # configurer. C'est utile si on dois les remplacer
-        self.arm_motor_left.restoreFactoryDefaults()
+        # self.arm_motor_left.restoreFactoryDefaults()
 
         # Configurer les enconneurs et les controlleurs PIDs
         self.arm_position_encoder = self.arm_motor_left.getAbsoluteEncoder(

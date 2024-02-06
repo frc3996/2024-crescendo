@@ -5,6 +5,7 @@ from wpimath import controller, kinematics, geometry, controller, trajectory
 import constants
 import wpilib
 import json
+import math
 
 class AutoHelper:
     def __init__(self, drivetrain, auto_name):
@@ -28,10 +29,14 @@ class AutoHelper:
 
 
 class PathHelper:
-    def __init__(self, drivetrain, path_name):
+    def __init__(self, drivetrain, path_name, kp=1, ki=0, kd=0, profile_kp=1):
         self.drivetrain: swervedrive.SwerveDrive = drivetrain
         self.timer = wpilib.Timer()
         self.timer.start()
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+        self.profile_kp = profile_kp
 
         self.path = PathPlannerPath.fromPathFile(
             os.path.join(
@@ -49,8 +54,8 @@ class PathHelper:
             kinematics.ChassisSpeeds(0, 0, 0), geometry.Rotation2d()
         )
         self.controller = controller.HolonomicDriveController(
-            controller.PIDController(1, 0, 0),
-            controller.PIDController(1, 0, 0),
+            controller.PIDController(self.kp, self.ki, self.kd),
+            controller.PIDController(self.profile_kp, 0, 0),
             controller.ProfiledPIDControllerRadians(
                 1,
                 0,
@@ -73,14 +78,36 @@ class PathHelper:
         )
         self.drivetrain.resetPose(new_pose)
 
+    def move_to_end(self):
+        # If odometry is bad, compute now + 0.02 as goal and now as current position
+        # fake_pose = self.trajectory.sample(self.timer.get())
+        # goal = self.trajectory.sample(self.timer.get() + 0.02)
+        # adjustedSpeeds = self.controller.calculate(fake_pose.getTargetHolonomicPose(), goal.getTargetHolonomicPose(), goal.velocityMps, goal.heading)
+        goal = self.trajectory.getEndState()
+
+        target_rotation = self.path.getGoalEndState().rotation.degrees()
+
+        goal.targetHolonomicRotation = geometry.Rotation2d(0)
+        current = self.drivetrain.getEstimatedPose()
+        current = geometry.Pose2d(current.X(), current.Y(), geometry.Rotation2d(0))
+        adjustedSpeeds = self.controller.calculate(
+            current, goal.getTargetHolonomicPose(), 0, geometry.Rotation2d(0)
+        )
+        # speed = kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(adjustedSpeeds.vx, adjustedSpeeds.vy, adjustedSpeeds.omega, goal.heading)
+        self.drivetrain.set_absolute_automove_value(
+            adjustedSpeeds.vx, adjustedSpeeds.vy
+        )
+        self.drivetrain.set_angle(target_rotation)
+
     def auto_move(self):
         # If odometry is bad, compute now + 0.02 as goal and now as current position
         # fake_pose = self.trajectory.sample(self.timer.get())
         # goal = self.trajectory.sample(self.timer.get() + 0.02)
         # adjustedSpeeds = self.controller.calculate(fake_pose.getTargetHolonomicPose(), goal.getTargetHolonomicPose(), goal.velocityMps, goal.heading)
-
         goal = self.trajectory.sample(self.timer.get())
-        target_rotation = goal.targetHolonomicRotation.degrees()
+
+        target_rotation = self.path.getGoalEndState().rotation.degrees()
+
         goal.targetHolonomicRotation = geometry.Rotation2d(0)
         current = self.drivetrain.getEstimatedPose()
         current = geometry.Pose2d(current.X(), current.Y(), geometry.Rotation2d(0))
@@ -95,3 +122,34 @@ class PathHelper:
 
     def path_reached_end(self):
         return self.timer.get() >= self.trajectory.getTotalTimeSeconds()
+
+    def distance_to_end(self):
+        goal = self.trajectory.getEndState()
+        goal.targetHolonomicRotation = geometry.Rotation2d(0)
+        goal = goal.getTargetHolonomicPose()
+
+        current = self.drivetrain.getEstimatedPose()
+        current = geometry.Pose2d(current.X(), current.Y(), geometry.Rotation2d(0))
+        distance = math.sqrt(pow(current.x - goal.x, 2) + pow(current.y - goal.y, 2))
+
+        return distance
+
+    def robot_reached_end_position(self, acceptable_distance_error=0.1, acceptable_angle_error=5):
+        goal = self.trajectory.getEndState()
+        target_rotation = self.path.getGoalEndState().rotation
+        goal.targetHolonomicRotation = geometry.Rotation2d(0)
+        goal = goal.getTargetHolonomicPose()
+
+        current = self.drivetrain.getEstimatedPose()
+        current = geometry.Pose2d(current.X(), current.Y(), geometry.Rotation2d(0))
+        distance = math.sqrt(pow(current.x - goal.x, 2) + pow(current.y - goal.y, 2))
+
+        angle_error = target_rotation - self.drivetrain.getRotation2d()
+        angle_error = abs(angle_error.degrees())
+
+        if distance > acceptable_distance_error:
+            return False
+        if angle_error > acceptable_angle_error:
+            return False
+
+        return True

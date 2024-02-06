@@ -2,16 +2,15 @@ import math
 from enum import IntEnum
 
 # Swerve
-MAX_ANGULAR_VEL = math.degrees(math.pi * 2)
-MAX_ANGULAR_ACCEL = math.degrees(math.pi * 5)
+MAX_ANGULAR_VEL = math.degrees(math.pi * 2) * 2
+MAX_ANGULAR_ACCEL = math.degrees(math.pi * 5) * 2
 LOWER_INPUT_THRESH = 0.1  # Minimum speed before considered 0
 MAX_WHEEL_SPEED = 4  # meter per second
 MAX_MODULE_SPEED = 4.5
 
 
 class DigitalIO(IntEnum):
-    CLIMBER_LIMIT_SWITCH_LEFT = 1
-    CLIMBER_LIMIT_SWITCH_RIGHT = 2
+    CLIMBER_LIMIT_SWITCH = 1
 
 
 class CANIds(IntEnum):

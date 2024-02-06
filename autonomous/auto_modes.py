@@ -18,11 +18,11 @@ class Path1(BaseAuto):
 
     @timed_state(duration=10, next_state="execute_path_1", first=True)
     def init(self):
-        self.auto_file = path_helper.AutoHelper(self.drivetrain, "test_auto")
-        self.path_part_1 = path_helper.PathHelper(self.drivetrain, "part_1")
+        # self.auto_file = path_helper.AutoHelper(self.drivetrain, "amp_shoot")
+        self.path_part_1 = path_helper.PathHelper(self.drivetrain, "amp_shoot")
         self.path_part_1.init_path(force_robot_starting_position=True)
 
-        self.path_part_2 = path_helper.PathHelper(self.drivetrain, "test_path2")
+        self.path_part_2 = path_helper.PathHelper(self.drivetrain, "amp_shoot")
 
         self.next_state("execute_path_1")
 

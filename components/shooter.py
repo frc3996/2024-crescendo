@@ -25,7 +25,7 @@ class ShooterMain:
         self.motor = rev.CANSparkMax(
             self.CANID, rev.CANSparkMax.MotorType.kBrushless
         )
-        self.motor.restoreFactoryDefaults()
+        # self.motor.restoreFactoryDefaults()
         self.motor.setControlFramePeriodMs(0)  # Control frame from the rio?
         self.motor.setIdleMode(self.motor.IdleMode.kCoast)
         self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus0, 20)  # Faults and output (default 10ms)
@@ -111,7 +111,7 @@ class Shooter:
     main_speaker_velocity = magicbot.tunable(3996)
     follower_speaker_velocity = magicbot.tunable(3000)
 
-    amp_velocity = magicbot.tunable(1500)
+    amp_velocity = magicbot.tunable(500)
 
 
     # Control methods

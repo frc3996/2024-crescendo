@@ -47,11 +47,12 @@ from components.limelight import LimeLightVision
 from components.lobra import LoBrasArm, LoBrasArmFollower, LoBrasHead
 from components.pixy import Pixy
 from components.robot_actions import (ActionGrab, ActionLowShoot, ActionLowShootAuto, ActionShoot,
-                                      ActionShootAmp, ActionStow, ActionDewinch, ActionWinch)
+                                      ActionShootAmp, ActionStow, ActionDewinch, ActionWinch,
+                                      ActionShootAmpAuto)
 from components.shooter import Shooter, ShooterFollower, ShooterMain
 from components.swervedrive import SwerveDrive, SwerveDriveConfig
 from components.swervemodule import SwerveModule, SwerveModuleConfig
-from components.climber import Climber  #, ClimberFollower
+from components.climber import Climber,  ClimberFollower
 
 
 class MyRobot(MagicRobot):
@@ -78,6 +79,7 @@ class MyRobot(MagicRobot):
     actionLowShoot: ActionLowShoot
     actionLowShootAuto: ActionLowShootAuto
     actionShootAmp: ActionShootAmp
+    actionShootAmpAuto: ActionShootAmpAuto
     actionDewinch: ActionDewinch
     actionWinch: ActionWinch
 
@@ -105,7 +107,7 @@ class MyRobot(MagicRobot):
 
     # Climber
     climber: Climber
-    # climber_follower: ClimberFollower
+    climber_follower: ClimberFollower
 
     # Intake
     intake: Intake
@@ -259,25 +261,29 @@ class MyRobot(MagicRobot):
             self.gamepad1.getRightY(),
         )
 
-        # Reset navx zero
-        if self.gamepad1.getRightStickButton():
-            self.drivetrain.navx_zero_angle()
+        # # Reset navx zero
+        # if self.gamepad1.getRightStickButton():
+        #     self.drivetrain.navx_zero_angle()
 
-        if self.gamepad1.getAButton() and self.intake.has_object() is False:
+        if self.gamepad1.getRightTriggerAxis() > 0.75 and self.intake.has_object() is False:
             self.actionGrab.engage()
-        elif self.gamepad1.getYButton():  #  and self.intake.has_object() is True:
-            self.actionShoot.engage()
-        elif self.gamepad1.getXButton():  #  and self.intake.has_object() is True:
+        # elif self.gamepad1.getYButton():  #  and self.intake.has_object() is True:
+        #     self.actionShoot.engage()
+        elif self.gamepad1.getLeftBumper():  #  and self.intake.has_object() is True:
+            # self.actionLowShoot.engage()
+            # self.actionHighShootAuto.engage()
+            pass
+        elif self.gamepad1.getLeftTriggerAxis() > 0.75:  #  and self.intake.has_object() is True:
             # self.actionLowShoot.engage()
             self.actionLowShootAuto.engage()
-        elif self.gamepad1.getBButton():  #  and self.intake.has_object() is True:
-            self.actionShootAmp.engage()
-        elif self.gamepad1.getLeftBumper():
+        elif self.gamepad1.getRightBumper():  #  and self.intake.has_object() is True:
+            self.actionShootAmpAuto.engage()
+        elif self.gamepad1.getXButton():
             self.actionDewinch.engage()
-        elif self.gamepad1.getRightBumper():
+        elif self.gamepad1.getBButton():
             self.actionWinch.engage()
-        else:
-            self.actionStow.engage()
+        # else:
+        #     self.actionStow.engage()
 
     def update_nt(self):
         """Affiche les données sur le ShuffleBoard"""

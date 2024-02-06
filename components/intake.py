@@ -9,13 +9,13 @@ import constants
 class Intake:
     beamWithObject = 1100
     beamNoObject = 275
-    intake_velocity = tunable(2500)
-    feed_velocity = tunable(4000)
+    intake_velocity = tunable(16000)
+    feed_velocity = tunable(16000)
 
     kP = tunable(0.0002)
-    kI = tunable(0.0)
+    kI = tunable(0.0000005)
     kD = tunable(0.0)
-    kFF = tunable(0.0002)
+    kFF = tunable(0.0)
     kMotorClosedLoopRampRate = tunable(0.0)
     kInverted = False
 
@@ -31,7 +31,7 @@ class Intake:
             constants.CANIds.INTAKE, rev.CANSparkMax.MotorType.kBrushless
         )
 
-        self.motor.restoreFactoryDefaults()
+        # self.motor.restoreFactoryDefaults()
         self.motor.setControlFramePeriodMs(0)  # Control frame from the rio?
         self.motor.setPeriodicFramePeriod(
             self.motor.PeriodicFrame.kStatus0, 20

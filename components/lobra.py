@@ -55,7 +55,7 @@ class LoBrasHead:
 
         # Factory reset, on remet les spark dans un etat connu avant de les
         # configurer. C'est utile si on dois les remplacer
-        self.motor.restoreFactoryDefaults()
+        # self.motor.restoreFactoryDefaults()
         self.motor.setControlFramePeriodMs(0)  # Control frame from the rio?
         self.motor.setPeriodicFramePeriod(
             self.motor.PeriodicFrame.kStatus0, 20
@@ -232,7 +232,7 @@ class LoBrasArm:
 
         # Factory reset, on remet les spark dans un etat connu avant de les
         # configurer. C'est utile si on dois les remplacer
-        self.motor.restoreFactoryDefaults()
+        # self.motor.restoreFactoryDefaults()
         self.motor.setControlFramePeriodMs(0)  # Control frame from the rio?
         self.motor.setPeriodicFramePeriod(
             self.motor.PeriodicFrame.kStatus0, 20
@@ -373,7 +373,7 @@ class LoBrasArmFollower:
         )
         # Factory reset, on remet les spark dans un etat connu avant de les
         # configurer. C'est utile si on dois les remplacer
-        self.motor.restoreFactoryDefaults()
+        # self.motor.restoreFactoryDefaults()
         self.motor.setControlFramePeriodMs(0)  # Control frame from the rio?
         self.motor.setPeriodicFramePeriod(
             self.motor.PeriodicFrame.kStatus0, 20
