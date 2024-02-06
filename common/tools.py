@@ -1,6 +1,9 @@
+import collections
 import math
 
+# import numpy as np
 import wpimath.units
+from wpimath.geometry import Pose3d, Rotation3d
 
 
 def fit_to_boundaries(value, minimum_value=None, maximum_value=None):
@@ -47,7 +50,7 @@ def calculate_optimal_launch_angle(
     :param initial_velocity: The initial velocity of the disk (meters/second).
     :return: The optimal launch angle (degrees) to hit the target.
     """
-    angle = math.degrees(math.atan(height_difference/distance))
+    angle = math.degrees(math.atan(height_difference / distance))
     return angle
 
     # TODO Make it better?
@@ -71,8 +74,7 @@ def calculate_optimal_launch_angle(
     # Convert the optimal angle to degrees.
     angle_deg = math.degrees(min(theta1, theta2))
 
-
-    return angle_deg
+    return wpimath.units.degrees(angle_deg)
 
 
 def compute_angle(x, y):
@@ -80,3 +82,98 @@ def compute_angle(x, y):
     angle_radians = math.atan2(y, x)
     angle_degrees = math.degrees(angle_radians)
     return angle_degrees
+
+
+def filter_and_average(values):
+    """
+    Averages values while filtering out extreme values defined as more than 3 standard deviations from the mean.
+
+    Parameters:
+    - values: A list of numeric values representing the time series data.
+
+    Returns:
+    - The average of the filtered values, or None if all values are filtered out.
+    """
+    # Convert the list of values to a numpy array
+    data = np.array(values)
+
+    # Calculate mean and standard deviation
+    mean = np.mean(data)
+    std = np.std(data, ddof=1)  # ddof=1 for sample standard deviation
+
+    # Filter out extreme values (3times standard deviation?)
+    filtered_data = data[np.abs(data - mean) <= std]
+
+    # Calculate and return the average of the filtered data
+    if len(filtered_data) > 0:
+        return np.mean(filtered_data)
+    else:
+        return None  # Return None if all values are filtered out
+
+
+class VisionFilter:
+    def __init__(self):
+        return
+        self.x = np.full(10, np.inf, dtype=float)
+        self.y = np.full(10, np.inf, dtype=float)
+        self.z = np.full(10, np.inf, dtype=float)
+        self.rot = np.full(10, np.inf, dtype=float)
+        self.idx = 0
+        self.last_time = 0
+
+    def update(self, pose: Pose3d, time) -> Pose3d | None:
+        return None
+        # It's been too long, reset the value
+        if time > self.last_time + 500 or self.x[0] == np.inf:
+            self.x.fill(pose.x)
+            self.y.fill(pose.y)
+            self.z.fill(pose.z)
+            self.rot.fill(pose.rotation().z)
+
+        self.x[self.idx] = pose.x
+        self.y[self.idx] = pose.y
+        self.z[self.idx] = pose.z
+        self.rot[self.idx] = pose.rotation().z
+        self.idx = (self.idx + 1) % 10
+        average_pose = self.filter_and_average_pose()
+        if average_pose is None:
+            return None
+        return Pose3d(
+            average_pose[0],
+            average_pose[1],
+            average_pose[2],
+            Rotation3d(0, 0, average_pose[3]),
+        )
+
+    def filter_and_average_pose(self) -> None | tuple[float, float, float, float]:
+        return None
+        x = filter_and_average(self.x)
+        y = filter_and_average(self.y)
+        z = filter_and_average(self.z)
+        rot = filter_and_average(self.rot)
+        if x is None or y is None or rot is None:
+            return None
+        return x, y, z, rot
+
+
+#
+# if __name__ == "__main__":
+#     data = [
+#         (Pose3d(1, 2, 5, Rotation3d(0, 0, 0)), 0),
+#         (Pose3d(1, 2, 5, Rotation3d(0, 0, 0)), 0),
+#         (Pose3d(1, 2, 5, Rotation3d(0, 0, 0)), 0),
+#         (Pose3d(1, 2, 5, Rotation3d(0, 0, 0)), 0),
+#         (Pose3d(1, 2, 5, Rotation3d(0, 0, 0)), 0),
+#         (Pose3d(1, 2, 5, Rotation3d(0, 0, 0)), 0),
+#         (Pose3d(1, 2, 5, Rotation3d(0, 0, 0)), 0),
+#         (Pose3d(1, 2, 5, Rotation3d(0, 0, 0)), 0),
+#         (Pose3d(2, 3, 6, Rotation3d(0, 0, 0)), 0),
+#         (Pose3d(100, 200, 300, Rotation3d(0, 0, 0)), 0),
+#         (Pose3d(10, 4, 7, Rotation3d(0, 0, 0)), 0),
+#         (Pose3d(10, 4, 7, Rotation3d(0, 0, 0)), 0),
+#         (Pose3d(10, 4, 7, Rotation3d(0, 0, 0)), 0),
+#         (Pose3d(10, 4, 7, Rotation3d(0, 0, 0)), 0),
+#     ]
+#     filter = VisionFilter()
+#     for pose in data:
+#         print(filter.update(pose[0], pose[1]))
