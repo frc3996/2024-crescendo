@@ -61,8 +61,6 @@ class SwerveDrive:
     angle_max_acc = magicbot.tunable(constants.MAX_ANGULAR_VEL)
     angle_max_vel = magicbot.tunable(constants.MAX_ANGULAR_ACCEL)
 
-    vision_filter = tools.VisionFilter()
-
     def setup(self):
         """
         Appelé après l'injection
@@ -333,21 +331,19 @@ class SwerveDrive:
             ),
         )
 
-
         visionPose, visionTime = self.limelight_vision.get_alliance_pose()
-        if visionPose and visionPose.x > 0 and visionPose.y > 0:
-            visionPose = self.vision_filter.update(visionPose, visionTime)
-            if visionPose:
-                # if (
-                #     abs(visionPose.x - self.getEstimatedPose().x) < 0.5
-                #     and abs(visionPose.y - self.getEstimatedPose().y) < 0.5
-                # ):
-                stddevupdate = map_value(visionPose.x, 2.0, 8.0, 0.3, 2.0)
-                self.odometry.addVisionMeasurement(
-                    visionPose.toPose2d(),
-                    visionTime,
-                    (stddevupdate, stddevupdate, math.pi / 2),
-                )
+        if visionPose is not None and visionPose.x > 0 and visionPose.y > 0:
+            # if (
+            #     abs(visionPose.x - self.getEstimatedPose().x) < 0.5
+            #     and abs(visionPose.y - self.getEstimatedPose().y) < 0.5
+            # ):
+            stddevupdate = map_value(visionPose.x, 2.0, 8.0, 0.3, 2.0)
+            # self.logger.info(f'Adding vision measuerment with StdDev of {stddevupdate} and distance of {visionPose.x} ')
+            self.odometry.addVisionMeasurement(
+                visionPose.toPose2d(),
+                visionTime,
+                (stddevupdate, stddevupdate, math.pi / 2),
+            )
 
         current_pose = self.getEstimatedPose()
         pathplannerlib.telemetry.PPLibTelemetry.setCurrentPose(current_pose)
