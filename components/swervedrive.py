@@ -20,9 +20,7 @@ from wpimath import (controller, estimator, filter, geometry, kinematics,
 
 import constants
 from common import tools
-from common.tools import map_value
-from components import limelight, swervemodule
-from components.limelight import LimeLightVision
+from components import swervemodule
 
 constants.MAX_WHEEL_SPEED = 4  # meter per second
 constants.MAX_MODULE_SPEED = 4.5
@@ -44,7 +42,6 @@ class SwerveDrive:
     rearRightModule: swervemodule.SwerveModule
     navx: AHRS
     nt: ntcore.NetworkTable
-    limelight_vision: limelight.LimeLightVision
 
     controller_forward = magicbot.will_reset_to(0)
     controller_strafe = magicbot.will_reset_to(0)
@@ -316,11 +313,13 @@ class SwerveDrive:
     def __updateOdometry(self) -> None:
         """Updates the field relative position of the robot."""
 
+        # Get angle from navx!
         if self.running_in_simulation:
             gyro_angle = geometry.Rotation2d(self.sim_angle)
         else:
             gyro_angle = self.navx.getRotation2d()
 
+        # Add odometry measurements
         self.odometry.update(
             gyro_angle,
             (
@@ -330,21 +329,6 @@ class SwerveDrive:
                 self.rearRightModule.getPosition(),
             ),
         )
-
-        visionPose, visionTime = self.limelight_vision.get_alliance_pose()
-        if visionPose is not None and visionPose.x > 0 and visionPose.y > 0:
-            # if (
-            #     abs(visionPose.x - self.getEstimatedPose().x) < 0.5
-            #     and abs(visionPose.y - self.getEstimatedPose().y) < 0.5
-            # ):
-            stddevupdate = map_value(visionPose.x, 2.0, 8.0, 0.3, 2.0)
-            # self.logger.info(f'Adding vision measuerment with StdDev of {stddevupdate} and distance of {visionPose.x} ')
-            self.odometry.addVisionMeasurement(
-                visionPose.toPose2d(),
-                visionTime,
-                (stddevupdate, stddevupdate, math.pi / 2),
-            )
-
         current_pose = self.getEstimatedPose()
         pathplannerlib.telemetry.PPLibTelemetry.setCurrentPose(current_pose)
 
