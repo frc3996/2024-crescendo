@@ -45,7 +45,7 @@ class LoBrasHead:
     kFF = magicbot.tunable(0.0)
     kMotorClosedLoopRampRate = magicbot.tunable(0.5)
 
-    horizon_offset = magicbot.tunable(62)
+    horizon_offset = magicbot.tunable(45)
     _target_position: float
 
     def setup(self):

@@ -74,7 +74,7 @@ class PathHelper:
         new_pose = geometry.Pose2d(
             reset_pose.X(),
             reset_pose.Y(),
-            geometry.Rotation2d.fromDegrees(self.drivetrain.get_angle()),
+            geometry.Rotation2d.fromDegrees(self.drivetrain.get_odometry_angle()),
         )
         self.drivetrain.resetPose(new_pose)
 
@@ -88,7 +88,7 @@ class PathHelper:
         target_rotation = self.path.getGoalEndState().rotation.degrees()
 
         goal.targetHolonomicRotation = geometry.Rotation2d(0)
-        current = self.drivetrain.getEstimatedPose()
+        current = self.drivetrain.get_odometry_pose()
         current = geometry.Pose2d(current.X(), current.Y(), geometry.Rotation2d(0))
         adjustedSpeeds = self.controller.calculate(
             current, goal.getTargetHolonomicPose(), 0, geometry.Rotation2d(0)
@@ -109,7 +109,7 @@ class PathHelper:
         target_rotation = self.path.getGoalEndState().rotation.degrees()
 
         goal.targetHolonomicRotation = geometry.Rotation2d(0)
-        current = self.drivetrain.getEstimatedPose()
+        current = self.drivetrain.get_odometry_pose()
         current = geometry.Pose2d(current.X(), current.Y(), geometry.Rotation2d(0))
         adjustedSpeeds = self.controller.calculate(
             current, goal.getTargetHolonomicPose(), 0, geometry.Rotation2d(0)
@@ -128,7 +128,7 @@ class PathHelper:
         goal.targetHolonomicRotation = geometry.Rotation2d(0)
         goal = goal.getTargetHolonomicPose()
 
-        current = self.drivetrain.getEstimatedPose()
+        current = self.drivetrain.get_odometry_pose()
         current = geometry.Pose2d(current.X(), current.Y(), geometry.Rotation2d(0))
         distance = math.sqrt(pow(current.x - goal.x, 2) + pow(current.y - goal.y, 2))
 
@@ -140,7 +140,7 @@ class PathHelper:
         goal.targetHolonomicRotation = geometry.Rotation2d(0)
         goal = goal.getTargetHolonomicPose()
 
-        current = self.drivetrain.getEstimatedPose()
+        current = self.drivetrain.get_odometry_pose()
         current = geometry.Pose2d(current.X(), current.Y(), geometry.Rotation2d(0))
         distance = math.sqrt(pow(current.x - goal.x, 2) + pow(current.y - goal.y, 2))
 

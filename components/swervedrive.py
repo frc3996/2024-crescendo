@@ -17,7 +17,9 @@ import pathplannerlib.telemetry
 from navx import AHRS
 from wpimath import (controller, estimator, filter, geometry, kinematics,
                      trajectory, units)
+from wpimath.geometry import Rotation2d
 
+from magicbot import feedback
 import constants
 from common import tools
 from components import swervemodule
@@ -52,7 +54,7 @@ class SwerveDrive:
 
     debug = magicbot.tunable(False)
 
-    angle_kp = magicbot.tunable(0.004)
+    angle_kp = magicbot.tunable(0.0025)
     angle_ki = magicbot.tunable(0)
     angle_kd = magicbot.tunable(0)
     angle_max_acc = magicbot.tunable(constants.MAX_ANGULAR_VEL)
@@ -63,11 +65,9 @@ class SwerveDrive:
         Appelé après l'injection
         """
         self.chassis_speed = kinematics.ChassisSpeeds()
-        self.NavxPitchZero = 0
-        self.NavxRollZero = 0
-        self.zero_done = False
+        self.navx_offset = Rotation2d()
 
-        self.lost_navx = False
+
         self.target_angle = units.degrees(0)
         self.sim_angle = units.degrees(0)
 
@@ -106,17 +106,8 @@ class SwerveDrive:
         )
         self.odometry.setVisionMeasurementStdDevs((0.5, 0.5, math.pi / 2))
 
-        self.navx_zero_angle()
+        self.navx_zero()
 
-    def navx_zero_angle(self):
-        self.navx.reset()
-        self.target_angle = self.get_angle()
-        self.angle_pid.reset(trajectory.TrapezoidProfile.State(0, 0))
-
-    def navx_zero_all(self):
-        self.navx_zero_angle()
-        self.NavxPitchZero = self.navx.getPitch()
-        self.NavxRollZero = self.navx.getRoll()
 
     def flush(self):
         """
@@ -130,9 +121,6 @@ class SwerveDrive:
 
     def on_enable(self):
         """Automatic robotpy call when robot enter teleop or auto"""
-        if self.zero_done is False:
-            self.zero_done = True
-            self.navx_zero_all()
         self.flush()
 
         self.angle_pid.setPID(
@@ -147,15 +135,15 @@ class SwerveDrive:
         self.angle_pid.setConstraints(constraint)
 
     def getRotation2d(self):
-        return self.getEstimatedPose().rotation()
+        return self.get_odometry_pose().rotation()
 
     def angle_reached(self, acceptable_error=5):
         """Returns if the target angle have been reached"""
-        if abs(self.target_angle - self.get_angle()) < acceptable_error:
+        if abs(self.target_angle - self.get_odometry_angle()) < acceptable_error:
             return True
         return False
 
-    def get_angle(self):
+    def get_odometry_angle(self):
         """
         Retourne l'angle absolue basée sur le zéro
         De -180 à 180 degrée
@@ -172,10 +160,10 @@ class SwerveDrive:
         self.automove_strength = strength
 
     def relative_rotate(self, rotation):
-        self.target_angle = ((self.get_angle() + 180 + rotation + 360) % 360) - 180
+        self.target_angle = ((self.get_odometry_angle() + 180 + rotation + 360) % 360) - 180
 
     def set_relative_automove_value(self, forward, strafe, strength=0.2):
-        vector = tools.rotate_vector([-forward, strafe], self.get_angle())
+        vector = tools.rotate_vector([-forward, strafe], self.get_odometry_angle())
         self.automove_forward = vector[0]
         self.automove_strafe = vector[1]
         self.automove_strength = strength
@@ -216,7 +204,7 @@ class SwerveDrive:
 
     def snap_angle_nearest_180(self):
         """Force le robot à regarder vers l'avant ou l'arrière"""
-        angle_deg = self.get_angle() + 180
+        angle_deg = self.get_odometry_angle() + 180
         remainder = angle_deg % 180
         if remainder < 90:
             rounded_angle_deg = angle_deg // 180 * 180
@@ -226,33 +214,13 @@ class SwerveDrive:
 
     def snap_angle_nearest_90(self):
         """Force le robot à regarder vers le côté le plus prêt"""
-        angle_deg = self.get_angle() + 180
+        angle_deg = self.get_odometry_angle() + 180
         remainder = angle_deg % 90
         if remainder < 45:
             rounded_angle_deg = angle_deg // 90 * 90
         else:
             rounded_angle_deg = (angle_deg // 90 + 1) * 90
         self.set_angle((rounded_angle_deg % 360) - 180)
-
-    def __compute_navx_angle_error(self) -> float:
-        # Lost navx, avoid turning
-        if self.navx.isConnected() is False:
-            self.lost_navx = True
-            return 0
-
-        # We previously lost navx but got it back
-        if self.lost_navx is True:
-            self.angle_pid.reset(trajectory.TrapezoidProfile.State(0, 0))
-            self.target_angle = self.get_angle()
-            self.lost_navx = False
-
-        # Compute error if navx is okay
-        angle_error = self.angle_pid.calculate(self.get_angle(), self.target_angle)
-        angle_error = max(min(angle_error, 2), -2)
-        if abs(angle_error) <= 0.002:
-            angle_error = 0
-
-        return angle_error
 
     def __calculate_vectors(self):
         """
@@ -261,19 +229,23 @@ class SwerveDrive:
         """
 
         fwdSpeed, strafeSpeed = self.__compute_move()
-        rot = self.__compute_navx_angle_error()
+        # rot = self.__compute_navx_angle_error()
+        omega = self.angle_pid.calculate(self.get_odometry_angle(), self.target_angle)
+        omega = max(min(omega, 2), -2)
+        if abs(omega) <= 0.002:
+            omega = 0
 
         fwdSpeed = self.fwd_limiter.calculate(fwdSpeed)
         strafeSpeed = self.strafe_limiter.calculate(strafeSpeed)
 
         self.chassis_speed = kinematics.ChassisSpeeds.discretize(
             kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(
-                fwdSpeed, strafeSpeed, rot, self.getRotation2d()
+                fwdSpeed, strafeSpeed, omega, self.get_odometry_pose().rotation()
             ),
             0.02,
         )
         swerveModuleStates = self.kinematics.toSwerveModuleStates(self.chassis_speed)
-        self.sim_angle = self.sim_angle + (rot * 0.02 * 20)
+        self.sim_angle = self.sim_angle + (omega * 0.02 * 20)
 
         # Non field centric, kept as reference
         # swerveModuleStates = self.kinematics.toSwerveModuleStates(
@@ -297,18 +269,51 @@ class SwerveDrive:
         self.rearLeftModule.setTargetState(swerveModuleStates[2])
         self.rearRightModule.setTargetState(swerveModuleStates[3])
 
-    def update_nt(self):
-        """
-        Affiche des informations de débogage
-        """
-        if self.debug:
-            self.nt.putNumber("navx/pitch", self.navx.getPitch())
-            self.nt.putNumber("navx/yaw", self.navx.getYaw())
-            self.nt.putNumber("navx/roll", self.navx.getRoll())
-            self.nt.putNumber("navx/angle", self.navx.getAngle())
-            self.nt.putNumber(
-                "debug/navx_angle_error", self.target_angle - self.get_angle()
-            )
+    # def update_nt(self):
+    #     """
+    #     Affiche des informations de débogage
+    #     """
+    #     if self.debug:
+    #         self.nt.putNumber("navx/pitch", self.navx.getPitch())
+    #         self.nt.putNumber("navx/yaw", self.navx.getYaw())
+    #         self.nt.putNumber("navx/roll", self.navx.getRoll())
+    #         self.nt.putNumber("navx/angle", self.navx.getAngle())
+    #         self.nt.putNumber(
+    #             "debug/navx_angle_error", self.target_angle - self.get_angle()
+    #         )
+
+    # def __compute_navx_angle_error(self) -> float:
+    #     # Lost navx, avoid turning
+    #     if self.navx.isConnected() is False:
+    #         self.lost_navx = True
+    #         return 0
+
+    #     # We previously lost navx but got it back
+    #     if self.lost_navx is True:
+    #         self.angle_pid.reset(trajectory.TrapezoidProfile.State(0, 0))
+    #         self.target_angle = self.get_angle()
+    #         self.lost_navx = False
+
+    #     # Compute error if navx is okay
+    #     angle_error = self.angle_pid.calculate(self.get_angle(), self.target_angle)
+    #     angle_error = max(min(angle_error, 2), -2)
+    #     if abs(angle_error) <= 0.002:
+    #         angle_error = 0
+
+    #     return angle_error
+
+    @feedback
+    def get_navx_offset(self):
+        return self.navx_offset.degrees()
+
+    def navx_zero(self):
+        self.navx.reset()
+        self.navx_update_offset()
+        self.target_angle = self.get_odometry_angle()
+        self.angle_pid.reset(trajectory.TrapezoidProfile.State(0, 0))
+
+    def navx_update_offset(self):
+        self.navx_offset = self.navx.getRotation2d() - self.odometry.getEstimatedPosition().rotation()
 
     def __updateOdometry(self) -> None:
         """Updates the field relative position of the robot."""
@@ -317,7 +322,11 @@ class SwerveDrive:
         if self.running_in_simulation:
             gyro_angle = geometry.Rotation2d(self.sim_angle)
         else:
-            gyro_angle = self.navx.getRotation2d()
+            if self.navx.isConnected():
+                gyro_angle = self.navx.getRotation2d() + self.navx_offset
+            else:
+                print("NAVX SHARTED")
+                gyro_angle = self.get_odometry_angle()
 
         # Add odometry measurements
         self.odometry.update(
@@ -329,10 +338,10 @@ class SwerveDrive:
                 self.rearRightModule.getPosition(),
             ),
         )
-        current_pose = self.getEstimatedPose()
+        current_pose = self.get_odometry_pose()
         pathplannerlib.telemetry.PPLibTelemetry.setCurrentPose(current_pose)
 
-    def getEstimatedPose(self) -> geometry.Pose2d:
+    def get_odometry_pose(self) -> geometry.Pose2d:
         """
         For PathPlannerLib
         Robot pose supplier
@@ -350,7 +359,7 @@ class SwerveDrive:
         self.rearRightModule.resetPose()
 
         self.odometry.resetPosition(
-            self.getRotation2d(),
+            self.get_odometry_pose().rotation(),
             (
                 self.frontLeftModule.getPosition(),
                 self.frontRightModule.getPosition(),
@@ -369,7 +378,6 @@ class SwerveDrive:
 
         # Calcul des vecteurs
         self.__calculate_vectors()
-        self.update_nt()
 
     # def getModuleStates(self):
     #     """

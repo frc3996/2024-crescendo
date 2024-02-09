@@ -116,6 +116,28 @@ class ActionGrab(StateMachine):
         self.lobras_head.set_angle(0)
         return super().done()
 
+class ActionFeedMe(StateMachine):
+    lobras_arm: LoBrasArm
+    lobras_head: LoBrasHead
+    intake: Intake
+
+    def engage(
+        self, initial_state: StateRef | None = None, force: bool = False
+    ) -> None:
+        return super().engage(initial_state, force)
+
+    @state(first=True)
+    def start_intake(self, initial_call):
+        if initial_call:
+            self.intake.intake()
+
+        if self.intake.has_object():
+            self.done()
+
+    def done(self) -> None:
+        self.intake.disable()
+        self.lobras_head.set_angle(0)
+        return super().done()
 
 class ActionShoot(StateMachine):
     lobras_arm: LoBrasArm
@@ -387,10 +409,25 @@ class ActionLowShootAuto(StateMachine):
     intake: Intake
     start_shoot_angle = tunable(81)
     drivetrain: SwerveDrive
-    field: FieldLayout
+    field_layout: FieldLayout
 
     LOW_SHOOT_Z_OFFSET = units.meters(0.3)
-    LOW_SHOOT_X_OFFSET = units.meters(-0.43)
+    LOW_SHOOT_X_OFFSET = units.meters(0.43)
+
+    initial_velocity = tunable(10.5)
+
+    @feedback
+    def get_best_angle(self):
+        speaker_position = self.field_layout.getSpeakerRelativePosition()
+        if speaker_position is None:
+            return
+        distance = math.sqrt(speaker_position.x**2 + speaker_position.y**2) + self.LOW_SHOOT_X_OFFSET
+        height_difference = speaker_position.z - self.LOW_SHOOT_Z_OFFSET
+        angle = tools.calculate_optimal_launch_angle(distance, height_difference, self.initial_velocity)
+        height = speaker_position.z
+
+        rough_angle = math.degrees(math.atan(height_difference/distance))
+        return [distance, height, angle, rough_angle]
 
     def engage(
         self, initial_state: StateRef | None = None, force: bool = False
@@ -421,11 +458,11 @@ class ActionLowShootAuto(StateMachine):
     def calculate_launch_angle(self):
         self.shooter.shoot_speaker()
 
-        speaker_position = self.field.getSpeakerRelativePosition()
+        speaker_position = self.field_layout.getSpeakerRelativePosition()
         if speaker_position is None:
             return
         distance = math.sqrt(speaker_position.x**2 + speaker_position.y**2)
-        angle = tools.calculate_optimal_launch_angle(distance - self.LOW_SHOOT_X_OFFSET, speaker_position.z - self.LOW_SHOOT_Z_OFFSET, 1000000)
+        angle = tools.calculate_optimal_launch_angle(distance - self.LOW_SHOOT_X_OFFSET, speaker_position.z - self.LOW_SHOOT_Z_OFFSET, self.initial_velocity)
         if angle is None and angle < 20:
             return
         self.lobras_head.set_angle_from_horizon(angle)
@@ -462,7 +499,7 @@ class ActionDewinch(StateMachine):
     lobras_head: LoBrasHead
     climber: Climber
 
-    arm_angle = tunable(104)
+    arm_angle = tunable(123)
     head_angle = tunable(130)
 
     def engage(
@@ -501,7 +538,7 @@ class ActionWinch(StateMachine):
     shooter: Shooter
     intake: Intake
 
-    arm_angle = tunable(104)
+    arm_angle = tunable(123)
     head_angle = tunable(130)
 
     def engage(

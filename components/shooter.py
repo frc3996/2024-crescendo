@@ -71,7 +71,7 @@ class ShooterMain:
         return self.encoder.getVelocity()
 
     def is_ready(self):
-        return abs(self.getVelocity() - self.__target_velocity) < 25
+        return abs(self.getVelocity() - self.__target_velocity) < 50
 
     def on_enable(self):
         # Update the tunables

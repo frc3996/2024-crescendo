@@ -9,7 +9,7 @@ import constants
 class Intake:
     beamWithObject = 1100
     beamNoObject = 275
-    intake_velocity = tunable(16000)
+    intake_velocity = tunable(4000)
     feed_velocity = tunable(16000)
 
     kP = tunable(0.0002)

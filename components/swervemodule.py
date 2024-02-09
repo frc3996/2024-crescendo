@@ -92,9 +92,9 @@ class SwerveModule:
         cancoder_config = phoenix6.configs.CANcoderConfiguration()
         self.encoder.configurator.apply(cancoder_config)  # type: ignore
 
-        self.driveMotor.get_position().set_update_frequency(100)
-        self.rotateMotor.get_position().set_update_frequency(100)
-        self.encoder.get_absolute_position().set_update_frequency(100)
+        self.driveMotor.get_position().set_update_frequency(10)
+        self.rotateMotor.get_position().set_update_frequency(10)
+        self.encoder.get_absolute_position().set_update_frequency(10)
         self.driveMotor.optimize_bus_utilization()
         self.rotateMotor.optimize_bus_utilization()
         self.encoder.optimize_bus_utilization()

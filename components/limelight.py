@@ -1,18 +1,21 @@
 import math
 from typing import Any, Tuple
 
+from magicbot import feedback
 import wpilib
 from ntcore import NetworkTableInstance
 from wpimath.filter import MedianFilter
-from wpimath.geometry import Pose3d, Rotation3d, Translation3d
+from wpimath.geometry import Pose2d, Pose3d, Rotation3d, Translation3d
 
 from common.tools import map_value
-from components import field
+from components.field  import FieldLayout, RED_ALLIANCE, BLUE_ALLIANCE
 from components.swervedrive import SwerveDrive
 
 
 class LimeLightVision:
     drivetrain: SwerveDrive
+    field_layout: FieldLayout
+
 
     def __init__(self, name="limelight"):
         self.nt = NetworkTableInstance.getDefault().getTable(name)
@@ -40,14 +43,16 @@ class LimeLightVision:
         # create the timer that we can use to the the FPGA timestamp
         self.timer = wpilib.Timer()
 
-        self.fieldLayout = field.FieldLayout()
 
         # And a bunch of filters
-        self.poseXFilter = MedianFilter(8)
-        self.poseYFilter = MedianFilter(8)
-        self.poseZFilter = MedianFilter(8)
-        self.poseYawFilter = MedianFilter(8)
-        self.__last_update = 0
+        self.poseXFilter = MedianFilter(20)
+        self.poseYFilter = MedianFilter(20)
+        self.poseZFilter = MedianFilter(20)
+        self.poseYawFilter = MedianFilter(20)
+        self.__last_update = None
+        self.std_devs = [0.0,0.0,0.0]
+        self.filter_pos = [0.0,0.0,0.0]
+
 
     def get_pose(self) -> Tuple[Pose3d, Any] | None:
         pose3d = self.botpose_to_pose3d(self.botpose.get())
@@ -56,9 +61,9 @@ class LimeLightVision:
         return (*pose3d,)
 
     def get_alliance_pose(self) -> Tuple[Pose3d, Any] | None:
-        if self.fieldLayout.alliance == field.RED_ALLIANCE:
+        if self.field_layout.alliance == RED_ALLIANCE:
             pose3d = self.botpose_to_pose3d(self.botpose_wpired.get())
-        elif self.fieldLayout.alliance == field.BLUE_ALLIANCE:
+        elif self.field_layout.alliance == BLUE_ALLIANCE:
             pose3d = self.botpose_to_pose3d(self.botpose_wpiblue.get())
         else:
             raise RuntimeError("No alliance set")
@@ -85,21 +90,28 @@ class LimeLightVision:
                 Translation3d(pX, pY, pZ), Rotation3d.fromDegrees(pRoll, pPitch, pYaw)
             ), self.timer.getFPGATimestamp() - (msLatency / 1000)
 
+    @feedback
+    def get_std_devs(self):
+        return self.std_devs
+
+    @feedback
+    def get_filter_pos(self):
+        return self.filter_pos
+
     def execute(self) -> None:
         # Add vision pose measurements
         vision_pose = self.get_alliance_pose()
+
+        # TODO: This is unused for now, instead try to rely on std deviation\
         if (
             vision_pose is None
             or vision_pose[0].x == 0
             or vision_pose[0].y == 0
-            or vision_pose[1] - self.__last_update > 500
         ):
-            # If it's been more than 500ms since the last update, nuke the filter
-            # TODO: This is unused for now, instead try to rely on std deviation
             self.poseXFilter.reset()
             self.poseYFilter.reset()
-            self.poseZFilter.reset()
             self.poseYawFilter.reset()
+
         if vision_pose and vision_pose[0].x > 0 and vision_pose[0].y > 0:
             """
             To promote stability of the pose estimate and make it robust to bad vision
@@ -110,28 +122,37 @@ class LimeLightVision:
             method will continue to apply to future measurements until a subsequent
             call to SetVisionMeasurementStdDevs() or this method.
             """
-
-            # Increase standard deviation with distance form tag
-            transform = self.fieldLayout.getTagRelativePosition(self.tid.get())
-            if transform is None:
+            if self.__last_update == vision_pose[0]:
                 return
-            # This means if we're 2m from the target, the std dev is 0.3, but
-            # over 8m we're at 2.0m
-            stddevupdate = map_value(
-                math.sqrt(transform.x**2 + transform.y**2), 0, 10, 0.2, 3.0
-            )
-            stddevupdate_rot = map_value(
-                math.sqrt(transform.x**2 + transform.y**2),
-                0,
-                math.tau,
-                math.tau / 16,
-                math.tau / 2,
-            )
+
+            x = self.poseXFilter.calculate(vision_pose[0].x)
+            y = self.poseYFilter.calculate(vision_pose[0].y)
+            yaw = self.poseYawFilter.calculate(vision_pose[0].rotation().z)
+
+            # Increase standard deviation depending on the target area
+            if self.__last_update is None:
+                stddev_xy = 0
+                stddev_rot = 0
+            else:
+                # These values aren't too far off
+            #     The default standard deviations of the vision measurements are
+            #    0.9 meters for x, 0.9 meters for y, and 0.9 radians for heading.
+
+                stddev_xy = ((1-self.ta.get())**4)*10
+                stddev_rot = ((1-self.ta.get())**4)*math.pi
+
+            self.std_devs = [stddev_xy, stddev_xy, stddev_rot]
+            self.filter_pos = [x, y, yaw]
             self.drivetrain.odometry.addVisionMeasurement(
                 vision_pose[0].toPose2d(),
+                # Pose2d(x, y, yaw),
                 vision_pose[1],
-                (stddevupdate, stddevupdate, stddevupdate_rot),
+                (stddev_xy, stddev_xy, stddev_rot),
             )
+            # self.drivetrain.navx_update_offset()
+
+            self.__last_update = vision_pose[0]
+
 
     # def set_pipeline(self, value: int):
     #     self.nt.putNumber("pipeline", value)

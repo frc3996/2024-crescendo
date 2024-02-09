@@ -47,8 +47,22 @@ def calculate_optimal_launch_angle(
     :param initial_velocity: The initial velocity of the disk (meters/second).
     :return: The optimal launch angle (degrees) to hit the target.
     """
-    angle = math.degrees(math.atan(height_difference/distance))
-    return angle
+    # angle = math.degrees(math.atan(height_difference/distance))
+    # return angle
+
+    g = 9.81
+    min_error = float('inf')
+    best_angle = 0
+
+    for angle in range(0,90):
+        theta = math.radians(angle)
+        t = distance / (initial_velocity * math.cos(theta))
+        y = (initial_velocity * math.sin(theta) * t) - (0.5 * 9.8 * t ** 2)
+        error = abs(y - height_difference)
+        if (error < min_error):
+            min_error = error
+            best_angle = angle
+    return best_angle
 
     # TODO Make it better?
     g = 9.81  # Acceleration due to gravity (m/s^2)

@@ -47,7 +47,7 @@ from components.limelight import LimeLightVision
 from components.lobra import LoBrasArm, LoBrasArmFollower, LoBrasHead
 from components.pixy import Pixy
 from components.robot_actions import (ActionGrab, ActionLowShoot, ActionLowShootAuto, ActionShoot,
-                                      ActionShootAmp, ActionStow, ActionDewinch, ActionWinch,
+                                      ActionShootAmp, ActionStow, ActionDewinch, ActionWinch, ActionFeedMe,
                                       ActionShootAmpAuto)
 from components.shooter import Shooter, ShooterFollower, ShooterMain
 from components.swervedrive import SwerveDrive, SwerveDriveConfig
@@ -74,6 +74,7 @@ class MyRobot(MagicRobot):
 
     # HIGH Level components first (components that use components)
     actionGrab: ActionGrab
+    actionFeedMe: ActionFeedMe
     actionShoot: ActionShoot
     actionStow: ActionStow
     actionLowShoot: ActionLowShoot
@@ -116,7 +117,7 @@ class MyRobot(MagicRobot):
     pixy: Pixy
 
     # FieldLayout
-    field: FieldLayout
+    field_layout: FieldLayout
 
     limelight_vision: LimeLightVision
 
@@ -232,7 +233,7 @@ class MyRobot(MagicRobot):
 
     def disabledPeriodic(self):
         """Mets à jours le dashboard, même quand le robot est désactivé"""
-        self.update_nt()
+        pass
 
     def autonomousInit(self):
         """Cette fonction est appelée une seule fois lorsque le robot entre en mode autonome."""
@@ -263,7 +264,7 @@ class MyRobot(MagicRobot):
         #     self.drivetrain.navx_zero_angle()
 
         if self.gamepad1.getRightTriggerAxis() > 0.75 and self.intake.has_object() is False:
-            self.actionGrab.engage()
+            self.actionFeedMe.engage()
         # elif self.gamepad1.getYButton():  #  and self.intake.has_object() is True:
         #     self.actionShoot.engage()
         elif self.gamepad1.getLeftBumper():  #  and self.intake.has_object() is True:
@@ -274,17 +275,16 @@ class MyRobot(MagicRobot):
             # self.actionLowShoot.engage()
             self.actionLowShootAuto.engage()
         elif self.gamepad1.getRightBumper():  #  and self.intake.has_object() is True:
-            self.actionShootAmpAuto.engage()
+            pass
+            # self.actionShootAmpAuto.engage()
         elif self.gamepad1.getXButton():
-            self.actionDewinch.engage()
+            pass
+            # self.actionDewinch.engage()
         elif self.gamepad1.getBButton():
-            self.actionWinch.engage()
+            pass
+            # self.actionWinch.engage()
         else:
             self.actionStow.engage()
-
-    def update_nt(self):
-        """Affiche les données sur le ShuffleBoard"""
-        pass
 
 
 if __name__ == "__main__":

@@ -45,5 +45,5 @@ class PhysicsEngine:
 
     def update_sim(self, now, tm_diff):
         self.physics_controller.field.setRobotPose(
-            self.robot.drivetrain.getEstimatedPose()
+            self.robot.drivetrain.get_odometry_pose()
         )

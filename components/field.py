@@ -93,7 +93,7 @@ class FieldLayout(AprilTagFieldLayout):
         tag_pose = self.getTagPose(tagID)
         if tag_pose is None:
             return None
-        odometry = self.drivetrain.getEstimatedPose()
+        odometry = self.drivetrain.get_odometry_pose()
 
         # TODO: Maybe implement a pose3d in the swerve, pass in the height??
         odometry_3d = Pose3d(
