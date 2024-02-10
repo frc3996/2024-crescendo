@@ -17,18 +17,41 @@ from components.climber import Climber
 from common.path_helper import PathHelper
 
 
-class ActionManualGrab(StateMachine):
-    lobras_arm: LoBrasArm
+class ActionDummy(StateMachine):
+    x = tunable(0)
+
+    def engage(
+        self, initial_state: StateRef | None = None, force: bool = False
+    ) -> None:
+        return super().engage(initial_state, force)
+
+
+    @state(first=True)
+    def start(self):
+        self.next_state("bob")
+
+    @timed_state(duration=1, next_state="foo")
+    def bob(self):
+        pass
+
+    @timed_state(duration=1, next_state="finish", must_finish=True)
+    def foo(self):
+        pass
+
+    @state
+    def finish(self, initial_call):
+        if initial_call:
+            self.x += 1
+        pass
+
+    def done(self):
+        super().done()
+
+
+class ActionGrabManual(StateMachine):
     lobras_head: LoBrasHead
     intake: Intake
     arduino_light: arduino_light.I2CArduinoLight
-    drivetrain: SwerveDrive
-    pixy: Pixy
-    auto_intake_kp = tunable(0.015)
-    auto_intake_ki = tunable(0)
-    auto_intake_kd = tunable(0)
-    auto_intake_pid = controller.PIDController(0, 0, 0)
-    intake_target_angle = tunable(113)
 
     def engage(
         self, initial_state: StateRef | None = None, force: bool = False
@@ -41,8 +64,12 @@ class ActionManualGrab(StateMachine):
             self.intake.intake()
 
         if self.intake.has_object():
-            self.arduino_light.set_RGB(0, 0, 255)
-            self.done()
+            self.arduino_light.set_RGB(255, 136, 0)
+            self.next_state("finish")
+
+    @state
+    def finish(self):
+        pass
 
     def done(self) -> None:
         self.intake.disable()
@@ -50,7 +77,7 @@ class ActionManualGrab(StateMachine):
         return super().done()
 
 
-class ActionGrab(StateMachine):
+class ActionGrabAuto(StateMachine):
     lobras_arm: LoBrasArm
     lobras_head: LoBrasHead
     intake: Intake
@@ -72,6 +99,10 @@ class ActionGrab(StateMachine):
     @state(first=True)
     def position_head(self):
         """Premier etat, position la tete"""
+        if self.intake.has_object():
+            self.next_state("finish")
+            return
+
         self.auto_intake_pid.setPID(
             self.auto_intake_kp,
             self.auto_intake_ki,
@@ -108,36 +139,19 @@ class ActionGrab(StateMachine):
         self.drivetrain.set_relative_automove_value(-fwd, 0)
 
         if self.intake.has_object():
-            self.arduino_light.set_RGB(0, 0, 255)
-            self.done()
+            self.next_state("finish")
+
+    @state
+    def finish(self):
+        self.arduino_light.set_RGB(255, 136, 0)
+        self.intake.disable()
+        self.lobras_head.set_angle(0)
 
     def done(self) -> None:
         self.intake.disable()
         self.lobras_head.set_angle(0)
         return super().done()
 
-class ActionFeedMe(StateMachine):
-    lobras_arm: LoBrasArm
-    lobras_head: LoBrasHead
-    intake: Intake
-
-    def engage(
-        self, initial_state: StateRef | None = None, force: bool = False
-    ) -> None:
-        return super().engage(initial_state, force)
-
-    @state(first=True)
-    def start_intake(self, initial_call):
-        if initial_call:
-            self.intake.intake()
-
-        if self.intake.has_object():
-            self.done()
-
-    def done(self) -> None:
-        self.intake.disable()
-        self.lobras_head.set_angle(0)
-        return super().done()
 
 class ActionShoot(StateMachine):
     lobras_arm: LoBrasArm
@@ -410,20 +424,23 @@ class ActionLowShootAuto(StateMachine):
     start_shoot_angle = tunable(81)
     drivetrain: SwerveDrive
     field_layout: FieldLayout
+    is_sim: bool
+    arduino_light: arduino_light.I2CArduinoLight
 
-    LOW_SHOOT_Z_OFFSET = units.meters(0.3)
-    LOW_SHOOT_X_OFFSET = units.meters(0.43)
-
-    initial_velocity = tunable(10.5)
+    Z_OFFSET = tunable(0.3)
+    X_OFFSET = tunable(0.43)
+    THROW_VELOCITY = tunable(10.8)
+    THROW_OFFSET = tunable(45)
+    ARM_OFFSET = tunable(0)
 
     @feedback
     def get_best_angle(self):
         speaker_position = self.field_layout.getSpeakerRelativePosition()
         if speaker_position is None:
             return
-        distance = math.sqrt(speaker_position.x**2 + speaker_position.y**2) + self.LOW_SHOOT_X_OFFSET
-        height_difference = speaker_position.z - self.LOW_SHOOT_Z_OFFSET
-        angle = tools.calculate_optimal_launch_angle(distance, height_difference, self.initial_velocity)
+        distance = math.sqrt(speaker_position.x**2 + speaker_position.y**2) + self.X_OFFSET
+        height_difference = speaker_position.z - self.Z_OFFSET
+        angle = tools.calculate_optimal_launch_angle(distance, height_difference, self.THROW_VELOCITY)
         height = speaker_position.z
 
         rough_angle = math.degrees(math.atan(height_difference/distance))
@@ -436,62 +453,76 @@ class ActionLowShootAuto(StateMachine):
 
     @state(first=True)
     def position_arm(self):
-        # self.next_state("calculate_launch_angle")
+        if self.intake.has_object() is False:
+            self.next_state("finish")
+            return
 
-        self.lobras_arm.set_angle(0)
-        self.lobras_head.set_angle_from_horizon(0)
-        if self.lobras_arm.is_ready(acceptable_error=5):
-            self.next_state("calculate_launch_angle")
-
-    # @state
-    # def adjust_robot_pose(self):
-    #     """
-    #     Adjusts the robot's position and orientation to match the target pose.
-    #     """
-
-    #     # Assume the robot can directly move and rotate to these differences
-    #     # move_to_position(dx, dy, dz)
-    #     # rotate_to(dyaw)  # Assuming yaw rotation aligns the robot towards the target accurately
-    #     self.next_state("calculate_launch_angle")
+        self.lobras_arm.set_angle(self.ARM_OFFSET)
+        self.lobras_head.set_angle(self.THROW_OFFSET)
+        if self.lobras_arm.is_ready(acceptable_error=3) or self.is_sim:
+            self.next_state("set_launch_rotation")
 
     @state
-    def calculate_launch_angle(self):
-        self.shooter.shoot_speaker()
-
+    def set_launch_rotation(self):
         speaker_position = self.field_layout.getSpeakerRelativePosition()
         if speaker_position is None:
             return
-        distance = math.sqrt(speaker_position.x**2 + speaker_position.y**2)
-        angle = tools.calculate_optimal_launch_angle(distance - self.LOW_SHOOT_X_OFFSET, speaker_position.z - self.LOW_SHOOT_Z_OFFSET, self.initial_velocity)
-        if angle is None and angle < 20:
-            return
-        self.lobras_head.set_angle_from_horizon(angle)
+
+        # Rotate the robot
         target_angle = tools.compute_angle(speaker_position.X(), speaker_position.Y())
-        self.drivetrain.set_angle(target_angle + 180)
-        if self.drivetrain.angle_reached(acceptable_error=5):
+        self.drivetrain.set_angle(target_angle + 180) # We throw from behind
+        if self.drivetrain.angle_reached(acceptable_error=1):
+            self._launch_rotation = target_angle
+            self.next_state("set_launch_angle")
+
+    @state
+    def set_launch_angle(self):
+        speaker_position = self.field_layout.getSpeakerRelativePosition()
+        if speaker_position is None:
+            return
+
+        target_angle = tools.compute_angle(speaker_position.X(), speaker_position.Y())
+        if abs(self._launch_rotation - target_angle) > 2:
+            self.next_state_now("set_launch_rotation")
+
+        # Set the head angle
+        distance = math.sqrt(speaker_position.x**2 + speaker_position.y**2)
+        angle = tools.calculate_optimal_launch_angle(distance + self.X_OFFSET, speaker_position.z - self.Z_OFFSET, self.THROW_VELOCITY)
+        self.lobras_head.set_angle(angle + self.THROW_OFFSET)
+        if self.lobras_head.is_ready():
             self.next_state("prepare_to_fire")
 
-    @state
+
+    @timed_state(duration=3, next_state="fire")
     def prepare_to_fire(self):
+        self.shooter.shoot_speaker()
         if self.shooter.is_ready():
-            self.intake.feed()
+            self.next_state_now("fire")
 
-        if self.intake.has_object() is False:
-            self.next_state("finish_fire")
-
-    @timed_state(duration=0.2, next_state="done_firing")
-    def finish_fire(self):
-        pass
+    @timed_state(must_finish=True, duration=0.5, next_state="finish")
+    def fire(self):
+        self.intake.feed()
 
     @state
-    def done_firing(self):
+    def finish(self):
         self.intake.disable()
         self.shooter.disable()
         self.lobras_head.set_angle(0)
-        self.done()
+        self.arduino_light.set_RGB(0, 255, 0)
+        pass
 
     def done(self) -> None:
+        self.intake.disable()
+        self.shooter.disable()
+        self.lobras_head.set_angle(0)
         return super().done()
+
+class ActionHighShootAuto(ActionLowShootAuto):
+    Z_OFFSET = tunable(1.03)
+    X_OFFSET = tunable(-0.4)
+    THROW_VELOCITY = tunable(10.8)
+    ARM_OFFSET = tunable(100)
+    THROW_OFFSET = tunable(140)
 
 
 class ActionDewinch(StateMachine):
@@ -537,9 +568,10 @@ class ActionWinch(StateMachine):
     climber: Climber
     shooter: Shooter
     intake: Intake
+    field_layout: FieldLayout
 
-    arm_angle = tunable(123)
-    head_angle = tunable(130)
+    ARM_ANGLE = tunable(123)
+    HEAD_ANGLE = tunable(130)
 
     def engage(
         self, initial_state: StateRef | None = None, force: bool = False
@@ -547,10 +579,57 @@ class ActionWinch(StateMachine):
         return super().engage(initial_state, force)
 
     @state(first=True)
+    def set_rotation(self):
+        target_position = self.field_layout.getTagRelativePosition(15)
+        if target_position is None:
+            return
+
+        # Rotate the robot
+        target_rotation = tools.compute_angle(target_position.X(), target_position.Y())
+        self.drivetrain.set_angle(target_rotation) # We throw from behind
+        if self.drivetrain.angle_reached(acceptable_error=1):
+            self.next_state("position_arm")
+
+    @state
+    def position_arm(self):
+        self.lobras_arm.set_angle(self.ARM_ANGLE)
+        if self.lobras_arm.is_ready(acceptable_error=5):
+            self.next_state("position_head")
+
+    @state
+    def position_head(self):
+        """Premier etat, position la tete"""
+        self.lobras_head.set_angle(self.HEAD_ANGLE)
+
+        if self.lobras_head.is_ready(acceptable_error=5):
+            self.next_state("dewinch")
+
+
+    @timed_state(duration=2, next_state="move_forward")
+    def dewinch(self):
+        self.climber.dewinch()
+
+    @state
+    def move_forward(self):
+        self.next_state("winch")
+
+    @timed_state(duration=2)
     def winch(self):
         """First state -- waits until shooter is ready before going to the
         next action in the sequence"""
         self.climber.winch()
+        if self.climber.climber_in_closed_position():
+            self.next_state("shoot")
+
+    @state
+    def shoot(self):
+        self.shooter.shoot_amp()
+        if self.intake.has_object():
+            self.next_state("finish")
+
+    @state
+    def finish(self):
+        pass
 
     def done(self) -> None:
         return super().done()

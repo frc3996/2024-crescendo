@@ -1,10 +1,11 @@
 import wpilib  # Librairie de base de la FRC
 from magicbot import feedback
+import constants
 
 class Pixy:
     def setup(self):
-        self.offset = wpilib.AnalogInput(1)
-        self.isTarget = wpilib.DigitalInput(0)
+        self.offset = wpilib.AnalogInput(constants.AnalogIO.PIXY_OFFSET)
+        self.isTarget = wpilib.DigitalInput(constants.DigitalIO.PIXY_VALID)
 
     @feedback
     def get_target_valid(self):

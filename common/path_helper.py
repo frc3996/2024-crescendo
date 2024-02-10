@@ -74,7 +74,7 @@ class PathHelper:
         new_pose = geometry.Pose2d(
             reset_pose.X(),
             reset_pose.Y(),
-            geometry.Rotation2d.fromDegrees(self.drivetrain.get_odometry_angle()),
+            self.drivetrain.get_odometry_angle(),
         )
         self.drivetrain.resetPose(new_pose)
 

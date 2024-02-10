@@ -16,6 +16,7 @@ class ShooterMain:
     kFF = magicbot.tunable(0.0)
     kMotorClosedLoopRampRate = magicbot.tunable(0.0)
     kInverted = True
+    delta = magicbot.tunable(100)
 
     # Duty cycle maximal utiliser par le PID
     kMinOutput = -1
@@ -71,7 +72,7 @@ class ShooterMain:
         return self.encoder.getVelocity()
 
     def is_ready(self):
-        return abs(self.getVelocity() - self.__target_velocity) < 50
+        return abs(self.getVelocity() - self.__target_velocity) < self.delta
 
     def on_enable(self):
         # Update the tunables

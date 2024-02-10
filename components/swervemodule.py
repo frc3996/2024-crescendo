@@ -18,7 +18,7 @@ class SwerveModuleConfig:
 
 class SwerveModule:
     # Vas chercher moteur, encodeur et configuration par injection
-    running_in_simulation: bool
+    is_sim: bool
     driveMotor: phoenix6.hardware.TalonFX
     rotateMotor: phoenix6.hardware.TalonFX
     encoder: phoenix6.hardware.CANcoder
@@ -144,7 +144,7 @@ class SwerveModule:
         self._requested_speed = speed
 
     def resetPose(self):
-        if self.running_in_simulation:
+        if self.is_sim:
             self.sim_currentPosition = kinematics.SwerveModulePosition(
                 0, self.currentState.angle
             )
@@ -155,7 +155,7 @@ class SwerveModule:
         self.currentState = kinematics.SwerveModuleState.optimize(
             targetState, self.currentState.angle
         )
-        if self.running_in_simulation:
+        if self.is_sim:
             self.sim_currentPosition = kinematics.SwerveModulePosition(
                 self.sim_currentPosition.distance + (self.currentState.speed * 0.02),
                 self.currentState.angle,
@@ -176,7 +176,7 @@ class SwerveModule:
         if self.get_current_position is not None:
             return self.get_current_position
 
-        if self.running_in_simulation:
+        if self.is_sim:
             return self.sim_currentPosition
 
         current_position = (

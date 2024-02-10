@@ -127,7 +127,7 @@ class FieldLayout(AprilTagFieldLayout):
         speaker_pose = Transform3d(
             tag_pose.x,
             tag_pose.y,
-            wpimath.units.meters(AMP_HEIGHT_LOW + (AMP_HEIGHT_HIGH - AMP_HEIGHT_LOW)),
+            wpimath.units.meters(AMP_HEIGHT_LOW + (AMP_HEIGHT_HIGH - AMP_HEIGHT_LOW)/2),
             Rotation3d(0, 0, 0),
         )
         return speaker_pose

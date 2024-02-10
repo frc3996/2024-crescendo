@@ -8,9 +8,13 @@ LOWER_INPUT_THRESH = 0.1  # Minimum speed before considered 0
 MAX_WHEEL_SPEED = 4  # meter per second
 MAX_MODULE_SPEED = 4.5
 
+class AnalogIO(IntEnum):
+    BEAM_SENSOR = 0
+    PIXY_OFFSET = 1
 
 class DigitalIO(IntEnum):
     CLIMBER_LIMIT_SWITCH = 1
+    PIXY_VALID = 0
 
 
 class CANIds(IntEnum):

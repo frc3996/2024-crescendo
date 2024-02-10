@@ -54,14 +54,14 @@ def calculate_optimal_launch_angle(
     min_error = float('inf')
     best_angle = 0
 
-    for angle in range(0,90):
-        theta = math.radians(angle)
+    for angle in range(1,180):
+        theta = math.radians(angle/2)
         t = distance / (initial_velocity * math.cos(theta))
         y = (initial_velocity * math.sin(theta) * t) - (0.5 * 9.8 * t ** 2)
         error = abs(y - height_difference)
         if (error < min_error):
             min_error = error
-            best_angle = angle
+            best_angle = angle/2
     return best_angle
 
     # TODO Make it better?

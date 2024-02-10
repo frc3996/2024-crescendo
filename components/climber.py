@@ -7,7 +7,7 @@ import constants
 
 
 class Climber:
-    running_in_simulation: bool
+    is_sim: bool
     kMotorClosedLoopRampRate = tunable(0.5)
     kInverted = True
 
@@ -67,7 +67,7 @@ class Climber:
 
 
 class ClimberFollower:
-    running_in_simulation: bool
+    is_sim: bool
     climber: Climber
 
     kMotorClosedLoopRampRate = tunable(0.5)

@@ -46,9 +46,9 @@ from components.intake import Intake
 from components.limelight import LimeLightVision
 from components.lobra import LoBrasArm, LoBrasArmFollower, LoBrasHead
 from components.pixy import Pixy
-from components.robot_actions import (ActionGrab, ActionLowShoot, ActionLowShootAuto, ActionShoot,
-                                      ActionShootAmp, ActionStow, ActionDewinch, ActionWinch, ActionFeedMe,
-                                      ActionShootAmpAuto)
+from components.robot_actions import (ActionGrabAuto, ActionLowShoot, ActionLowShootAuto, ActionHighShootAuto, ActionShoot,
+                                      ActionShootAmp, ActionStow, ActionDewinch, ActionWinch, ActionDummy,
+                                      ActionShootAmpAuto, ActionGrabManual)
 from components.shooter import Shooter, ShooterFollower, ShooterMain
 from components.swervedrive import SwerveDrive, SwerveDriveConfig
 from components.swervemodule import SwerveModule, SwerveModuleConfig
@@ -73,16 +73,18 @@ class MyRobot(MagicRobot):
     """
 
     # HIGH Level components first (components that use components)
-    actionGrab: ActionGrab
-    actionFeedMe: ActionFeedMe
+    actionGrabAuto: ActionGrabAuto
+    actionGrabManual: ActionGrabManual
     actionShoot: ActionShoot
     actionStow: ActionStow
     actionLowShoot: ActionLowShoot
     actionLowShootAuto: ActionLowShootAuto
+    actionHighShootAuto: ActionHighShootAuto
     actionShootAmp: ActionShootAmp
     actionShootAmpAuto: ActionShootAmpAuto
     actionDewinch: ActionDewinch
     actionWinch: ActionWinch
+    actionDummy: ActionDummy
 
     # LOW Level components after
 
@@ -123,7 +125,7 @@ class MyRobot(MagicRobot):
 
     # Networktables pour de la configuration et retour d'information
     nt: ntcore.NetworkTable
-    running_in_simulation: bool
+    is_sim: bool
 
     def createObjects(self):
         """
@@ -132,7 +134,7 @@ class MyRobot(MagicRobot):
         """
         # NetworkTable
         self.nt = ntcore.NetworkTableInstance.getDefault().getTable("robotpy")
-        self.running_in_simulation = self.isSimulation()
+        self.is_sim = self.isSimulation()
 
         # self.limelight_intake = limelight.LimeLightVision("limelight")
         # self.limelight_shoot = limelight.LimeLightVision("limelight-shoot")
@@ -146,11 +148,6 @@ class MyRobot(MagicRobot):
         self.gamepad1 = wpilib.XboxController(0)
         # self.gamepad1 = wpilib.PS5Controller(0)
         self.pdp = wpilib.PowerDistribution()
-        self.digitaltest = wpilib.DigitalInput(9)
-
-    # @feedback
-    def getDigitalIO(self):
-        return self.digitaltest.get()
 
     def initSwerve(self):
         """
@@ -263,26 +260,29 @@ class MyRobot(MagicRobot):
         # if self.gamepad1.getRightStickButton():
         #     self.drivetrain.navx_zero_angle()
 
-        if self.gamepad1.getRightTriggerAxis() > 0.75 and self.intake.has_object() is False:
-            self.actionFeedMe.engage()
-        # elif self.gamepad1.getYButton():  #  and self.intake.has_object() is True:
-        #     self.actionShoot.engage()
-        elif self.gamepad1.getLeftBumper():  #  and self.intake.has_object() is True:
-            # self.actionLowShoot.engage()
-            # self.actionHighShootAuto.engage()
+        if self.gamepad1.getRightTriggerAxis() > 0.75:
+            self.actionGrabAuto.engage()
             pass
-        elif self.gamepad1.getLeftTriggerAxis() > 0.75:  #  and self.intake.has_object() is True:
-            # self.actionLowShoot.engage()
+        elif self.gamepad1.getRightBumper():
+            self.actionShootAmpAuto.engage()
+            pass
+        elif self.gamepad1.getLeftTriggerAxis() > 0.75:
             self.actionLowShootAuto.engage()
-        elif self.gamepad1.getRightBumper():  #  and self.intake.has_object() is True:
             pass
-            # self.actionShootAmpAuto.engage()
+        elif self.gamepad1.getLeftBumper():
+            self.actionHighShootAuto.engage()
+            pass
+        elif self.gamepad1.getAButton():
+            self.actionWinch.engage()
+            pass
+        elif self.gamepad1.getBButton():
+            self.actionGrabManual.engage()
+            pass
         elif self.gamepad1.getXButton():
             pass
-            # self.actionDewinch.engage()
-        elif self.gamepad1.getBButton():
+        elif self.gamepad1.getYButton():
+            self.actionDewinch.engage()
             pass
-            # self.actionWinch.engage()
         else:
             self.actionStow.engage()
 

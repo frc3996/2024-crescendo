@@ -1,5 +1,6 @@
 import rev
 import wpilib
+import constants
 from magicbot import (StateMachine, default_state, feedback, state,
                       timed_state, tunable)
 
@@ -24,7 +25,7 @@ class Intake:
 
     def setup(self):
         # Beam
-        self.beam = wpilib.AnalogInput(0)
+        self.beam = wpilib.AnalogInput(constants.AnalogIO.BEAM_SENSOR)
 
         # Intake motor
         self.motor = rev.CANSparkMax(

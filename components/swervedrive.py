@@ -37,7 +37,7 @@ class SwerveDriveConfig:
 class SwerveDrive:
     # Modules injectés depuis le code de ../robot.py
     cfg: SwerveDriveConfig
-    running_in_simulation: bool
+    is_sim: bool
     frontLeftModule: swervemodule.SwerveModule
     frontRightModule: swervemodule.SwerveModule
     rearLeftModule: swervemodule.SwerveModule
@@ -52,11 +52,9 @@ class SwerveDrive:
     automove_strafe = magicbot.will_reset_to(0)
     automove_strength = magicbot.will_reset_to(0)
 
-    debug = magicbot.tunable(False)
-
-    angle_kp = magicbot.tunable(0.0025)
+    angle_kp = magicbot.tunable(0.0035)
     angle_ki = magicbot.tunable(0)
-    angle_kd = magicbot.tunable(0)
+    angle_kd = magicbot.tunable(0.0000005)
     angle_max_acc = magicbot.tunable(constants.MAX_ANGULAR_VEL)
     angle_max_vel = magicbot.tunable(constants.MAX_ANGULAR_ACCEL)
 
@@ -68,8 +66,8 @@ class SwerveDrive:
         self.navx_offset = Rotation2d()
 
 
-        self.target_angle = units.degrees(0)
-        self.sim_angle = units.degrees(0)
+        self.target_angle = Rotation2d(0)
+        self.sim_angle = Rotation2d(0)
 
         self.fwd_limiter = filter.SlewRateLimiter(16)
         self.strafe_limiter = filter.SlewRateLimiter(16)
@@ -139,20 +137,20 @@ class SwerveDrive:
 
     def angle_reached(self, acceptable_error=5):
         """Returns if the target angle have been reached"""
-        if abs(self.target_angle - self.get_odometry_angle()) < acceptable_error:
+        if abs((self.target_angle - self.get_odometry_angle()).degrees()) < acceptable_error:
             return True
         return False
 
-    def get_odometry_angle(self):
+    def get_odometry_angle(self) -> Rotation2d:
         """
         Retourne l'angle absolue basée sur le zéro
         De -180 à 180 degrée
         """
-        return self.getRotation2d().degrees()
+        return self.getRotation2d()
 
     def set_angle(self, angle):
-        """Écrit l'angle absolue à atteindre de 0 à 360"""
-        self.target_angle = angle
+        """Écrit l'angle absolue à atteindre de -180 à 180"""
+        self.target_angle = Rotation2d.fromDegrees(angle)
 
     def set_absolute_automove_value(self, forward, strafe, strength=0.2):
         self.automove_forward = forward
@@ -160,10 +158,10 @@ class SwerveDrive:
         self.automove_strength = strength
 
     def relative_rotate(self, rotation):
-        self.target_angle = ((self.get_odometry_angle() + 180 + rotation + 360) % 360) - 180
+        self.target_angle = self.get_odometry_angle() + Rotation2d.fromDegrees(rotation)
 
     def set_relative_automove_value(self, forward, strafe, strength=0.2):
-        vector = tools.rotate_vector([-forward, strafe], self.get_odometry_angle())
+        vector = tools.rotate_vector([-forward, strafe], self.get_odometry_angle().degrees())
         self.automove_forward = vector[0]
         self.automove_strafe = vector[1]
         self.automove_strength = strength
@@ -173,7 +171,7 @@ class SwerveDrive:
         self.controller_strafe = -strafe
 
         # Élimite la zone morte du joystick (petits déplacements)
-        if math.sqrt(angle_stick_x**2 + angle_stick_y**2) > 0.5:
+        if math.sqrt(angle_stick_x**2 + angle_stick_y**2) > 0.25:
             angle = (math.degrees(math.atan2(angle_stick_y, angle_stick_x)) + 360) % 360
             angle += 270
             angle %= 360
@@ -202,26 +200,6 @@ class SwerveDrive:
 
         return forward, strafe
 
-    def snap_angle_nearest_180(self):
-        """Force le robot à regarder vers l'avant ou l'arrière"""
-        angle_deg = self.get_odometry_angle() + 180
-        remainder = angle_deg % 180
-        if remainder < 90:
-            rounded_angle_deg = angle_deg // 180 * 180
-        else:
-            rounded_angle_deg = (angle_deg // 180 + 1) * 180
-        self.set_angle((rounded_angle_deg % 360) - 180)
-
-    def snap_angle_nearest_90(self):
-        """Force le robot à regarder vers le côté le plus prêt"""
-        angle_deg = self.get_odometry_angle() + 180
-        remainder = angle_deg % 90
-        if remainder < 45:
-            rounded_angle_deg = angle_deg // 90 * 90
-        else:
-            rounded_angle_deg = (angle_deg // 90 + 1) * 90
-        self.set_angle((rounded_angle_deg % 360) - 180)
-
     def __calculate_vectors(self):
         """
         Réalise le calcul des angles et vitesses pour chaque swerve module
@@ -230,7 +208,7 @@ class SwerveDrive:
 
         fwdSpeed, strafeSpeed = self.__compute_move()
         # rot = self.__compute_navx_angle_error()
-        omega = self.angle_pid.calculate(self.get_odometry_angle(), self.target_angle)
+        omega = self.angle_pid.calculate(self.get_odometry_angle().degrees(), self.target_angle.degrees())
         omega = max(min(omega, 2), -2)
         if abs(omega) <= 0.002:
             omega = 0
@@ -245,7 +223,7 @@ class SwerveDrive:
             0.02,
         )
         swerveModuleStates = self.kinematics.toSwerveModuleStates(self.chassis_speed)
-        self.sim_angle = self.sim_angle + (omega * 0.02 * 20)
+        self.sim_angle = self.sim_angle + Rotation2d.fromDegrees(omega * 5 * 20)
 
         # Non field centric, kept as reference
         # swerveModuleStates = self.kinematics.toSwerveModuleStates(
@@ -306,6 +284,14 @@ class SwerveDrive:
     def get_navx_offset(self):
         return self.navx_offset.degrees()
 
+    @feedback
+    def get_target_angle(self):
+        return self.target_angle.degrees()
+
+    @feedback
+    def get_current_angle(self):
+        return self.odometry.getEstimatedPosition().rotation().degrees()
+
     def navx_zero(self):
         self.navx.reset()
         self.navx_update_offset()
@@ -319,8 +305,8 @@ class SwerveDrive:
         """Updates the field relative position of the robot."""
 
         # Get angle from navx!
-        if self.running_in_simulation:
-            gyro_angle = geometry.Rotation2d(self.sim_angle)
+        if self.is_sim:
+            gyro_angle = self.sim_angle
         else:
             if self.navx.isConnected():
                 gyro_angle = self.navx.getRotation2d() + self.navx_offset
