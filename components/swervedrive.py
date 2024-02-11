@@ -45,6 +45,7 @@ class SwerveDrive:
     navx: AHRS
     nt: ntcore.NetworkTable
 
+    tmp_speed_factor = magicbot.will_reset_to(1)
     controller_forward = magicbot.will_reset_to(0)
     controller_strafe = magicbot.will_reset_to(0)
     request_wheel_lock = magicbot.will_reset_to(False)
@@ -166,6 +167,9 @@ class SwerveDrive:
         self.automove_strafe = vector[1]
         self.automove_strength = strength
 
+    def set_tmp_speed_factor(self, factor):
+        self.tmp_speed_factor = factor
+
     def set_controller_values(self, forward, strafe, angle_stick_x, angle_stick_y):
         self.controller_forward = -forward
         self.controller_strafe = -strafe
@@ -189,8 +193,8 @@ class SwerveDrive:
         if abs(strafe) < constants.LOWER_INPUT_THRESH:
             strafe = 0
 
-        forward *= constants.MAX_WHEEL_SPEED
-        strafe *= constants.MAX_WHEEL_SPEED
+        forward *= constants.MAX_WHEEL_SPEED * self.tmp_speed_factor
+        strafe *= constants.MAX_WHEEL_SPEED * self.tmp_speed_factor
 
         if self.automove_strength != 0:
             new_fwd = self.automove_forward + (forward * (1 - self.automove_strength))
@@ -200,6 +204,7 @@ class SwerveDrive:
 
         return forward, strafe
 
+    @tools.print_exec_time("__calculate_vectors")
     def __calculate_vectors(self):
         """
         Réalise le calcul des angles et vitesses pour chaque swerve module
@@ -301,6 +306,7 @@ class SwerveDrive:
     def navx_update_offset(self):
         self.navx_offset = self.navx.getRotation2d() - self.odometry.getEstimatedPosition().rotation()
 
+    @tools.print_exec_time("__updateOdometry")
     def __updateOdometry(self) -> None:
         """Updates the field relative position of the robot."""
 

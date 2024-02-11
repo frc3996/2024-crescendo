@@ -8,10 +8,13 @@ import constants
 
 
 class Intake:
+    is_sim: bool
     beamWithObject = 1100
     beamNoObject = 275
-    intake_velocity = tunable(4000)
-    feed_velocity = tunable(16000)
+    # intake_velocity = tunable(4000)
+    # feed_velocity = tunable(16000)
+    intake_velocity = tunable(1)
+    feed_velocity = tunable(1)
 
     kP = tunable(0.0002)
     kI = tunable(0.0000005)
@@ -28,8 +31,9 @@ class Intake:
         self.beam = wpilib.AnalogInput(constants.AnalogIO.BEAM_SENSOR)
 
         # Intake motor
+        motor_type = rev.CANSparkMax.MotorType.kBrushless if self.is_sim else rev.CANSparkMax.MotorType.kBrushed
         self.motor = rev.CANSparkMax(
-            constants.CANIds.INTAKE, rev.CANSparkMax.MotorType.kBrushless
+            constants.CANIds.INTAKE, motor_type
         )
 
         # self.motor.restoreFactoryDefaults()
@@ -50,9 +54,9 @@ class Intake:
             self.motor.PeriodicFrame.kStatus6, 60000
         )  # Absolute encoder Vel/Freq (default 200ms)
         self.motor.setInverted(self.kInverted)
-        self.encoder = self.motor.getEncoder()
-        self.pid = self.motor.getPIDController()
-        self.pid.setFeedbackDevice(self.encoder)
+        # self.encoder = self.motor.getEncoder()
+        # self.pid = self.motor.getPIDController()
+        # self.pid.setFeedbackDevice(self.encoder)
         self.__target_velocity = 0
 
         self.motor.burnFlash()
@@ -60,10 +64,10 @@ class Intake:
     def on_enable(self):
         # Update the tunables
         self.motor.setClosedLoopRampRate(self.kMotorClosedLoopRampRate)
-        self.pid.setP(self.kP)
-        self.pid.setI(self.kI)
-        self.pid.setD(self.kD)
-        self.pid.setFF(self.kFF)
+        # self.pid.setP(self.kP)
+        # self.pid.setI(self.kI)
+        # self.pid.setD(self.kD)
+        # self.pid.setFF(self.kFF)
 
     # @feedback
     def sensor_value(self):
@@ -71,7 +75,8 @@ class Intake:
 
     def __set_velocity(self, velocity):
         self.__target_velocity = velocity
-        self.pid.setReference(velocity, rev.CANSparkMax.ControlType.kVelocity)
+        # self.pid.setReference(velocity, rev.CANSparkMax.ControlType.kVelocity)
+        self.motor.set(self.__target_velocity)
 
     def intake(self):
         self.__set_velocity(self.intake_velocity)
@@ -81,14 +86,19 @@ class Intake:
 
     @feedback
     def getVelocity(self):
-        return self.encoder.getVelocity()
+        return self.__target_velocity
+        # return self.encoder.getVelocity()
 
     def is_ready(self):
-        return abs(self.getVelocity() - self.__target_velocity) < 25
+        return True
+        # return abs(self.getVelocity() - self.__target_velocity) < 25
 
     def disable(self):
         self.__target_velocity = 0
         self.motor.set(0)
+
+    def outtake(self):
+        self.__set_velocity(-self.intake_velocity)
 
     # @feedback
     def has_object(self):
@@ -98,4 +108,4 @@ class Intake:
             return False
 
     def execute(self):
-        self.getVelocity()
+        pass

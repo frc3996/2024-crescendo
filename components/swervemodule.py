@@ -1,6 +1,7 @@
 import math
 from dataclasses import dataclass
 from typing import cast
+from common import tools
 
 import phoenix6
 from magicbot import feedback, tunable, will_reset_to
@@ -207,6 +208,7 @@ class SwerveModule:
     def get_requested_speed(self):
         return self._requested_speed
 
+    @tools.print_exec_time("SwerveModule")
     def execute(self):
         """
         Utilise le PID pour se rendre à la position demandée.

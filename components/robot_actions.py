@@ -67,13 +67,21 @@ class ActionGrabManual(StateMachine):
             self.arduino_light.set_RGB(255, 136, 0)
             self.next_state("finish")
 
-    @state
-    def finish(self):
-        pass
+
+class ActionOuttake(StateMachine):
+    intake: Intake
+
+    def engage(
+        self, initial_state: StateRef | None = None, force: bool = False
+    ) -> None:
+        return super().engage(initial_state, force)
+
+    @state(first=True)
+    def outtake(self, initial_call):
+        self.intake.outtake()
 
     def done(self) -> None:
         self.intake.disable()
-        self.lobras_head.set_angle(0)
         return super().done()
 
 
@@ -88,7 +96,7 @@ class ActionGrabAuto(StateMachine):
     auto_intake_ki = tunable(0)
     auto_intake_kd = tunable(0)
     auto_intake_pid = controller.PIDController(0, 0, 0)
-    intake_target_angle = tunable(113)
+    intake_target_angle = tunable(108)
     intake_target_speed = tunable(1.25)
 
     def engage(
@@ -317,11 +325,11 @@ class ActionShootAmpAuto(StateMachine):
     arm_angle = tunable(120)
     head_angle = tunable(120)
     drivetrain: SwerveDrive
-    path_kp = tunable(1)
+    path_kp = tunable(2)
     path_ki = tunable(0)
     path_kd = tunable(0)
     path_profile = tunable(2)
-    speed_to_wall = tunable(0.5)
+    speed_to_wall = tunable(0.75)
 
     def engage(
         self, initial_state: StateRef | None = None, force: bool = False
@@ -358,10 +366,16 @@ class ActionShootAmpAuto(StateMachine):
 
         self.auto_path.move_to_end()
 
-        if self.auto_path.robot_reached_end_position():
-            self.next_state("prepare_to_fire")
+        if not self.lobras_arm.is_ready(acceptable_error=5):
+            return
+        if not self.lobras_head.is_ready(acceptable_error=5):
+            return
+        if not self.auto_path.robot_reached_end_position():
+            return
 
-    @timed_state(duration=0.2, next_state="feed_start")
+        self.next_state("prepare_to_fire")
+
+    @timed_state(duration=0.25, next_state="feed_start")
     def prepare_to_fire(self, initial_call):
         """First state -- waits until shooter is ready before going to the
         next action in the sequence"""
@@ -460,9 +474,9 @@ class ActionLowShootAuto(StateMachine):
         self.lobras_arm.set_angle(self.ARM_OFFSET)
         self.lobras_head.set_angle(self.THROW_OFFSET)
         if self.lobras_arm.is_ready(acceptable_error=3) or self.is_sim:
-            self.next_state("set_launch_rotation")
+            self.next_state("prepare_to_fire")
 
-    @state
+    # @state
     def set_launch_rotation(self):
         speaker_position = self.field_layout.getSpeakerRelativePosition()
         if speaker_position is None:
@@ -473,30 +487,35 @@ class ActionLowShootAuto(StateMachine):
         self.drivetrain.set_angle(target_angle + 180) # We throw from behind
         if self.drivetrain.angle_reached(acceptable_error=1):
             self._launch_rotation = target_angle
-            self.next_state("set_launch_angle")
+            return True
+            # self.next_state("set_launch_angle")
+        return False
 
-    @state
+    # @state
     def set_launch_angle(self):
         speaker_position = self.field_layout.getSpeakerRelativePosition()
         if speaker_position is None:
             return
 
-        target_angle = tools.compute_angle(speaker_position.X(), speaker_position.Y())
-        if abs(self._launch_rotation - target_angle) > 2:
-            self.next_state_now("set_launch_rotation")
+        # target_angle = tools.compute_angle(speaker_position.X(), speaker_position.Y())
+        # if abs(self._launch_rotation - target_angle) > 2:
+        #     self.next_state_now("set_launch_rotation")
 
         # Set the head angle
         distance = math.sqrt(speaker_position.x**2 + speaker_position.y**2)
         angle = tools.calculate_optimal_launch_angle(distance + self.X_OFFSET, speaker_position.z - self.Z_OFFSET, self.THROW_VELOCITY)
         self.lobras_head.set_angle(angle + self.THROW_OFFSET)
-        if self.lobras_head.is_ready():
-            self.next_state("prepare_to_fire")
-
+        if self.lobras_head.is_ready(acceptable_error=1):
+            return True
+            # self.next_state("prepare_to_fire")
+        return False
 
     @timed_state(duration=3, next_state="fire")
     def prepare_to_fire(self):
+        res1 = self.set_launch_rotation()
+        res2 = self.set_launch_angle()
         self.shooter.shoot_speaker()
-        if self.shooter.is_ready():
+        if self.shooter.is_ready() and res1 and res2:
             self.next_state_now("fire")
 
     @timed_state(must_finish=True, duration=0.5, next_state="finish")
@@ -569,6 +588,7 @@ class ActionWinch(StateMachine):
     shooter: Shooter
     intake: Intake
     field_layout: FieldLayout
+    drivetrain: SwerveDrive
 
     ARM_ANGLE = tunable(123)
     HEAD_ANGLE = tunable(130)

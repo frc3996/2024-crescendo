@@ -48,7 +48,7 @@ from components.lobra import LoBrasArm, LoBrasArmFollower, LoBrasHead
 from components.pixy import Pixy
 from components.robot_actions import (ActionGrabAuto, ActionLowShoot, ActionLowShootAuto, ActionHighShootAuto, ActionShoot,
                                       ActionShootAmp, ActionStow, ActionDewinch, ActionWinch, ActionDummy,
-                                      ActionShootAmpAuto, ActionGrabManual)
+                                      ActionShootAmpAuto, ActionGrabManual, ActionOuttake)
 from components.shooter import Shooter, ShooterFollower, ShooterMain
 from components.swervedrive import SwerveDrive, SwerveDriveConfig
 from components.swervemodule import SwerveModule, SwerveModuleConfig
@@ -75,6 +75,7 @@ class MyRobot(MagicRobot):
     # HIGH Level components first (components that use components)
     actionGrabAuto: ActionGrabAuto
     actionGrabManual: ActionGrabManual
+    actionOuttake: ActionOuttake
     actionShoot: ActionShoot
     actionStow: ActionStow
     actionLowShoot: ActionLowShoot
@@ -264,19 +265,22 @@ class MyRobot(MagicRobot):
             self.actionGrabAuto.engage()
             pass
         elif self.gamepad1.getRightBumper():
+            self.drivetrain.set_tmp_speed_factor(0.5)
             self.actionShootAmpAuto.engage()
             pass
         elif self.gamepad1.getLeftTriggerAxis() > 0.75:
+            self.drivetrain.set_tmp_speed_factor(0.5)
             self.actionLowShootAuto.engage()
             pass
         elif self.gamepad1.getLeftBumper():
+            self.drivetrain.set_tmp_speed_factor(0.5)
             self.actionHighShootAuto.engage()
             pass
         elif self.gamepad1.getAButton():
             self.actionWinch.engage()
             pass
         elif self.gamepad1.getBButton():
-            self.actionGrabManual.engage()
+            self.actionOuttake.engage()
             pass
         elif self.gamepad1.getXButton():
             pass
@@ -285,7 +289,3 @@ class MyRobot(MagicRobot):
             pass
         else:
             self.actionStow.engage()
-
-
-if __name__ == "__main__":
-    wpilib.run(MyRobot)

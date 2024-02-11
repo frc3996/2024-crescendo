@@ -134,7 +134,7 @@ class PathHelper:
 
         return distance
 
-    def robot_reached_end_position(self, acceptable_distance_error=0.1, acceptable_angle_error=5):
+    def robot_reached_end_position(self, acceptable_distance_error=0.1, acceptable_angle_error=2):
         goal = self.trajectory.getEndState()
         target_rotation = self.path.getGoalEndState().rotation
         goal.targetHolonomicRotation = geometry.Rotation2d(0)

@@ -1,5 +1,5 @@
 import math
-
+import wpilib
 import wpimath.units
 
 
@@ -94,3 +94,18 @@ def compute_angle(x, y):
     angle_radians = math.atan2(y, x)
     angle_degrees = math.degrees(angle_radians)
     return angle_degrees
+
+
+def print_exec_time(name):
+    def decorator(function):
+        def wrapper(*args, **kwargs):
+            start = wpilib.RobotController.getFPGATime()
+            res = function(*args, **kwargs)
+            delta =  wpilib.RobotController.getFPGATime() - start
+            delta = round(delta/1e3, 1)
+            if delta >= 0.5:
+                log = f"{name} took {delta} ms"
+                print(log)
+            return res
+        return wrapper
+    return decorator
