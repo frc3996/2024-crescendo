@@ -248,6 +248,7 @@ class MyRobot(MagicRobot):
         """Cette fonction est appelée une seule fois lorsque le robot entre en mode téléopéré."""
         self.arduino_light.set_RGB(0, 0, 0)
         self.status_light.set(0)
+        self.actionStow.engage()
         # self.drivetrain.resetPose(Pose2d(-0.038099999999999995, 5.547867999999999, 0))
 
     def teleopPeriodic(self):

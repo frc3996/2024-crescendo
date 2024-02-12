@@ -17,8 +17,50 @@ from components.climber import Climber
 from common.path_helper import PathHelper
 
 
+class ActionStow(StateMachine):
+    lobras_arm: LoBrasArm
+    lobras_head: LoBrasHead
+    shooter: Shooter
+    intake: Intake
+    is_sim: bool
+
+    def engage(
+        self, initial_state: StateRef | None = None, force: bool = False
+    ) -> None:
+        return super().engage(initial_state, force)
+
+    @state(first=True, must_finish=True)
+    def position_all(self):
+        """Premier etat, position la tete, et on s'assure que plu rien tourne"""
+        if self.is_sim:
+            self.done()
+
+        self.shooter.disable()
+        self.intake.disable()
+
+        # Sets the head angle to 0
+        self.lobras_head.set_angle(0)
+
+        # To avoid collision we make sure the head is retracted
+
+        # If the head is extended more than 90 degrees, wait for
+        # it and start moving then arm half-way
+        if self.lobras_head.get_angle() < 90:
+            self.lobras_arm.set_angle(0)
+        # Only move the arm half-way if the current angle was already > 30
+        elif self.lobras_arm.get_angle() > 30:
+            self.lobras_arm.set_angle(30)
+
+        if self.lobras_arm.is_ready() and self.lobras_head.is_ready():
+            self.done()
+
+    def done(self):
+        super().done()
+
+
 class ActionDummy(StateMachine):
     x = tunable(0)
+    actionStow: ActionStow
 
     def engage(
         self, initial_state: StateRef | None = None, force: bool = False
@@ -41,45 +83,12 @@ class ActionDummy(StateMachine):
     @state
     def finish(self, initial_call):
         if initial_call:
-            self.x += 1
+            print(self.x)
         pass
 
     def done(self):
+        self.actionStow.engage()
         super().done()
-
-
-class ActionStow(StateMachine):
-    lobras_arm: LoBrasArm
-    lobras_head: LoBrasHead
-    shooter: Shooter
-    intake: Intake
-
-    def engage(
-        self, initial_state: StateRef | None = None, force: bool = False
-    ) -> None:
-        return super().engage(initial_state, force)
-
-    @state(first=True, must_finish=True)
-    def position_all(self):
-        """Premier etat, position la tete, et on s'assure que plu rien tourne"""
-        self.shooter.disable()
-        self.intake.disable()
-
-        # Sets the head angle to 0
-        self.lobras_head.set_angle(0)
-
-        # To avoid collision we make sure the head is retracted
-
-        # If the head is extended more than 90 degrees, wait for
-        # it and start moving then arm half-way
-        if self.lobras_head.get_angle() < 90:
-            self.lobras_arm.set_angle(0)
-        # Only move the arm half-way if the current angle was already > 30
-        elif self.lobras_arm.get_angle() > 30:
-            self.lobras_arm.set_angle(30)
-
-        if self.lobras_arm.is_ready() and self.lobras_head.is_ready():
-            self.done()
 
 
 class ActionGrabManual(StateMachine):
