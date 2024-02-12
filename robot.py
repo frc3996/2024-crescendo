@@ -48,7 +48,8 @@ from components.lobra import LoBrasArm, LoBrasArmFollower, LoBrasHead
 from components.pixy import Pixy
 from components.robot_actions import (ActionGrabAuto, ActionLowShoot, ActionLowShootAuto, ActionHighShootAuto, ActionShoot,
                                       ActionShootAmp, ActionStow, ActionDewinch, ActionWinch, ActionDummy,
-                                      ActionShootAmpAuto, ActionGrabManual, ActionOuttake)
+                                      ActionShootAmpAuto, ActionGrabManual, ActionOuttake, ActionShootAmpAssisted,
+                                      FeedAndRetract)
 from components.shooter import Shooter, ShooterFollower, ShooterMain
 from components.swervedrive import SwerveDrive, SwerveDriveConfig
 from components.swervemodule import SwerveModule, SwerveModuleConfig
@@ -82,6 +83,8 @@ class MyRobot(MagicRobot):
     actionLowShootAuto: ActionLowShootAuto
     actionHighShootAuto: ActionHighShootAuto
     actionShootAmp: ActionShootAmp
+    feedAndRetract: FeedAndRetract
+    actionShootAmpAssisted: ActionShootAmpAssisted
     actionShootAmpAuto: ActionShootAmpAuto
     actionDewinch: ActionDewinch
     actionWinch: ActionWinch
@@ -266,7 +269,7 @@ class MyRobot(MagicRobot):
             pass
         elif self.gamepad1.getRightBumper():
             self.drivetrain.set_tmp_speed_factor(0.5)
-            self.actionShootAmpAuto.engage()
+            self.actionShootAmpAssisted.engage()
             pass
         elif self.gamepad1.getLeftTriggerAxis() > 0.75:
             self.drivetrain.set_tmp_speed_factor(0.5)
@@ -287,5 +290,6 @@ class MyRobot(MagicRobot):
         elif self.gamepad1.getYButton():
             self.actionDewinch.engage()
             pass
-        else:
-            self.actionStow.engage()
+        # else:
+        #     # NOW CALLED FROM OTHER ACTION, WHEN NEEDED
+        #     self.actionStow.engage()

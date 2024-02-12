@@ -132,5 +132,6 @@ class Shooter:
 
     def is_ready(self):
         return self.shooter_main.is_ready() and self.shooter_follower.is_ready()
+
     def execute(self):
         pass

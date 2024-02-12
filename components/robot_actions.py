@@ -48,10 +48,45 @@ class ActionDummy(StateMachine):
         super().done()
 
 
+class ActionStow(StateMachine):
+    lobras_arm: LoBrasArm
+    lobras_head: LoBrasHead
+    shooter: Shooter
+    intake: Intake
+
+    def engage(
+        self, initial_state: StateRef | None = None, force: bool = False
+    ) -> None:
+        return super().engage(initial_state, force)
+
+    @state(first=True, must_finish=True)
+    def position_all(self):
+        """Premier etat, position la tete, et on s'assure que plu rien tourne"""
+        self.shooter.disable()
+        self.intake.disable()
+
+        # Sets the head angle to 0
+        self.lobras_head.set_angle(0)
+
+        # To avoid collision we make sure the head is retracted
+
+        # If the head is extended more than 90 degrees, wait for
+        # it and start moving then arm half-way
+        if self.lobras_head.get_angle() < 90:
+            self.lobras_arm.set_angle(0)
+        # Only move the arm half-way if the current angle was already > 30
+        elif self.lobras_arm.get_angle() > 30:
+            self.lobras_arm.set_angle(30)
+
+        if self.lobras_arm.is_ready() and self.lobras_head.is_ready():
+            self.done()
+
+
 class ActionGrabManual(StateMachine):
     lobras_head: LoBrasHead
     intake: Intake
     arduino_light: arduino_light.I2CArduinoLight
+    actionStow: ActionStow
 
     def engage(
         self, initial_state: StateRef | None = None, force: bool = False
@@ -66,6 +101,10 @@ class ActionGrabManual(StateMachine):
         if self.intake.has_object():
             self.arduino_light.set_RGB(255, 136, 0)
             self.next_state("finish")
+
+    def done(self) -> None:
+        self.actionStow.engage()
+        return super().done()
 
 
 class ActionOuttake(StateMachine):
@@ -98,6 +137,7 @@ class ActionGrabAuto(StateMachine):
     auto_intake_pid = controller.PIDController(0, 0, 0)
     intake_target_angle = tunable(108)
     intake_target_speed = tunable(1.25)
+    actionStow: ActionStow
 
     def engage(
         self, initial_state: StateRef | None = None, force: bool = False
@@ -156,8 +196,7 @@ class ActionGrabAuto(StateMachine):
         self.lobras_head.set_angle(0)
 
     def done(self) -> None:
-        self.intake.disable()
-        self.lobras_head.set_angle(0)
+        self.actionStow.engage()
         return super().done()
 
 
@@ -166,6 +205,7 @@ class ActionShoot(StateMachine):
     lobras_head: LoBrasHead
     shooter: Shooter
     intake: Intake
+    actionStow: ActionStow
 
     def engage(
         self, initial_state: StateRef | None = None, force: bool = False
@@ -203,8 +243,7 @@ class ActionShoot(StateMachine):
             self.intake.feed()
 
     def done(self) -> None:
-        self.shooter.disable()
-        self.intake.disable()
+        self.actionStow.engage()
         return super().done()
 
 
@@ -214,6 +253,7 @@ class ActionLowShoot(StateMachine):
     shooter: Shooter
     intake: Intake
     start_shoot_angle = tunable(81)
+    actionStow: ActionStow
 
     def engage(
         self, initial_state: StateRef | None = None, force: bool = False
@@ -263,8 +303,7 @@ class ActionLowShoot(StateMachine):
             self.intake.feed()
 
     def done(self) -> None:
-        # self.shooter.disable()
-        self.intake.disable()
+        self.actionStow.engage()
         return super().done()
 
 
@@ -275,6 +314,7 @@ class ActionShootAmp(StateMachine):
     intake: Intake
     arm_angle = tunable(104)
     head_angle = tunable(130)
+    actionStow: ActionStow
 
     def engage(
         self, initial_state: StateRef | None = None, force: bool = False
@@ -312,8 +352,7 @@ class ActionShootAmp(StateMachine):
             self.intake.feed()
 
     def done(self) -> None:
-        self.shooter.disable()
-        self.intake.disable()
+        self.actionStow.engage()
         return super().done()
 
 
@@ -330,6 +369,7 @@ class ActionShootAmpAuto(StateMachine):
     path_kd = tunable(0)
     path_profile = tunable(2)
     speed_to_wall = tunable(0.75)
+    actionStow: ActionStow
 
     def engage(
         self, initial_state: StateRef | None = None, force: bool = False
@@ -391,16 +431,43 @@ class ActionShootAmpAuto(StateMachine):
         self.intake.feed()
 
     def done(self) -> None:
-        self.shooter.disable()
-        self.intake.disable()
+        self.actionStow.engage()
         return super().done()
 
 
-class ActionStow(StateMachine):
+class FeedAndRetract(StateMachine):
     lobras_arm: LoBrasArm
     lobras_head: LoBrasHead
     shooter: Shooter
     intake: Intake
+    actionStow: ActionStow
+
+    def engage(
+        self, initial_state: StateRef | None = None, force: bool = False
+    ) -> None:
+        return super().engage(initial_state, force)
+
+    @timed_state(first=True, duration=0.5, must_finish=True, next_state="stop_and_retract")
+    def feed(self):
+        self.intake.feed()
+
+    def done(self) -> None:
+        self.actionStow.engage()
+        return super().done()
+
+
+class ActionShootAmpAssisted(StateMachine):
+    lobras_arm: LoBrasArm
+    lobras_head: LoBrasHead
+    shooter: Shooter
+    intake: Intake
+    arm_angle = tunable(120)
+    head_angle = tunable(120)
+    drivetrain: SwerveDrive
+    feedAndRetract: FeedAndRetract
+    ready_to_fire = False
+    arduino_light: arduino_light.I2CArduinoLight
+    actionStow: ActionStow
 
     def engage(
         self, initial_state: StateRef | None = None, force: bool = False
@@ -408,26 +475,42 @@ class ActionStow(StateMachine):
         return super().engage(initial_state, force)
 
     @state(first=True)
-    def position_all(self):
-        """Premier etat, position la tete, et on s'assure que plu rien tourne"""
-        self.shooter.disable()
-        self.intake.disable()
+    def rotate(self, initial_call):
+        self.ready_to_fire = False
 
-        # Sets the head angle to 0
-        self.lobras_head.set_angle(0)
+        if initial_call:
+            self.auto_path = PathHelper(self.drivetrain, "amp_shoot")
+            self.auto_path.init_path()
 
-        # To avoid collision we make sure the head is retracted
+        self.auto_path.target_end_angle()
 
-        # If the head is extended more than 90 degrees, wait for
-        # it and start moving then arm half-way
-        if self.lobras_head.get_angle() < 90:
-            self.lobras_arm.set_angle(0)
-        # Only move the arm half-way if the current angle was already > 30
-        elif self.lobras_arm.get_angle() > 30:
-            self.lobras_arm.set_angle(30)
+        if self.drivetrain.angle_reached():
+            self.next_state("prepare_to_shoot")
 
-        if self.lobras_arm.is_ready() and self.lobras_head.is_ready():
-            self.done()
+    @state
+    def prepare_to_shoot(self):
+        self.lobras_head.set_angle(self.head_angle)
+        self.lobras_arm.set_angle(self.arm_angle)
+        self.shooter.shoot_amp()
+
+        if not self.lobras_arm.is_ready(acceptable_error=5):
+            return
+        if not self.lobras_head.is_ready(acceptable_error=5):
+            return
+        self.next_state("wait_release")
+
+    @state
+    def wait_release(self):
+        self.ready_to_fire = True
+        self.arduino_light.set_RGB(255, 0, 0)
+
+    def done(self) -> None:
+        if self.ready_to_fire:
+            self.ready_to_fire = False
+            self.feedAndRetract.engage()
+        else:
+            self.actionStow.engage()
+        return super().done()
 
 
 class ActionLowShootAuto(StateMachine):
@@ -440,6 +523,7 @@ class ActionLowShootAuto(StateMachine):
     field_layout: FieldLayout
     is_sim: bool
     arduino_light: arduino_light.I2CArduinoLight
+    actionStow: ActionStow
 
     Z_OFFSET = tunable(0.3)
     X_OFFSET = tunable(0.43)
@@ -531,10 +615,9 @@ class ActionLowShootAuto(StateMachine):
         pass
 
     def done(self) -> None:
-        self.intake.disable()
-        self.shooter.disable()
-        self.lobras_head.set_angle(0)
+        self.actionStow.engage()
         return super().done()
+
 
 class ActionHighShootAuto(ActionLowShootAuto):
     Z_OFFSET = tunable(1.03)

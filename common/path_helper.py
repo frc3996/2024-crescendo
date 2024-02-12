@@ -99,6 +99,10 @@ class PathHelper:
         )
         self.drivetrain.set_angle(target_rotation)
 
+    def target_end_angle(self):
+        target_rotation = self.path.getGoalEndState().rotation.degrees()
+        self.drivetrain.set_angle(target_rotation)
+
     def auto_move(self):
         # If odometry is bad, compute now + 0.02 as goal and now as current position
         # fake_pose = self.trajectory.sample(self.timer.get())
