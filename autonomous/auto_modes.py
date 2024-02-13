@@ -2,7 +2,8 @@ import ntcore
 from magicbot.state_machine import timed_state
 
 from common import path_helper
-from components import robot_actions, swervedrive
+from components import robot_actions
+from components.chassis import ChassisComponent
 
 from .base_auto import BaseAuto
 
@@ -12,7 +13,7 @@ class Path1(BaseAuto):
     DEFAULT = True
 
     # Injection
-    drivetrain: swervedrive.SwerveDrive
+    drivetrain: ChassisComponent
     nt: ntcore.NetworkTable
     actionShoot: robot_actions.ActionShoot
 

@@ -7,14 +7,14 @@ from magicbot.state_machine import StateRef
 from wpimath import controller, units
 
 from common import arduino_light, tools
+from common.path_helper import PathHelper
+from components.chassis import ChassisComponent
+from components.climber import Climber
 from components.field import FieldLayout
 from components.intake import Intake
 from components.lobra import LoBrasArm, LoBrasHead
 from components.pixy import Pixy
 from components.shooter import Shooter, ShooterFollower
-from components.swervedrive import SwerveDrive
-from components.climber import Climber
-from common.path_helper import PathHelper
 
 
 class ActionStow(StateMachine):
@@ -66,7 +66,6 @@ class ActionDummy(StateMachine):
         self, initial_state: StateRef | None = None, force: bool = False
     ) -> None:
         return super().engage(initial_state, force)
-
 
     @state(first=True)
     def start(self):
@@ -138,7 +137,7 @@ class ActionGrabAuto(StateMachine):
     lobras_head: LoBrasHead
     intake: Intake
     arduino_light: arduino_light.I2CArduinoLight
-    drivetrain: SwerveDrive
+    drivetrain: ChassisComponent
     pixy: Pixy
     auto_intake_kp = tunable(0.015)
     auto_intake_ki = tunable(0)
@@ -192,8 +191,8 @@ class ActionGrabAuto(StateMachine):
         else:
             fwd = 0.5
             error = 0
-        self.drivetrain.relative_rotate(-error)
-        self.drivetrain.set_relative_automove_value(-fwd, 0)
+        self.drivetrain.snap_to_heading(-error)
+        self.drivetrain.drive_local(-fwd, 0, 0)
 
         if self.intake.has_object():
             self.next_state("finish")
@@ -372,7 +371,7 @@ class ActionShootAmpAuto(StateMachine):
     intake: Intake
     arm_angle = tunable(120)
     head_angle = tunable(120)
-    drivetrain: SwerveDrive
+    drivetrain: ChassisComponent
     path_kp = tunable(2)
     path_ki = tunable(0)
     path_kd = tunable(0)
@@ -404,7 +403,14 @@ class ActionShootAmpAuto(StateMachine):
         """First state -- waits until shooter is ready before going to the
         next action in the sequence"""
         if initial_call:
-            self.auto_path = PathHelper(self.drivetrain, "amp_shoot", kp=self.path_kp, ki=self.path_ki, kd=self.path_kd, profile_kp=self.path_profile)
+            self.auto_path = PathHelper(
+                self.drivetrain,
+                "amp_shoot",
+                kp=self.path_kp,
+                ki=self.path_ki,
+                kd=self.path_kd,
+                profile_kp=self.path_profile,
+            )
             self.auto_path.init_path()
 
         if self.auto_path.distance_to_end() < 2:
@@ -429,8 +435,8 @@ class ActionShootAmpAuto(StateMachine):
         """First state -- waits until shooter is ready before going to the
         next action in the sequence"""
         ##if initial_call:
-          ##  self.shooter.shoot_amp()
-        self.drivetrain.set_absolute_automove_value(0, self.speed_to_wall)
+        ##  self.shooter.shoot_amp()
+        self.drivetrain.drive_local(0, self.speed_to_wall, 0)
         # Use a normal state
         # if self.shooter.is_ready():
         #     self.next_state("feed_start")
@@ -456,7 +462,9 @@ class FeedAndRetract(StateMachine):
     ) -> None:
         return super().engage(initial_state, force)
 
-    @timed_state(first=True, duration=0.5, must_finish=True, next_state="stop_and_retract")
+    @timed_state(
+        first=True, duration=0.5, must_finish=True, next_state="stop_and_retract"
+    )
     def feed(self):
         self.intake.feed()
 
@@ -472,7 +480,7 @@ class ActionShootAmpAssisted(StateMachine):
     intake: Intake
     arm_angle = tunable(120)
     head_angle = tunable(120)
-    drivetrain: SwerveDrive
+    drivetrain: ChassisComponent
     feedAndRetract: FeedAndRetract
     ready_to_fire = False
     arduino_light: arduino_light.I2CArduinoLight
@@ -493,7 +501,7 @@ class ActionShootAmpAssisted(StateMachine):
 
         self.auto_path.target_end_angle()
 
-        if self.drivetrain.angle_reached():
+        if self.drivetrain.at_desired_heading():
             self.next_state("prepare_to_shoot")
 
     @state
@@ -528,7 +536,7 @@ class ActionLowShootAuto(StateMachine):
     shooter: Shooter
     intake: Intake
     start_shoot_angle = tunable(81)
-    drivetrain: SwerveDrive
+    drivetrain: ChassisComponent
     field_layout: FieldLayout
     is_sim: bool
     arduino_light: arduino_light.I2CArduinoLight
@@ -545,12 +553,16 @@ class ActionLowShootAuto(StateMachine):
         speaker_position = self.field_layout.getSpeakerRelativePosition()
         if speaker_position is None:
             return
-        distance = math.sqrt(speaker_position.x**2 + speaker_position.y**2) + self.X_OFFSET
+        distance = (
+            math.sqrt(speaker_position.x**2 + speaker_position.y**2) + self.X_OFFSET
+        )
         height_difference = speaker_position.z - self.Z_OFFSET
-        angle = tools.calculate_optimal_launch_angle(distance, height_difference, self.THROW_VELOCITY)
+        angle = tools.calculate_optimal_launch_angle(
+            distance, height_difference, self.THROW_VELOCITY
+        )
         height = speaker_position.z
 
-        rough_angle = math.degrees(math.atan(height_difference/distance))
+        rough_angle = math.degrees(math.atan(height_difference / distance))
         return [distance, height, angle, rough_angle]
 
     def engage(
@@ -577,8 +589,8 @@ class ActionLowShootAuto(StateMachine):
 
         # Rotate the robot
         target_angle = tools.compute_angle(speaker_position.X(), speaker_position.Y())
-        self.drivetrain.set_angle(target_angle + 180) # We throw from behind
-        if self.drivetrain.angle_reached(acceptable_error=1):
+        self.drivetrain.snap_to_heading(target_angle + 180)  # We throw from behind
+        if self.drivetrain.at_desired_heading():
             self._launch_rotation = target_angle
             return True
             # self.next_state("set_launch_angle")
@@ -596,7 +608,14 @@ class ActionLowShootAuto(StateMachine):
 
         # Set the head angle
         distance = math.sqrt(speaker_position.x**2 + speaker_position.y**2)
-        angle = tools.calculate_optimal_launch_angle(distance + self.X_OFFSET, speaker_position.z - self.Z_OFFSET, self.THROW_VELOCITY)
+        angle = tools.calculate_optimal_launch_angle(
+            distance + self.X_OFFSET,
+            speaker_position.z - self.Z_OFFSET,
+            self.THROW_VELOCITY,
+        )
+        if angle is None:
+            return False
+
         self.lobras_head.set_angle(angle + self.THROW_OFFSET)
         if self.lobras_head.is_ready(acceptable_error=1):
             return True
@@ -680,7 +699,7 @@ class ActionWinch(StateMachine):
     shooter: Shooter
     intake: Intake
     field_layout: FieldLayout
-    drivetrain: SwerveDrive
+    drivetrain: ChassisComponent
 
     ARM_ANGLE = tunable(123)
     HEAD_ANGLE = tunable(130)
@@ -698,8 +717,8 @@ class ActionWinch(StateMachine):
 
         # Rotate the robot
         target_rotation = tools.compute_angle(target_position.X(), target_position.Y())
-        self.drivetrain.set_angle(target_rotation) # We throw from behind
-        if self.drivetrain.angle_reached(acceptable_error=1):
+        self.drivetrain.snap_to_heading(target_rotation)  # We throw from behind
+        if self.drivetrain.at_desired_heading():
             self.next_state("position_arm")
 
     @state
@@ -715,7 +734,6 @@ class ActionWinch(StateMachine):
 
         if self.lobras_head.is_ready(acceptable_error=5):
             self.next_state("dewinch")
-
 
     @timed_state(duration=2, next_state="move_forward")
     def dewinch(self):

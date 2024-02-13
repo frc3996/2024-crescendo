@@ -1,21 +1,20 @@
 import math
 from typing import Any, Tuple
 
-from magicbot import feedback
 import wpilib
+from magicbot import feedback
 from ntcore import NetworkTableInstance
 from wpimath.filter import MedianFilter
 from wpimath.geometry import Pose2d, Pose3d, Rotation3d, Translation3d
 
 from common.tools import map_value
-from components.field  import FieldLayout, RED_ALLIANCE, BLUE_ALLIANCE
-from components.swervedrive import SwerveDrive
+from components.chassis import ChassisComponent
+from components.field import BLUE_ALLIANCE, RED_ALLIANCE, FieldLayout
 
 
 class LimeLightVision:
-    drivetrain: SwerveDrive
+    drivetrain: ChassisComponent
     field_layout: FieldLayout
-
 
     def __init__(self, name="limelight"):
         self.nt = NetworkTableInstance.getDefault().getTable(name)
@@ -43,16 +42,14 @@ class LimeLightVision:
         # create the timer that we can use to the the FPGA timestamp
         self.timer = wpilib.Timer()
 
-
         # And a bunch of filters
         self.poseXFilter = MedianFilter(20)
         self.poseYFilter = MedianFilter(20)
         self.poseZFilter = MedianFilter(20)
         self.poseYawFilter = MedianFilter(20)
         self.__last_update = None
-        self.std_devs = [0.0,0.0,0.0]
-        self.filter_pos = [0.0,0.0,0.0]
-
+        self.std_devs = [0.0, 0.0, 0.0]
+        self.filter_pos = [0.0, 0.0, 0.0]
 
     def get_pose(self) -> Tuple[Pose3d, Any] | None:
         pose3d = self.botpose_to_pose3d(self.botpose.get())
@@ -103,11 +100,7 @@ class LimeLightVision:
         vision_pose = self.get_alliance_pose()
 
         # TODO: This is unused for now, instead try to rely on std deviation\
-        if (
-            vision_pose is None
-            or vision_pose[0].x == 0
-            or vision_pose[0].y == 0
-        ):
+        if vision_pose is None or vision_pose[0].x == 0 or vision_pose[0].y == 0:
             self.poseXFilter.reset()
             self.poseYFilter.reset()
             self.poseYawFilter.reset()
@@ -134,16 +127,17 @@ class LimeLightVision:
                 stddev_xy = 0
                 stddev_rot = 0
             else:
-                # These values aren't too far off
-            #     The default standard deviations of the vision measurements are
-            #    0.9 meters for x, 0.9 meters for y, and 0.9 radians for heading.
-
-                stddev_xy = ((1-self.ta.get())**4)*10
-                stddev_rot = ((1-self.ta.get())**4)*math.pi
+                # The default standard deviations of the vision measurements are
+                # 0.9 meters for x, 0.9 meters for y, and 0.9 radians for heading.
+                # We're using the limelight target area to increase the std
+                # deviations the further we are
+                stddev_xy = ((1 - self.ta.get()) ** 4) * 10
+                # Use a pretty high std dev as the gyro is much more precise
+                stddev_rot = math.pi + ((1 - self.ta.get()) ** 4) * math.pi
 
             self.std_devs = [stddev_xy, stddev_xy, stddev_rot]
             self.filter_pos = [x, y, yaw]
-            self.drivetrain.odometry.addVisionMeasurement(
+            self.drivetrain.estimator.addVisionMeasurement(
                 vision_pose[0].toPose2d(),
                 # Pose2d(x, y, yaw),
                 vision_pose[1],
@@ -152,7 +146,6 @@ class LimeLightVision:
             # self.drivetrain.navx_update_offset()
 
             self.__last_update = vision_pose[0]
-
 
     # def set_pipeline(self, value: int):
     #     self.nt.putNumber("pipeline", value)

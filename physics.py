@@ -13,17 +13,17 @@
 # Examples can be found at https://github.com/robotpy/examples
 
 import wpilib.simulation
-
-from pyfrc.physics.core import PhysicsInterface
-from pyfrc.physics.drivetrains import four_motor_swerve_drivetrain, linear_deadzone
 import wpimath.geometry
 import wpimath.kinematics
-
-
-# import typing
+from pyfrc.physics.core import PhysicsInterface
+from pyfrc.physics.drivetrains import (four_motor_swerve_drivetrain,
+                                       linear_deadzone)
 
 # if typing.TYPE_CHECKING:
 from robot import MyRobot
+
+# import typing
+
 
 
 class PhysicsEngine:
@@ -44,6 +44,4 @@ class PhysicsEngine:
         self.physics_controller.field.setRobotPose(self.startingPositionSet)
 
     def update_sim(self, now, tm_diff):
-        self.physics_controller.field.setRobotPose(
-            self.robot.drivetrain.get_odometry_pose()
-        )
+        self.physics_controller.field.setRobotPose(self.robot.drivetrain.get_pose())
