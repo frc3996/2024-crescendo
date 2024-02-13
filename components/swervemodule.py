@@ -28,7 +28,7 @@ class SwerveModule:
     current_encoder_pos = will_reset_to(None)
     get_current_position = will_reset_to(None)
 
-    kP = tunable(0.008)
+    kP = tunable(0.005)
     kI = tunable(0.0)
     kD = tunable(0.0)
     debug = tunable(False)
@@ -192,15 +192,15 @@ class SwerveModule:
         # print(f"{self.cfg.nt_name} rotation abs position: {self.get_encoder_abs_position()}")
         return result
 
-    # @feedback
+    @feedback
     def get_angle_degrees(self):
         return self.get_encoder_abs_position()
 
-    # @feedback
+    @feedback
     def get_angle_error(self):
         return self._requested_degree - self.get_encoder_abs_position()
 
-    # @feedback
+    @feedback
     def get_requested_degree(self):
         return self._requested_degree
 
@@ -208,8 +208,8 @@ class SwerveModule:
     def get_requested_speed(self):
         return self._requested_speed
 
-    @tools.print_exec_time("SwerveModule")
-    def execute(self):
+    @tools.print_exec_time("process")
+    def process(self):
         """
         Utilise le PID pour se rendre à la position demandée.
         Modifie la puissance des moteurs pour celle demandée.
@@ -234,3 +234,6 @@ class SwerveModule:
         rps = self._requested_speed * self.velocity_to_rps_conversion_factor
         self.driveMotor.set_control(self.driveMotor_control.with_velocity(rps))
         self._requested_speed = 0
+
+    def execute(self):
+        pass

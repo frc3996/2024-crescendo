@@ -139,7 +139,7 @@ class LimeLightVision:
             #    0.9 meters for x, 0.9 meters for y, and 0.9 radians for heading.
 
                 stddev_xy = ((1-self.ta.get())**4)*10
-                stddev_rot = ((1-self.ta.get())**4)*math.pi
+                stddev_rot = ((1-self.ta.get())**4)*math.pi + math.pi
 
             self.std_devs = [stddev_xy, stddev_xy, stddev_rot]
             self.filter_pos = [x, y, yaw]

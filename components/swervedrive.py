@@ -170,6 +170,7 @@ class SwerveDrive:
     def set_tmp_speed_factor(self, factor):
         self.tmp_speed_factor = factor
 
+    @tools.print_exec_time("set_controller_values")
     def set_controller_values(self, forward, strafe, angle_stick_x, angle_stick_y):
         self.controller_forward = -forward
         self.controller_strafe = -strafe
@@ -370,6 +371,12 @@ class SwerveDrive:
 
         # Calcul des vecteurs
         self.__calculate_vectors()
+
+
+        self.frontLeftModule.process()
+        self.frontRightModule.process()
+        self.rearLeftModule.process()
+        self.rearRightModule.process()
 
     # def getModuleStates(self):
     #     """

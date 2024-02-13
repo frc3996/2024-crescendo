@@ -95,10 +95,13 @@ def compute_angle(x, y):
     angle_degrees = math.degrees(angle_radians)
     return angle_degrees
 
-
+DISABLE_WRAPPER = True
 def print_exec_time(name):
     def decorator(function):
         def wrapper(*args, **kwargs):
+            if DISABLE_WRAPPER:
+                return function(*args, **kwargs)
+
             start = wpilib.RobotController.getFPGATime()
             res = function(*args, **kwargs)
             delta =  wpilib.RobotController.getFPGATime() - start

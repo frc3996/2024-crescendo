@@ -450,13 +450,21 @@ class FeedAndRetract(StateMachine):
     shooter: Shooter
     intake: Intake
     actionStow: ActionStow
+    head_angle = tunable(120)
 
     def engage(
         self, initial_state: StateRef | None = None, force: bool = False
     ) -> None:
         return super().engage(initial_state, force)
 
-    @timed_state(first=True, duration=0.5, must_finish=True, next_state="stop_and_retract")
+    @state(first=True, must_finish=True)
+    def place_head(self):
+        self.lobras_head.set_angle(self.head_angle)
+
+        if self.lobras_head.is_ready(acceptable_error=12):
+            self.next_state("feed")
+
+    @timed_state(duration=0.5, must_finish=True)
     def feed(self):
         self.intake.feed()
 
@@ -471,7 +479,7 @@ class ActionShootAmpAssisted(StateMachine):
     shooter: Shooter
     intake: Intake
     arm_angle = tunable(120)
-    head_angle = tunable(120)
+    head_angle = tunable(170)
     drivetrain: SwerveDrive
     feedAndRetract: FeedAndRetract
     ready_to_fire = False
