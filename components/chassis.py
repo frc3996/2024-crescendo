@@ -5,11 +5,13 @@ import magicbot
 import navx
 import wpilib
 from magicbot import feedback
+from phoenix6 import SignalLogger
 from phoenix6.configs import (FeedbackConfigs, MotorOutputConfigs,
                               Slot0Configs, config_groups)
+from phoenix6.configs.config_groups import NeutralModeValue
 from phoenix6.controls import PositionDutyCycle, VelocityVoltage, VoltageOut
-from phoenix6.hardware import CANcoder, TalonFX
-from phoenix6.signals import NeutralModeValue
+from phoenix6.hardware import CANcoder, TalonFX, cancoder
+from phoenix6.signals import FeedbackSensorSourceValue, NeutralModeValue
 from wpimath.controller import (ProfiledPIDControllerRadians,
                                 SimpleMotorFeedforwardMeters)
 from wpimath.estimator import SwerveDrive4PoseEstimator
@@ -27,15 +29,64 @@ FALCON_CPR = 2048
 # Freespeed in rev/s
 FALCON_FREE_RPS = 100
 
+DRIVE_GEAR_RATIO = (14.0 / 50.0) * (25.0 / 19.0) * (15.0 / 45.0)
+STEER_GEAR_RATIO = (14 / 50) * (10 / 60)
+WHEEL_CIRCUMFERENCE = 4 * 2.54 / 100 * math.pi
+DRIVE_MOTOR_REV_TO_METRES = WHEEL_CIRCUMFERENCE * DRIVE_GEAR_RATIO
+STEER_MOTOR_REV_TO_RAD = math.tau * STEER_GEAR_RATIO
+
+
+def steer_config(steer: TalonFX, steer_cancoder, steer_reversed, rotor_offset):
+    # Configure steer motor
+    steer_config = steer.configurator
+
+    steer_motor_config = MotorOutputConfigs()
+    steer_motor_config.neutral_mode = NeutralModeValue.BRAKE
+    steer_motor_config.inverted = (
+        config_groups.InvertedValue.CLOCKWISE_POSITIVE
+        if steer_reversed
+        else config_groups.InvertedValue.COUNTER_CLOCKWISE_POSITIVE
+    )
+
+    steer_feedback = FeedbackConfigs()
+    steer_feedback.with_sensor_to_mechanism_ratio(1 / STEER_GEAR_RATIO)
+    steer_feedback.feedback_remote_sensor_id = steer_cancoder
+    steer_feedback.feedback_sensor_source = FeedbackSensorSourceValue.REMOTE_CANCODER
+    steer_feedback.with_feedback_rotor_offset(rotor_offset)
+
+    # configuration for motor pid
+    steer_pid = Slot0Configs().with_k_p(3).with_k_i(0).with_k_d(0.1)
+
+    steer_config.apply(steer_motor_config)
+    steer_config.apply(steer_pid, 0.01)
+    steer_config.apply(steer_feedback)
+
+
+def drive_config(drive: TalonFX, drive_reversed):
+    # Configure drive motor
+    drive_config = drive.configurator
+
+    drive_motor_config = MotorOutputConfigs()
+    drive_motor_config.neutral_mode = NeutralModeValue.BRAKE
+    drive_motor_config.inverted = (
+        config_groups.InvertedValue.CLOCKWISE_POSITIVE
+        if drive_reversed
+        else config_groups.InvertedValue.COUNTER_CLOCKWISE_POSITIVE
+    )
+
+    drive_gear_ratio_config = FeedbackConfigs().with_sensor_to_mechanism_ratio(
+        1 / DRIVE_MOTOR_REV_TO_METRES
+    )
+
+    # configuration for motor pid and feedforward
+    drive_pid = Slot0Configs().with_k_p(1.0868).with_k_i(0).with_k_d(0)
+
+    drive_config.apply(drive_motor_config)
+    drive_config.apply(drive_pid, 0.01)
+    drive_config.apply(drive_gear_ratio_config)
+
 
 class SwerveModule:
-    DRIVE_GEAR_RATIO = (14.0 / 50.0) * (25.0 / 19.0) * (15.0 / 45.0)
-    STEER_GEAR_RATIO = (14 / 50) * (10 / 60)
-    WHEEL_CIRCUMFERENCE = 4 * 2.54 / 100 * math.pi
-
-    DRIVE_MOTOR_REV_TO_METRES = WHEEL_CIRCUMFERENCE * DRIVE_GEAR_RATIO
-    STEER_MOTOR_REV_TO_RAD = math.tau * STEER_GEAR_RATIO
-
     # limit the acceleration of the commanded speeds of the robot to what is actually
     # achiveable without the wheels slipping. This is done to improve odometry
     accel_limit = 15  # m/s^2
@@ -49,6 +100,7 @@ class SwerveModule:
         encoder_id: int,
         steer_reversed=True,
         drive_reversed=False,
+        rotor_offset=0,
     ):
         """
         x, y: where the module is relative to the center of the robot
@@ -73,49 +125,11 @@ class SwerveModule:
         )
 
         # Configure steer motor
-        steer_config = self.steer.configurator
-
-        steer_motor_config = MotorOutputConfigs()
-        steer_motor_config.neutral_mode = NeutralModeValue.BRAKE
-        steer_motor_config.inverted = (
-            config_groups.InvertedValue.CLOCKWISE_POSITIVE
-            if steer_reversed
-            else config_groups.InvertedValue.COUNTER_CLOCKWISE_POSITIVE
-        )
-
-        steer_gear_ratio_config = FeedbackConfigs().with_sensor_to_mechanism_ratio(
-            1 / self.STEER_GEAR_RATIO
-        )
-
-        # configuration for motor pid
-        steer_pid = Slot0Configs().with_k_p(3).with_k_i(0).with_k_d(0.1)
-
-        steer_config.apply(steer_motor_config)
-        steer_config.apply(steer_pid, 0.01)
-        steer_config.apply(steer_gear_ratio_config)
-
-        # Configure drive motor
-        drive_config = self.drive.configurator
-
-        drive_motor_config = MotorOutputConfigs()
-        drive_motor_config.neutral_mode = NeutralModeValue.BRAKE
-        drive_motor_config.inverted = (
-            config_groups.InvertedValue.CLOCKWISE_POSITIVE
-            if drive_reversed
-            else config_groups.InvertedValue.COUNTER_CLOCKWISE_POSITIVE
-        )
-
-        drive_gear_ratio_config = FeedbackConfigs().with_sensor_to_mechanism_ratio(
-            1 / self.DRIVE_MOTOR_REV_TO_METRES
-        )
+        steer_config(self.steer, encoder_id, steer_reversed, rotor_offset)
 
         # configuration for motor pid and feedforward
-        self.drive_pid = Slot0Configs().with_k_p(1.0868).with_k_i(0).with_k_d(0)
+        drive_config(self.steer, drive_reversed)
         self.drive_ff = SimpleMotorFeedforwardMeters(kS=0.15172, kV=2.8305, kA=0.082659)
-
-        drive_config.apply(drive_motor_config)
-        drive_config.apply(self.drive_pid, 0.01)
-        drive_config.apply(drive_gear_ratio_config)
 
         self.central_angle = Rotation2d(x, y)
         self.module_locked = False
@@ -207,7 +221,7 @@ class ChassisComponent:
     HEADING_TOLERANCE = math.radians(5)
 
     # maxiumum speed for any wheel
-    max_wheel_speed = FALCON_FREE_RPS * SwerveModule.DRIVE_MOTOR_REV_TO_METRES
+    max_wheel_speed = FALCON_FREE_RPS * DRIVE_MOTOR_REV_TO_METRES
 
     control_loop_wait_time: float
 
@@ -242,6 +256,7 @@ class ChassisComponent:
                 constants.CANIds.SWERVE_DRIVE_FL,
                 constants.CANIds.SWERVE_ROTATE_FL,
                 constants.CANIds.SWERVE_CANCODER_FL,
+                rotor_offset=0,
             ),
             # Back Left
             SwerveModule(
@@ -250,6 +265,7 @@ class ChassisComponent:
                 constants.CANIds.SWERVE_DRIVE_RL,
                 constants.CANIds.SWERVE_ROTATE_RL,
                 constants.CANIds.SWERVE_CANCODER_RL,
+                rotor_offset=0,
             ),
             # Back Right
             SwerveModule(
@@ -258,6 +274,7 @@ class ChassisComponent:
                 constants.CANIds.SWERVE_DRIVE_RR,
                 constants.CANIds.SWERVE_ROTATE_RR,
                 constants.CANIds.SWERVE_CANCODER_RR,
+                rotor_offset=0,
             ),
             # Front Right
             SwerveModule(
@@ -266,6 +283,7 @@ class ChassisComponent:
                 constants.CANIds.SWERVE_DRIVE_FR,
                 constants.CANIds.SWERVE_ROTATE_FR,
                 constants.CANIds.SWERVE_CANCODER_FR,
+                rotor_offset=0,
             ),
         ]
 
@@ -474,3 +492,12 @@ class ChassisComponent:
     @feedback
     def at_desired_heading(self) -> bool:
         return self.heading_controller.atGoal()
+
+    @feedback
+    def get_cancoder_angles(self):
+        return [
+            self.modules[0].get_angle_absolute(),
+            self.modules[1].get_angle_absolute(),
+            self.modules[2].get_angle_absolute(),
+            self.modules[3].get_angle_absolute(),
+        ]

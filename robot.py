@@ -50,6 +50,7 @@ from components.field import FieldLayout
 from components.intake import Intake
 from components.limelight import LimeLightVision
 from components.lobra import LoBrasArm, LoBrasArmFollower, LoBrasHead
+from components.pathplanner import PathPlanner
 from components.pixy import Pixy
 from components.robot_actions import (ActionDewinch, ActionDummy,
                                       ActionGrabAuto, ActionGrabManual,
@@ -109,6 +110,7 @@ class MyRobot(MagicRobot):
 
     # SwerveDrive
     drivetrain: ChassisComponent
+    pathplanner: PathPlanner
 
     # Shooter
     shooter: Shooter
@@ -155,6 +157,8 @@ class MyRobot(MagicRobot):
         self.navx = AHRS.create_i2c(wpilib.I2C.Port.kMXP, update_rate_hz=50)
 
         # General
+        self.keyboard0 = wpilib.Joystick(0)
+        self.keyboard1 = wpilib.Joystick(1)
         self.gamepad1 = wpilib.XboxController(0)
         # self.gamepad1 = wpilib.PS5Controller(0)
         self.pdp = wpilib.PowerDistribution()
@@ -185,9 +189,11 @@ class MyRobot(MagicRobot):
     def drive(self):
         # Driving
         spin_rate = 4
-        drive_x = -rescale_js(self.gamepad1.getLeftY(), 0.1) * self.max_speed
-        drive_y = -rescale_js(self.gamepad1.getLeftX(), 0.1) * self.max_speed
-        drive_z = -rescale_js(self.gamepad1.getRightX(), 0.1, exponential=2) * spin_rate
+        drive_x = -rescale_js(self.keyboard0.getRawAxis(0), 0.1) * self.max_speed
+        drive_y = -rescale_js(self.keyboard0.getRawAxis(1), 0.1) * self.max_speed
+        drive_z = (
+            -rescale_js(self.keyboard1.getRawAxis(0), 0.1, exponential=2) * spin_rate
+        )
         # local_driving = self.gamepad1.getYButton()
 
         if game.is_red():
