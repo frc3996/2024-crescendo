@@ -151,7 +151,8 @@ class MyRobot(MagicRobot):
         # General
         self.gamepad1 = wpilib.XboxController(0)
         # self.gamepad1 = wpilib.PS5Controller(0)
-        self.pdp = wpilib.PowerDistribution()
+        self.pdp = wpilib.PowerDistribution(1, wpilib.PowerDistribution.ModuleType.kRev)
+        self.pdp.clearStickyFaults()
 
     def initSwerve(self):
         """
@@ -246,6 +247,7 @@ class MyRobot(MagicRobot):
 
     def teleopInit(self):
         """Cette fonction est appelée une seule fois lorsque le robot entre en mode téléopéré."""
+        self.pdp.clearStickyFaults()
         self.arduino_light.set_RGB(0, 0, 0)
         self.status_light.set(0)
         self.actionStow.engage()
