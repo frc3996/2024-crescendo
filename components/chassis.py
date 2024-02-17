@@ -5,13 +5,12 @@ import magicbot
 import navx
 import wpilib
 from magicbot import feedback
-from phoenix6 import SignalLogger
-from phoenix6.configs import (FeedbackConfigs, MotorOutputConfigs,
-                              Slot0Configs, config_groups)
-from phoenix6.configs.config_groups import NeutralModeValue
+from phoenix6.configs import (ClosedLoopGeneralConfigs, FeedbackConfigs,
+                              MotorOutputConfigs, Slot0Configs, config_groups)
 from phoenix6.controls import PositionDutyCycle, VelocityVoltage, VoltageOut
-from phoenix6.hardware import CANcoder, TalonFX, cancoder
-from phoenix6.signals import FeedbackSensorSourceValue, NeutralModeValue
+from phoenix6.hardware import CANcoder, TalonFX
+from phoenix6.signals import (FeedbackSensorSourceValue, InvertedValue,
+                              NeutralModeValue)
 from wpimath.controller import (ProfiledPIDControllerRadians,
                                 SimpleMotorFeedforwardMeters)
 from wpimath.estimator import SwerveDrive4PoseEstimator
@@ -21,13 +20,12 @@ from wpimath.kinematics import (ChassisSpeeds, SwerveDrive4Kinematics,
 from wpimath.trajectory import TrapezoidProfileRadians
 
 import constants
-from common.functions import constrain_angle, rate_limit_module
+from common.functions import rate_limit_module
 from common.game import field_flip_pose2d, is_red
 
-# Counts per revolution for the Falcon 500 integrated sensor.
-FALCON_CPR = 2048
 # Freespeed in rev/s
 FALCON_FREE_RPS = 100
+
 
 DRIVE_GEAR_RATIO = (14.0 / 50.0) * (25.0 / 19.0) * (15.0 / 45.0)
 STEER_GEAR_RATIO = (14 / 50) * (10 / 60)
@@ -56,10 +54,13 @@ def steer_config(steer: TalonFX, steer_cancoder, steer_reversed, rotor_offset):
 
     # configuration for motor pid
     steer_pid = Slot0Configs().with_k_p(3).with_k_i(0).with_k_d(0.1)
+    steer_closed_loop_config = ClosedLoopGeneralConfigs()
+    steer_closed_loop_config.continuous_wrap = True
 
     steer_config.apply(steer_motor_config)
     steer_config.apply(steer_pid, 0.01)
     steer_config.apply(steer_feedback)
+    steer_config.apply(steer_closed_loop_config)
 
 
 def drive_config(drive: TalonFX, drive_reversed):
@@ -87,6 +88,13 @@ def drive_config(drive: TalonFX, drive_reversed):
 
 
 class SwerveModule:
+    DRIVE_GEAR_RATIO = (14.0 / 50.0) * (25.0 / 19.0) * (15.0 / 45.0)
+    STEER_GEAR_RATIO = (14 / 50) * (10 / 60)
+    WHEEL_CIRCUMFERENCE = 4 * 2.54 / 100 * math.pi
+
+    DRIVE_MOTOR_REV_TO_METRES = WHEEL_CIRCUMFERENCE * DRIVE_GEAR_RATIO
+    STEER_MOTOR_REV_TO_RAD = math.tau * STEER_GEAR_RATIO
+
     # limit the acceleration of the commanded speeds of the robot to what is actually
     # achiveable without the wheels slipping. This is done to improve odometry
     accel_limit = 15  # m/s^2
@@ -99,7 +107,7 @@ class SwerveModule:
         steer_id: int,
         encoder_id: int,
         steer_reversed=True,
-        drive_reversed=False,
+        drive_reversed: bool = False,
         rotor_offset=0,
     ):
         """
@@ -151,9 +159,6 @@ class SwerveModule:
         """Get the steer angle as a Rotation2d"""
         return Rotation2d(self.get_angle_integrated())
 
-    def get_drive_current(self) -> float:
-        return self.drive.get_stator_current().value
-
     def get_speed(self) -> float:
         # velocity is in rot/s, return in m/s
         return self.drive.get_velocity().value
@@ -170,7 +175,8 @@ class SwerveModule:
             self.state = rate_limit_module(self.state, desired_state, self.accel_limit)
         else:
             self.state = desired_state
-        self.state = SwerveModuleState.optimize(self.state, self.get_rotation())
+        current_angle = self.get_rotation()
+        self.state = SwerveModuleState.optimize(self.state, current_angle)
 
         if abs(self.state.speed) < 0.01 and not self.module_locked:
             self.drive.set_control(
@@ -179,16 +185,13 @@ class SwerveModule:
             self.steer.set_control(self.stop_request)
             return
 
-        current_angle = self.get_angle_integrated()
-        target_displacement = constrain_angle(
-            self.state.angle.radians() - current_angle
-        )
-        target_angle = target_displacement + current_angle
+        target_displacement = self.state.angle - current_angle
+        target_angle = self.state.angle.radians()
         self.steer_request = PositionDutyCycle(target_angle / math.tau)
         self.steer.set_control(self.steer_request)
 
         # rescale the speed target based on how close we are to being correctly aligned
-        target_speed = self.state.speed * math.cos(target_displacement) ** 2
+        target_speed = self.state.speed * target_displacement.cos() ** 2
         speed_volt = self.drive_ff.calculate(target_speed)
 
         # original position change/100ms, new m/s -> rot/s
@@ -208,9 +211,9 @@ class SwerveModule:
 
 class ChassisComponent:
     # metres between centre of left and right wheels
-    TRACK_WIDTH = 0.527
+    TRACK_WIDTH = 0.467
     # metres between centre of front and back wheels
-    WHEEL_BASE = 0.577
+    WHEEL_BASE = 0.467
 
     # size including bumpers
     LENGTH = 0.600 + 2 * 0.09
@@ -221,7 +224,7 @@ class ChassisComponent:
     HEADING_TOLERANCE = math.radians(5)
 
     # maxiumum speed for any wheel
-    max_wheel_speed = FALCON_FREE_RPS * DRIVE_MOTOR_REV_TO_METRES
+    max_wheel_speed = FALCON_FREE_RPS * SwerveModule.DRIVE_MOTOR_REV_TO_METRES
 
     control_loop_wait_time: float
 
@@ -389,6 +392,7 @@ class ChassisComponent:
         While we should be building the pose buffer while disabled,
         this accounts for the edge case of crashing mid match and immediately enabling with an empty buffer
         """
+        self.update_alliance()
         self.update_odometry()
 
     @magicbot.feedback
@@ -404,21 +408,7 @@ class ChassisComponent:
     def unlock_swerve(self) -> None:
         self.swerve_lock = False
 
-    def get_velocity(self) -> ChassisSpeeds:
-        """Gets field relative measured robot ChassisSpeeds"""
-        self.local_speed = self.kinematics.toChassisSpeeds(
-            (
-                self.modules[0].get(),
-                self.modules[1].get(),
-                self.modules[2].get(),
-                self.modules[3].get(),
-            )
-        )
-        return ChassisSpeeds.fromFieldRelativeSpeeds(
-            self.local_speed, -self.get_rotation()
-        )
-
-    def update_odometry(self) -> None:
+    def update_alliance(self) -> None:
         # Check whether our alliance has "changed"
         # If so, it means we have an update from the FMS and need to re-init the odom
         if is_red() != self.on_red_alliance:
@@ -428,6 +418,7 @@ class ChassisComponent:
             else:
                 self.set_pose(ChassisComponent.BLUE_TEST_POSE)
 
+    def update_odometry(self) -> None:
         self.estimator.update(self.imu.getRotation2d(), self.get_module_positions())
         self.field_obj.setPose(self.get_pose())
         if self.send_modules:
@@ -453,13 +444,11 @@ class ChassisComponent:
         self.field.setRobotPose(pose)
         self.field_obj.setPose(pose)
 
-    def zero_yaw(self) -> None:
-        """Sets pose to current pose but with a heading of zero"""
+    def reset_yaw(self) -> None:
+        """Sets pose to current pose but with a heading of forwards"""
         cur_pose = self.estimator.getEstimatedPosition()
-        self.estimator.resetPosition(
-            self.imu.getRotation2d(),
-            self.get_module_positions(),
-            Pose2d(cur_pose.translation(), Rotation2d(0)),
+        self.set_pose(
+            Pose2d(cur_pose.translation(), Rotation2d(math.pi if is_red() else 0))
         )
 
     def get_module_positions(
@@ -486,18 +475,5 @@ class ChassisComponent:
         return self.get_pose().rotation()
 
     @feedback
-    def get_drive_current(self) -> float:
-        return sum(abs(x.get_drive_current()) for x in self.modules)
-
-    @feedback
     def at_desired_heading(self) -> bool:
         return self.heading_controller.atGoal()
-
-    @feedback
-    def get_cancoder_angles(self):
-        return [
-            self.modules[0].get_angle_absolute(),
-            self.modules[1].get_angle_absolute(),
-            self.modules[2].get_angle_absolute(),
-            self.modules[3].get_angle_absolute(),
-        ]

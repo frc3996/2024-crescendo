@@ -7,10 +7,13 @@ import phoenix6
 import phoenix6.unmanaged
 import wpilib
 from pyfrc.physics.core import PhysicsInterface
-from wpilib.simulation import SimDeviceSim
+from wpilib.simulation import DCMotorSim, SimDeviceSim
 from wpimath.kinematics import SwerveDrive4Kinematics
+from wpimath.system.plant import DCMotor
+from wpimath.units import kilogram_square_meters
 
-from components.chassis import SwerveModule
+from components.chassis import (DRIVE_MOTOR_REV_TO_METRES, STEER_GEAR_RATIO,
+                                SwerveModule)
 
 if typing.TYPE_CHECKING:
     from robot import MyRobot
@@ -33,6 +36,33 @@ class SimpleTalonFXMotorSim:
         self.sim_state.add_rotor_position(velocity_rps * dt)
 
 
+class Falcon500MotorSim:
+    def __init__(
+        self,
+        motor: phoenix6.hardware.TalonFX,
+        # Reduction between motor and encoder readings, as output over input.
+        # If the mechanism spins slower than the motor, this number should be greater than one.
+        gearing: float,
+        moi: kilogram_square_meters,
+    ):
+        self.gearing = gearing
+        self.sim_state = motor.sim_state
+        self.sim_state.set_supply_voltage(12.0)
+        self.motor_sim = DCMotorSim(DCMotor.falcon500(), gearing, moi)
+
+    def update(self, dt: float) -> None:
+        voltage = self.sim_state.motor_voltage
+        self.motor_sim.setInputVoltage(voltage)
+        self.motor_sim.update(dt)
+        motor_rev_per_mechanism_rad = self.gearing / math.tau
+        self.sim_state.set_raw_rotor_position(
+            self.motor_sim.getAngularPosition() * motor_rev_per_mechanism_rad
+        )
+        self.sim_state.set_rotor_velocity(
+            self.motor_sim.getAngularVelocity() * motor_rev_per_mechanism_rad
+        )
+
+
 class PhysicsEngine:
     def __init__(self, physics_controller: PhysicsInterface, robot: MyRobot):
         self.physics_controller = physics_controller
@@ -44,16 +74,17 @@ class PhysicsEngine:
         self.wheels = [
             SimpleTalonFXMotorSim(
                 module.drive,
-                units_per_rev=1 / module.DRIVE_MOTOR_REV_TO_METRES,
+                units_per_rev=1 / DRIVE_MOTOR_REV_TO_METRES,
                 kV=2.7,
             )
             for module in robot.drivetrain.modules
         ]
         self.steer = [
-            SimpleTalonFXMotorSim(
+            Falcon500MotorSim(
                 module.steer,
-                units_per_rev=1 / module.STEER_GEAR_RATIO,
-                kV=2.356,
+                gearing=1 / STEER_GEAR_RATIO,
+                # measured from MKCad CAD
+                moi=0.0009972,
             )
             for module in robot.drivetrain.modules
         ]
