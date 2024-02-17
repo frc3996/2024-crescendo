@@ -2,6 +2,7 @@ import math
 from dataclasses import dataclass
 from typing import cast
 from common import tools
+import constants
 
 import phoenix6
 from magicbot import feedback, tunable, will_reset_to
@@ -45,7 +46,7 @@ class SwerveModule:
         # rps = meter_per_second * gear_ratio / wheel_circumference_meter
         fudge_factor = 1
         wheel_circumference_meter = math.pi * units.inchesToMeters(4.0)
-        wheel_gear_ratio = 8.14  # L1=8.14; L2=6.75; L3=6.12
+        wheel_gear_ratio = 6.12  # L1=8.14; L2=6.75; L3=6.12
         self.velocity_to_rps_conversion_factor = (
             wheel_gear_ratio / wheel_circumference_meter * fudge_factor
         )

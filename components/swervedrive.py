@@ -53,9 +53,9 @@ class SwerveDrive:
     automove_strafe = magicbot.will_reset_to(0)
     automove_strength = magicbot.will_reset_to(0)
 
-    angle_kp = magicbot.tunable(0.0035)
+    angle_kp = magicbot.tunable(0.002)
     angle_ki = magicbot.tunable(0)
-    angle_kd = magicbot.tunable(0.0000005)
+    angle_kd = magicbot.tunable(0.0)
     angle_max_acc = magicbot.tunable(constants.MAX_ANGULAR_VEL)
     angle_max_vel = magicbot.tunable(constants.MAX_ANGULAR_ACCEL)
 

@@ -140,9 +140,9 @@ class ActionGrabAuto(StateMachine):
     arduino_light: arduino_light.I2CArduinoLight
     drivetrain: SwerveDrive
     pixy: Pixy
-    auto_intake_kp = tunable(0.015)
-    auto_intake_ki = tunable(0)
-    auto_intake_kd = tunable(0)
+    auto_intake_kp = tunable(0.001)  # For relative_rotate: 0.015
+    auto_intake_ki = tunable(0)  # For relative_rotate: 0
+    auto_intake_kd = tunable(0)  # For relative_rotate: 0
     auto_intake_pid = controller.PIDController(0, 0, 0)
     intake_target_angle = tunable(108)
     intake_target_speed = tunable(1.25)
@@ -192,11 +192,15 @@ class ActionGrabAuto(StateMachine):
         else:
             fwd = 0.5
             error = 0
-        self.drivetrain.relative_rotate(-error)
-        self.drivetrain.set_relative_automove_value(-fwd, 0)
+        # self.drivetrain.relative_rotate(-error)
+        self.drivetrain.set_relative_automove_value(-fwd, error)
 
         if self.intake.has_object():
-            self.next_state("finish")
+            self.next_state("finish_intaking")
+
+    @timed_state(duration=0.05, next_state="finish")
+    def finish_intaking(self):
+        pass
 
     @state
     def finish(self):

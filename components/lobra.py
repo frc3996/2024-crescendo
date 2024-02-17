@@ -209,7 +209,7 @@ class LoBrasArm:
 
     # Valeurs de PID
     # kP = magicbot.tunable(1.5)
-    kP = magicbot.tunable(0.5)
+    kP = magicbot.tunable(1)
     kI = magicbot.tunable(0.0)
     kD = magicbot.tunable(0.0)
     kFF = magicbot.tunable(0.0)

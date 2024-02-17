@@ -266,6 +266,8 @@ class MyRobot(MagicRobot):
         # # Reset navx zero
         # if self.gamepad1.getRightStickButton():
         #     self.drivetrain.navx_zero_angle()
+        if self.actionStow.is_executing:
+            return
 
         if self.gamepad1.getRightTriggerAxis() > 0.75:
             self.actionGrabAuto.engage()
