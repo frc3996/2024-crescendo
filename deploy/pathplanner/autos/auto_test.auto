@@ -1,0 +1,43 @@
+{
+  "version": 1.0,
+  "startingPose": {
+    "position": {
+      "x": 1.834754526648209,
+      "y": 7.696215392430785
+    },
+    "rotation": -90.0
+  },
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "named",
+          "data": {
+            "name": "actionAmpShoot"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "amp_to_1"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionGrabAuto"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionLowShoot"
+          }
+        }
+      ]
+    }
+  },
+  "folder": null,
+  "choreoAuto": false
+}

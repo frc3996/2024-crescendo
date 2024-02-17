@@ -369,114 +369,6 @@ class ActionShootAmp(StateMachine):
         return super().done()
 
 
-class ActionShootAmpAuto(StateMachine):
-    lobras_arm: LoBrasArm
-    lobras_head: LoBrasHead
-    shooter: Shooter
-    intake: Intake
-    arm_angle = tunable(120)
-    head_angle = tunable(120)
-    drivetrain: SwerveDrive
-    path_kp = tunable(2)
-    path_ki = tunable(0)
-    path_kd = tunable(0)
-    path_profile = tunable(2)
-    speed_to_wall = tunable(0.75)
-    actionStow: ActionStow
-
-    def engage(
-        self, initial_state: StateRef | None = None, force: bool = False
-    ) -> None:
-        return super().engage(initial_state, force)
-
-    @state(first=False)
-    def position_arm(self):
-        self.lobras_arm.set_angle(self.arm_angle)
-        if self.lobras_arm.is_ready(acceptable_error=5):
-            self.next_state("position_head")
-
-    @state
-    def position_head(self):
-        """Premier etat, position la tete"""
-        self.lobras_head.set_angle(self.head_angle)
-
-        if self.lobras_head.is_ready(acceptable_error=5):
-            self.next_state("go_to_place")
-
-    @state(first=True)
-    def go_to_place(self, initial_call):
-        """First state -- waits until shooter is ready before going to the
-        next action in the sequence"""
-        if initial_call:
-            self.auto_path = PathHelper(self.drivetrain, "amp_shoot", kp=self.path_kp, ki=self.path_ki, kd=self.path_kd, profile_kp=self.path_profile)
-            self.auto_path.init_path()
-
-        if self.auto_path.distance_to_end() < 2:
-            self.lobras_arm.set_angle(self.arm_angle)
-            self.lobras_head.set_angle(self.head_angle)
-        if self.auto_path.distance_to_end() < 0.5:
-            self.shooter.shoot_amp()
-
-        self.auto_path.move_to_end()
-
-        if not self.lobras_arm.is_ready(acceptable_error=5):
-            return
-        if not self.lobras_head.is_ready(acceptable_error=5):
-            return
-        if not self.auto_path.robot_reached_end_position():
-            return
-
-        self.next_state("prepare_to_fire")
-
-    @timed_state(duration=0.25, next_state="feed_start")
-    def prepare_to_fire(self, initial_call):
-        """First state -- waits until shooter is ready before going to the
-        next action in the sequence"""
-        ##if initial_call:
-          ##  self.shooter.shoot_amp()
-        self.drivetrain.set_absolute_automove_value(0, self.speed_to_wall)
-        # Use a normal state
-        # if self.shooter.is_ready():
-        #     self.next_state("feed_start")
-
-    @timed_state(duration=0.5)
-    def feed_start(self, initial_call):
-        self.intake.feed()
-
-    def done(self) -> None:
-        self.actionStow.engage()
-        return super().done()
-
-
-class FeedAndRetract(StateMachine):
-    lobras_arm: LoBrasArm
-    lobras_head: LoBrasHead
-    shooter: Shooter
-    intake: Intake
-    actionStow: ActionStow
-    head_angle = tunable(120)
-
-    def engage(
-        self, initial_state: StateRef | None = None, force: bool = False
-    ) -> None:
-        return super().engage(initial_state, force)
-
-    @state(first=True, must_finish=True)
-    def place_head(self):
-        self.lobras_head.set_angle(self.head_angle)
-
-        if self.lobras_head.is_ready(acceptable_error=12):
-            self.next_state("feed")
-
-    @timed_state(duration=0.5, must_finish=True)
-    def feed(self):
-        self.intake.feed()
-
-    def done(self) -> None:
-        self.actionStow.engage()
-        return super().done()
-
-
 class ActionShootAmpAssisted(StateMachine):
     lobras_arm: LoBrasArm
     lobras_head: LoBrasHead
@@ -484,8 +376,8 @@ class ActionShootAmpAssisted(StateMachine):
     intake: Intake
     arm_angle = tunable(120)
     head_angle = tunable(170)
+    head_shoot_angle = tunable(120)
     drivetrain: SwerveDrive
-    feedAndRetract: FeedAndRetract
     ready_to_fire = False
     arduino_light: arduino_light.I2CArduinoLight
     actionStow: ActionStow
@@ -499,12 +391,7 @@ class ActionShootAmpAssisted(StateMachine):
     def rotate(self, initial_call):
         self.ready_to_fire = False
 
-        if initial_call:
-            self.auto_path = PathHelper(self.drivetrain, "amp_shoot")
-            self.auto_path.init_path()
-
-        self.auto_path.target_end_angle()
-
+        self.drivetrain.set_angle(-90) # We throw from behind
         if self.drivetrain.angle_reached():
             self.next_state("prepare_to_shoot")
 
@@ -525,14 +412,37 @@ class ActionShootAmpAssisted(StateMachine):
         self.ready_to_fire = True
         self.arduino_light.set_RGB(255, 0, 0)
 
+    @state(must_finish=True)
+    def place_head(self):
+        self.lobras_head.set_angle(self.head_shoot_angle)
+
+        if self.lobras_head.is_ready(acceptable_error=12):
+            self.next_state("feed")
+
+    @timed_state(duration=0.5, must_finish=True)
+    def feed(self):
+        self.intake.feed()
+
     def done(self) -> None:
         if self.ready_to_fire:
             self.ready_to_fire = False
-            self.feedAndRetract.engage()
+            self.next_state("place_head")
         else:
             self.actionStow.engage()
-        return super().done()
+            return super().done()
 
+
+
+class ActionShootAmpAuto(ActionShootAmpAssisted):
+    def engage(
+        self, initial_state: StateRef | None = None, force: bool = False
+    ) -> None:
+        return super().engage(initial_state, force)
+
+    @state
+    def wait_release(self):
+        self.ready_to_fire = False
+        self.next_state("place_head")
 
 class ActionLowShootAuto(StateMachine):
     lobras_arm: LoBrasArm

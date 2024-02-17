@@ -7,26 +7,6 @@ import wpilib
 import json
 import math
 
-class AutoHelper:
-    def __init__(self, drivetrain, auto_name):
-        self.drivetrain: swervedrive.SwerveDrive = drivetrain
-        if not auto_name.endswith(".auto"):
-            auto_name += ".auto"
-
-        data = ""
-        file = os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "deploy",
-            "pathplanner",
-            "autos",
-            auto_name,
-        )
-
-        with open(file, 'r') as f:
-            data = f.read()
-        self.path = json.loads(data)
-
 
 class PathHelper:
     def __init__(self, drivetrain, path_name, kp=1, ki=0, kd=0, profile_kp=1):

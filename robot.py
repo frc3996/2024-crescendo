@@ -49,11 +49,12 @@ from components.pixy import Pixy
 from components.robot_actions import (ActionGrabAuto, ActionLowShoot, ActionLowShootAuto, ActionHighShootAuto, ActionShoot,
                                       ActionShootAmp, ActionStow, ActionDewinch, ActionWinch, ActionDummy,
                                       ActionShootAmpAuto, ActionGrabManual, ActionOuttake, ActionShootAmpAssisted,
-                                      FeedAndRetract)
+                                      )
 from components.shooter import Shooter, ShooterFollower, ShooterMain
 from components.swervedrive import SwerveDrive, SwerveDriveConfig
 from components.swervemodule import SwerveModule, SwerveModuleConfig
 from components.climber import Climber,  ClimberFollower
+from autonomous.auto_modes import RunAuto
 
 
 class MyRobot(MagicRobot):
@@ -72,6 +73,7 @@ class MyRobot(MagicRobot):
 
     Pour plus d'information: https://robotpy.readthedocs.io/en/stable/frameworks/magicbot.html
     """
+    runAuto: RunAuto
 
     # HIGH Level components first (components that use components)
     actionGrabAuto: ActionGrabAuto
@@ -83,7 +85,6 @@ class MyRobot(MagicRobot):
     actionLowShootAuto: ActionLowShootAuto
     actionHighShootAuto: ActionHighShootAuto
     actionShootAmp: ActionShootAmp
-    feedAndRetract: FeedAndRetract
     actionShootAmpAssisted: ActionShootAmpAssisted
     actionShootAmpAuto: ActionShootAmpAuto
     actionDewinch: ActionDewinch
@@ -235,7 +236,7 @@ class MyRobot(MagicRobot):
 
     def disabledPeriodic(self):
         """Mets à jours le dashboard, même quand le robot est désactivé"""
-        pass
+        self.limelight_vision.execute()
 
     def autonomousInit(self):
         """Cette fonction est appelée une seule fois lorsque le robot entre en mode autonome."""
