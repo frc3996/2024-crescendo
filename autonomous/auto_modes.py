@@ -81,6 +81,7 @@ class RunAuto(AutonomousStateMachine):
     MODE_NAME = "RunAuto"
     DEFAULT = True
 
+
     auto_name = tunable("3_notes")
     path_kp = tunable(2)
     path_ki = tunable(0)
@@ -119,12 +120,12 @@ class RunAuto(AutonomousStateMachine):
         self.next_state(self.current_command["type"])
 
     @state
-    def named(self):
+    def named(self, initial_call):
         print(self.current_command)
         command_name = self.current_command["data"]["name"]
         command = getattr(self, command_name) #type: StateMachine
         command.engage()
-        if not command.is_executing:
+        if not command.is_executing and not initial_call:
             self.next_state("execute_next_command")
 
     @state
@@ -137,6 +138,6 @@ class RunAuto(AutonomousStateMachine):
             self.auto_path = PathHelper(self.drivetrain, path_name, kp=self.path_kp, ki=self.path_ki, kd=self.path_kd, profile_kp=self.path_profile)
             self.auto_path.init_path()
 
-        self.auto_path.move_to_end()
+        self.auto_path.auto_move()
         if self.auto_path.robot_reached_end_position():
             self.next_state("execute_next_command")

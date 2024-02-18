@@ -117,6 +117,7 @@ class SwerveDrive:
         self.frontRightModule.flush()
         self.rearLeftModule.flush()
         self.rearRightModule.flush()
+        self.angle_pid.reset(trajectory.TrapezoidProfile.State(0, 0))
 
     def on_enable(self):
         """Automatic robotpy call when robot enter teleop or auto"""
@@ -352,7 +353,7 @@ class SwerveDrive:
         self.rearRightModule.resetPose()
 
         self.odometry.resetPosition(
-            self.get_odometry_pose().rotation(),
+            self.navx.getRotation2d(),
             (
                 self.frontLeftModule.getPosition(),
                 self.frontRightModule.getPosition(),
@@ -361,6 +362,7 @@ class SwerveDrive:
             ),
             pose,
         )
+        self.set_angle(pose.rotation().degrees())
 
     def execute(self):
         """

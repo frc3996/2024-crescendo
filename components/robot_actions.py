@@ -433,16 +433,51 @@ class ActionShootAmpAssisted(StateMachine):
 
 
 
-class ActionShootAmpAuto(ActionShootAmpAssisted):
+class ActionShootAmpAuto(StateMachine):
+    lobras_arm: LoBrasArm
+    lobras_head: LoBrasHead
+    shooter: Shooter
+    intake: Intake
+    arm_angle = tunable(120)
+    head_angle = tunable(170)
+    head_shoot_angle = tunable(120)
+    drivetrain: SwerveDrive
+    ready_to_fire = False
+    arduino_light: arduino_light.I2CArduinoLight
+    actionStow: ActionStow
+
     def engage(
         self, initial_state: StateRef | None = None, force: bool = False
     ) -> None:
         return super().engage(initial_state, force)
 
-    @state
-    def wait_release(self):
-        self.ready_to_fire = False
+    @state(first=True)
+    def prepare_to_shoot(self):
+        self.lobras_head.set_angle(self.head_angle)
+        self.lobras_arm.set_angle(self.arm_angle)
+        self.shooter.shoot_amp()
+
+        if not self.lobras_arm.is_ready(acceptable_error=5):
+            return
+        if not self.lobras_head.is_ready(acceptable_error=5):
+            return
         self.next_state("place_head")
+
+
+    @state(must_finish=True)
+    def place_head(self):
+        self.lobras_head.set_angle(self.head_shoot_angle)
+
+        if self.lobras_head.is_ready(acceptable_error=12):
+            self.next_state("feed")
+
+    @timed_state(duration=0.5, must_finish=True)
+    def feed(self):
+        self.intake.feed()
+
+    def done(self) -> None:
+        self.actionStow.engage()
+        return super().done()
 
 class ActionLowShootAuto(StateMachine):
     lobras_arm: LoBrasArm
