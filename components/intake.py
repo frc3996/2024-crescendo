@@ -69,7 +69,7 @@ class Intake:
         # self.pid.setD(self.kD)
         # self.pid.setFF(self.kFF)
 
-    # @feedback
+    # # @feedback
     def sensor_value(self):
         return self.beam.getValue()
 
@@ -84,7 +84,7 @@ class Intake:
     def feed(self):
         self.__set_velocity(self.feed_velocity)
 
-    @feedback
+    # @feedback
     def getVelocity(self):
         return self.__target_velocity
         # return self.encoder.getVelocity()
@@ -100,7 +100,7 @@ class Intake:
     def outtake(self):
         self.__set_velocity(-self.intake_velocity)
 
-    # @feedback
+    # # @feedback
     def has_object(self):
         if self.beam.getValue() < ((self.beamWithObject - self.beamNoObject) / 2):
             return True

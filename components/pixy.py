@@ -7,11 +7,11 @@ class Pixy:
         self.offset = wpilib.AnalogInput(constants.AnalogIO.PIXY_OFFSET)
         self.isTarget = wpilib.DigitalInput(constants.DigitalIO.PIXY_VALID)
 
-    @feedback
+    # @feedback
     def get_target_valid(self):
         return self.isTarget.get()
 
-    @feedback
+    # @feedback
     def get_offset(self):
         """Returns offset value"""
         return self.offset.getValue() - 1350

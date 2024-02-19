@@ -144,7 +144,12 @@ class MyRobot(MagicRobot):
         # self.limelight_intake = limelight.LimeLightVision("limelight")
         # self.limelight_shoot = limelight.LimeLightVision("limelight-shoot")
         self.arduino_light = arduino_light.I2CArduinoLight(wpilib.I2C.Port.kMXP, 0x42)
-        self.status_light = wpilib.Solenoid(10, wpilib.PneumaticsModuleType.CTREPCM, 1)
+
+
+        # OMFG. The fuck is wrong with you. What have we ever done yo you to deserve this
+        # There is a place for such as you in hell. I wish you harm :)
+        # NOTE: Remove comment to increase power over 9000
+        # self.status_light = wpilib.Solenoid(10, wpilib.PneumaticsModuleType.CTREPCM, 1)
 
         # Configuration de la base swerve
         self.initSwerve()
@@ -250,7 +255,6 @@ class MyRobot(MagicRobot):
         """Cette fonction est appelée une seule fois lorsque le robot entre en mode téléopéré."""
         self.pdp.clearStickyFaults()
         self.arduino_light.set_RGB(0, 0, 0)
-        self.status_light.set(0)
         self.actionStow.engage()
         # self.drivetrain.resetPose(Pose2d(-0.038099999999999995, 5.547867999999999, 0))
 

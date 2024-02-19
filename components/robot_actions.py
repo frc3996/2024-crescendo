@@ -374,9 +374,9 @@ class ActionShootAmpAssisted(StateMachine):
     lobras_head: LoBrasHead
     shooter: Shooter
     intake: Intake
-    arm_angle = tunable(120)
+    arm_angle = tunable(111)
     head_angle = tunable(170)
-    head_shoot_angle = tunable(120)
+    head_shoot_angle = tunable(111)
     drivetrain: SwerveDrive
     ready_to_fire = False
     arduino_light: arduino_light.I2CArduinoLight
@@ -401,9 +401,9 @@ class ActionShootAmpAssisted(StateMachine):
         self.lobras_arm.set_angle(self.arm_angle)
         self.shooter.shoot_amp()
 
-        if not self.lobras_arm.is_ready(acceptable_error=5):
+        if not self.lobras_arm.is_ready(acceptable_error=10):
             return
-        if not self.lobras_head.is_ready(acceptable_error=5):
+        if not self.lobras_head.is_ready(acceptable_error=10):
             return
         self.next_state("wait_release")
 
@@ -497,7 +497,7 @@ class ActionLowShootAuto(StateMachine):
     THROW_OFFSET = tunable(45)
     ARM_OFFSET = tunable(0)
 
-    @feedback
+    # @feedback
     def get_best_angle(self):
         speaker_position = self.field_layout.getSpeakerRelativePosition()
         if speaker_position is None:

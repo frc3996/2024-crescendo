@@ -49,7 +49,7 @@ class Climber:
 
         self.motor.burnFlash()
 
-    @feedback
+    # @feedback
     def climber_in_closed_position(self):
         return self.limit_switch.get()
 

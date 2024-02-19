@@ -90,11 +90,11 @@ class LimeLightVision:
                 Translation3d(pX, pY, pZ), Rotation3d.fromDegrees(pRoll, pPitch, pYaw)
             ), self.timer.getFPGATimestamp() - (msLatency / 1000)
 
-    @feedback
+    # @feedback
     def get_std_devs(self):
         return self.std_devs
 
-    @feedback
+    # @feedback
     def get_filter_pos(self):
         return self.filter_pos
 

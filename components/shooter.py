@@ -67,7 +67,7 @@ class ShooterMain:
             return True
         return False
 
-    @feedback
+    # @feedback
     def getVelocity(self):
         return self.encoder.getVelocity()
 

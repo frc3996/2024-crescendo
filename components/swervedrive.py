@@ -287,15 +287,15 @@ class SwerveDrive:
 
     #     return angle_error
 
-    @feedback
+    # @feedback
     def get_navx_offset(self):
         return self.navx_offset.degrees()
 
-    @feedback
+    # @feedback
     def get_target_angle(self):
         return self.target_angle.degrees()
 
-    @feedback
+    # @feedback
     def get_current_angle(self):
         return self.odometry.getEstimatedPosition().rotation().degrees()
 
@@ -320,7 +320,7 @@ class SwerveDrive:
                 gyro_angle = self.navx.getRotation2d() + self.navx_offset
             else:
                 print("NAVX SHARTED")
-                gyro_angle = self.get_odometry_angle()
+                return
 
         # Add odometry measurements
         self.odometry.update(
