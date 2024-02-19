@@ -3,21 +3,24 @@ from logging import Logger
 
 import magicbot
 import navx
+import phoenix6
 import wpilib
 from magicbot import feedback
 from phoenix6.configs import (ClosedLoopGeneralConfigs, FeedbackConfigs,
                               MotorOutputConfigs, Slot0Configs, config_groups)
-from phoenix6.controls import PositionDutyCycle, VelocityVoltage, VoltageOut
+from phoenix6.controls import (DutyCycleOut, PositionDutyCycle,
+                               VelocityVoltage, VoltageOut)
 from phoenix6.hardware import CANcoder, TalonFX
 from phoenix6.signals import (FeedbackSensorSourceValue, InvertedValue,
                               NeutralModeValue)
-from wpimath.controller import (ProfiledPIDControllerRadians,
+from wpimath.controller import (ProfiledPIDController,
+                                ProfiledPIDControllerRadians,
                                 SimpleMotorFeedforwardMeters)
 from wpimath.estimator import SwerveDrive4PoseEstimator
 from wpimath.geometry import Pose2d, Rotation2d, Translation2d
 from wpimath.kinematics import (ChassisSpeeds, SwerveDrive4Kinematics,
                                 SwerveModulePosition, SwerveModuleState)
-from wpimath.trajectory import TrapezoidProfileRadians
+from wpimath.trajectory import TrapezoidProfile, TrapezoidProfileRadians
 
 import constants
 from common.functions import rate_limit_module
@@ -46,21 +49,27 @@ def steer_config(steer: TalonFX, steer_cancoder, steer_reversed, rotor_offset):
         else config_groups.InvertedValue.COUNTER_CLOCKWISE_POSITIVE
     )
 
-    steer_feedback = FeedbackConfigs()
-    steer_feedback.with_sensor_to_mechanism_ratio(1 / STEER_GEAR_RATIO)
-    steer_feedback.feedback_remote_sensor_id = steer_cancoder
-    steer_feedback.feedback_sensor_source = FeedbackSensorSourceValue.REMOTE_CANCODER
-    steer_feedback.with_feedback_rotor_offset(rotor_offset)
+    # steer_feedback = FeedbackConfigs()
+    # steer_feedback.with_sensor_to_mechanism_ratio(1 / STEER_GEAR_RATIO)
+    # steer_feedback.feedback_remote_sensor_id = steer_cancoder
+    # steer_feedback.feedback_sensor_source = FeedbackSensorSourceValue.REMOTE_CANCODER
+    # steer_feedback.with_feedback_rotor_offset(rotor_offset)
 
     # configuration for motor pid
-    steer_pid = Slot0Configs().with_k_p(3).with_k_i(0).with_k_d(0.1)
-    steer_closed_loop_config = ClosedLoopGeneralConfigs()
-    steer_closed_loop_config.continuous_wrap = True
+    # steer_pid = Slot0Configs().with_k_p(3).with_k_i(0).with_k_d(0.1)
+    # steer_closed_loop_config = ClosedLoopGeneralConfigs()
+    # steer_closed_loop_config.continuous_wrap = True
 
-    steer_config.apply(steer_motor_config)
-    steer_config.apply(steer_pid, 0.01)
-    steer_config.apply(steer_feedback)
-    steer_config.apply(steer_closed_loop_config)
+    steer_open_loop_config = (
+        phoenix6.configs.OpenLoopRampsConfigs().with_duty_cycle_open_loop_ramp_period(
+            0.01
+        )
+    )
+
+    steer_config.apply(steer_open_loop_config)
+    # steer_config.apply(steer_pid, 0.01)
+    # steer_config.apply(steer_feedback)
+    # steer_config.apply(steer_closed_loop_config)
 
 
 def drive_config(drive: TalonFX, drive_reversed):
@@ -147,6 +156,11 @@ class SwerveModule:
         self.drive_request = VelocityVoltage(0)
         self.stop_request = VoltageOut(0)
 
+        self.steer_pid = ProfiledPIDControllerRadians(
+            0.008, 0, 0, TrapezoidProfileRadians.Constraints(math.pi, math.tau)
+        )
+        self.steer_pid.enableContinuousInput(-math.pi, math.pi)
+
     def get_angle_absolute(self) -> float:
         """Gets steer angle (rot) from absolute encoder"""
         return self.encoder.get_absolute_position().value
@@ -187,7 +201,14 @@ class SwerveModule:
 
         target_displacement = self.state.angle - current_angle
         target_angle = self.state.angle.radians()
-        self.steer_request = PositionDutyCycle(target_angle / math.tau)
+
+        # self.steer_request = PositionDutyCycle(target_angle / math.tau)
+        # self.steer.set_control(self.steer_request)
+
+        steer_output = self.steer_pid.calculate(
+            target_displacement.radians(), target_angle
+        )
+        self.steer_request = DutyCycleOut(0)
         self.steer.set_control(self.steer_request)
 
         # rescale the speed target based on how close we are to being correctly aligned
