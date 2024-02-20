@@ -1,6 +1,36 @@
 import math
+
 import wpilib
 import wpimath.units
+
+
+def apply_deadzone(value: float, threshold: float) -> float:
+    """Apply a deadzone to a value in [-1,1].
+
+    This ensures that the rest of the input space maps to [-1,1].
+    """
+    assert 0 <= threshold < 1
+    if abs(value) < threshold:
+        return 0
+    return (value - math.copysign(threshold, value)) / (1 - threshold)
+
+
+def map_exponential(value: float, base: float) -> float:
+    """Takes a value in [-1,1] and maps it to an exponential curve."""
+    assert base > 1
+    return math.copysign((base ** abs(value) - 1) / (base - 1), value)
+
+
+def rescale_js(value: float, deadzone: float, exponential: float = 1.5) -> float:
+    """Rescale a joystick input, applying a deadzone and exponential.
+
+    Args:
+        value: the joystick value, in the interval [-1, 1].
+        deadzone: the deadzone to apply.
+        exponential: the strength of the exponential to apply
+                     (i.e. how non-linear should the response be)
+    """
+    return map_exponential(apply_deadzone(value, deadzone), exponential + 1)
 
 
 def fit_to_boundaries(value, minimum_value=None, maximum_value=None):
@@ -51,17 +81,17 @@ def calculate_optimal_launch_angle(
     # return angle
 
     g = 9.81
-    min_error = float('inf')
+    min_error = float("inf")
     best_angle = 0
 
-    for angle in range(1,180):
-        theta = math.radians(angle/2)
+    for angle in range(1, 180):
+        theta = math.radians(angle / 2)
         t = distance / (initial_velocity * math.cos(theta))
-        y = (initial_velocity * math.sin(theta) * t) - (0.5 * 9.8 * t ** 2)
+        y = (initial_velocity * math.sin(theta) * t) - (0.5 * 9.8 * t**2)
         error = abs(y - height_difference)
-        if (error < min_error):
+        if error < min_error:
             min_error = error
-            best_angle = angle/2
+            best_angle = angle / 2
     return best_angle
 
     # TODO Make it better?
@@ -85,7 +115,6 @@ def calculate_optimal_launch_angle(
     # Convert the optimal angle to degrees.
     angle_deg = math.degrees(min(theta1, theta2))
 
-
     return angle_deg
 
 
@@ -104,11 +133,13 @@ def print_exec_time(name):
 
             start = wpilib.RobotController.getFPGATime()
             res = function(*args, **kwargs)
-            delta =  wpilib.RobotController.getFPGATime() - start
-            delta = round(delta/1e3, 1)
+            delta = wpilib.RobotController.getFPGATime() - start
+            delta = round(delta / 1e3, 1)
             if delta >= 0.5:
                 log = f"{name} took {delta} ms"
                 print(log)
             return res
+
         return wrapper
+
     return decorator
