@@ -109,10 +109,10 @@ class Shooter:
     shooter_follower: ShooterFollower
 
     # MAX SPEED IS 5676
-    main_speaker_velocity = magicbot.tunable(3996)
-    follower_speaker_velocity = magicbot.tunable(3000)
+    main_speaker_velocity = magicbot.tunable(4500)
+    follower_speaker_velocity = magicbot.tunable(4500)
 
-    amp_velocity = magicbot.tunable(500)
+    amp_velocity = magicbot.tunable(4000)
 
 
     # Control methods

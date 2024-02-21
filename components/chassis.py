@@ -274,7 +274,7 @@ class ChassisComponent:
     RED_TEST_POSE = Pose2d(15.1, 5.5, math.pi)
     BLUE_TEST_POSE = field_flip_pose2d(RED_TEST_POSE)
 
-    max_speed = tunable(4)  # m/s
+    max_speed = tunable(5)  # m/s
     is_sim: bool
 
     def setup(self) -> None:

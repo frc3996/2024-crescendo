@@ -262,7 +262,7 @@ class ActionLowShoot(StateMachine):
     lobras_head: LoBrasHead
     shooter: Shooter
     intake: Intake
-    start_shoot_angle = tunable(81)
+    start_shoot_angle = tunable(79)
     actionStow: ActionStow
 
     def engage(
@@ -394,8 +394,8 @@ class ActionShootAmpAssisted(StateMachine):
     lobras_head: LoBrasHead
     shooter: Shooter
     intake: Intake
-    arm_angle = tunable(111)
-    head_angle = tunable(170)
+    arm_angle = tunable(98)
+    head_angle = tunable(180)
     head_shoot_angle = tunable(111)
     drivetrain: ChassisComponent
     ready_to_fire = False
@@ -503,7 +503,7 @@ class ActionLowShootAuto(StateMachine):
     lobras_head: LoBrasHead
     shooter: Shooter
     intake: Intake
-    start_shoot_angle = tunable(81)
+    start_shoot_angle = tunable(50)
     drivetrain: ChassisComponent
     field_layout: FieldLayout
     is_sim: bool
@@ -512,7 +512,7 @@ class ActionLowShootAuto(StateMachine):
 
     Z_OFFSET = tunable(0.3)
     X_OFFSET = tunable(0.43)
-    THROW_VELOCITY = tunable(10.8)
+    THROW_VELOCITY = tunable(10.7)
     THROW_OFFSET = tunable(45)
     ARM_OFFSET = tunable(0)
 
@@ -590,7 +590,7 @@ class ActionLowShootAuto(StateMachine):
             # self.next_state("prepare_to_fire")
         return False
 
-    @timed_state(duration=3, next_state="fire")
+    @timed_state(duration=1, next_state="fire")
     def prepare_to_fire(self):
         res1 = self.set_launch_rotation()
         res2 = self.set_launch_angle()
@@ -598,7 +598,7 @@ class ActionLowShootAuto(StateMachine):
         if self.shooter.is_ready() and res1 and res2:
             self.next_state_now("fire")
 
-    @timed_state(must_finish=True, duration=0.5, next_state="finish")
+    @timed_state(must_finish=True, duration=0.7, next_state="finish")
     def fire(self):
         self.intake.feed()
 
@@ -618,9 +618,22 @@ class ActionLowShootAuto(StateMachine):
 class ActionHighShootAuto(ActionLowShootAuto):
     Z_OFFSET = tunable(1.03)
     X_OFFSET = tunable(-0.4)
-    THROW_VELOCITY = tunable(10.8)
+    THROW_VELOCITY = tunable(10.7)
     ARM_OFFSET = tunable(100)
     THROW_OFFSET = tunable(140)
+
+
+    @timed_state(duration=2, next_state="fire")
+    def prepare_to_fire(self):
+        res1 = self.set_launch_rotation()
+        res2 = self.set_launch_angle()
+        self.shooter.shoot_speaker()
+        if self.shooter.is_ready() and res1 and res2:
+            self.next_state_now("fire")
+
+    @timed_state(must_finish=True, duration=0.5, next_state="finish")
+    def fire(self):
+        self.intake.feed()
 
 
 class ActionDewinch(StateMachine):

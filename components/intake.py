@@ -15,8 +15,8 @@ class Intake(StateMachine):
     is_sim: bool
 
     # Tunable
-    intake_velocity = tunable(1)
-    feed_velocity = tunable(1)
+    intake_velocity = tunable(0.75)
+    feed_velocity = tunable(0.75)
 
     kP = tunable(0.0002)
     kI = tunable(0.0000005)
