@@ -5,7 +5,9 @@ import magicbot
 import navx
 import phoenix6
 import wpilib
-from magicbot import feedback
+from magicbot import feedback, tunable
+from common import arduino_light, game
+from common.tools import rescale_js
 from phoenix6.configs import (ClosedLoopGeneralConfigs, FeedbackConfigs,
                               MotorOutputConfigs, Slot0Configs, config_groups)
 from phoenix6.controls import (DutyCycleOut, PositionDutyCycle,
@@ -118,6 +120,7 @@ class SwerveModule:
         steer_reversed=True,
         drive_reversed: bool = False,
         rotor_offset=0,
+        is_sim=False
     ):
         """
         x, y: where the module is relative to the center of the robot
@@ -126,6 +129,8 @@ class SwerveModule:
         self.translation = Translation2d(x, y)
         self.state = SwerveModuleState(0, Rotation2d(0))
         self.do_smooth = True
+        self.is_sim = is_sim
+        self.sim_position = SwerveModulePosition()
 
         # Create Motor and encoder objects
         self.steer = TalonFX(steer_id)
@@ -167,6 +172,8 @@ class SwerveModule:
 
     def get_angle_integrated(self) -> float:
         """Gets steer angle from motor's integrated relative encoder"""
+        if self.is_sim:
+            return self.sim_position.angle.radians()
         return self.steer.get_position().value * math.tau
 
     def get_rotation(self) -> Rotation2d:
@@ -178,6 +185,8 @@ class SwerveModule:
         return self.drive.get_velocity().value
 
     def get_distance_traveled(self) -> float:
+        if self.is_sim:
+            return self.sim_position.distance
         return self.drive.get_position().value
 
     def set(self, desired_state: SwerveModuleState):
@@ -191,6 +200,12 @@ class SwerveModule:
             self.state = desired_state
         current_angle = self.get_rotation()
         self.state = SwerveModuleState.optimize(self.state, current_angle)
+
+        if self.is_sim:
+            self.sim_position = SwerveModulePosition(
+                self.sim_position.distance + (self.state.speed * 0.02),
+                self.state.angle,
+            )
 
         if abs(self.state.speed) < 0.01 and not self.module_locked:
             self.drive.set_control(
@@ -259,10 +274,14 @@ class ChassisComponent:
     RED_TEST_POSE = Pose2d(15.1, 5.5, math.pi)
     BLUE_TEST_POSE = field_flip_pose2d(RED_TEST_POSE)
 
+    max_speed = tunable(4)  # m/s
+    is_sim: bool
+
     def setup(self) -> None:
         self.imu = navx.AHRS.create_spi()
+        self.sim_imu = Rotation2d(0)
         self.heading_controller = ProfiledPIDControllerRadians(
-            4, 0, 0, TrapezoidProfileRadians.Constraints(5, 5)
+            1, 0, 0, TrapezoidProfileRadians.Constraints(5, 5)
         )
         self.heading_controller.enableContinuousInput(-math.pi, math.pi)
         self.snapping_to_heading = False
@@ -279,6 +298,7 @@ class ChassisComponent:
                 constants.CANIds.SWERVE_ROTATE_FL,
                 constants.CANIds.SWERVE_CANCODER_FL,
                 rotor_offset=0,
+                is_sim=self.is_sim
             ),
             # Back Left
             SwerveModule(
@@ -288,6 +308,7 @@ class ChassisComponent:
                 constants.CANIds.SWERVE_ROTATE_RL,
                 constants.CANIds.SWERVE_CANCODER_RL,
                 rotor_offset=0,
+                is_sim=self.is_sim
             ),
             # Back Right
             SwerveModule(
@@ -297,6 +318,7 @@ class ChassisComponent:
                 constants.CANIds.SWERVE_ROTATE_RR,
                 constants.CANIds.SWERVE_CANCODER_RR,
                 rotor_offset=0,
+                is_sim=self.is_sim
             ),
             # Front Right
             SwerveModule(
@@ -306,6 +328,7 @@ class ChassisComponent:
                 constants.CANIds.SWERVE_ROTATE_FR,
                 constants.CANIds.SWERVE_CANCODER_FR,
                 rotor_offset=0,
+                is_sim=self.is_sim
             ),
         ]
 
@@ -326,7 +349,7 @@ class ChassisComponent:
         )
         self.estimator = SwerveDrive4PoseEstimator(
             self.kinematics,
-            self.imu.getRotation2d(),
+            self.getRotation2d(),
             self.get_module_positions(),
             initial_pose,
             stateStdDevs=(0.05, 0.05, 0.01),
@@ -337,6 +360,65 @@ class ChassisComponent:
         for idx, _module in enumerate(self.modules):
             self.module_objs.append(self.field.getObject("s_module_" + str(idx)))
         self.set_pose(initial_pose)
+
+    def getRotation2d(self):
+        # Get angle from navx!
+        if self.is_sim:
+            return self.sim_imu
+        return self.imu.getRotation2d()
+
+    def drive(self, gamepad: wpilib.XboxController):
+        # Driving
+        spin_rate = 4
+        drive_x = -rescale_js(gamepad.getLeftY(), 0.1) * self.max_speed
+        drive_y = -rescale_js(gamepad.getLeftX(), 0.1) * self.max_speed
+        drive_z = -rescale_js(gamepad.getRightX(), 0.1, exponential=2) * spin_rate
+        local_driving = gamepad.getYButton()
+
+        if local_driving:
+            self.drive_local(drive_x, drive_y, drive_z)
+        else:
+            if game.is_red():
+                drive_x = -drive_x
+                drive_y = -drive_y
+            # self.drive_field(drive_x, drive_y, drive_z)
+            self.drive_field(drive_x, drive_y, 0)
+
+        if math.sqrt(gamepad.getRightX()**2 + gamepad.getRightY()**2) > 0.45:
+            angle = (math.degrees(math.atan2(gamepad.getRightY(), gamepad.getRightX())) + 360) % 360
+            angle += 270
+            angle %= 360
+            angle -= 180
+            angle = angle
+            if game.is_red():
+                self.snap_to_heading(-math.radians(angle) + math.pi)
+            else:
+                self.snap_to_heading(-math.radians(angle))
+
+        # give rotational access to the driver
+        # if drive_z != 0:
+        #     self.stop_snapping()
+
+        dpad = gamepad.getPOV()
+        if dpad != -1:
+            if game.is_red():
+                self.snap_to_heading(-math.radians(dpad) + math.pi)
+            else:
+                self.snap_to_heading(-math.radians(dpad))
+
+        # Set current robot direction to forward
+        if gamepad.getXButton():
+            self.reset_yaw()
+
+    def set_angle(self, target_angle):
+        if game.is_red():
+            self.snap_to_heading(-math.radians(target_angle) + math.pi)
+        else:
+            self.snap_to_heading(-math.radians(target_angle))
+
+    def angle_reached(self):
+        """Returns if the target angle have been reached"""
+        return self.heading_controller.atGoal()
 
     def drive_field(self, vx: float, vy: float, omega: float) -> None:
         """Field oriented drive commands"""
@@ -390,6 +472,9 @@ class ChassisComponent:
         else:
             desired_speeds = self.chassis_speeds
 
+        if self.is_sim:
+            self.sim_imu += Rotation2d(desired_speeds.omega)
+
         if self.swerve_lock:
             self.do_smooth = False
 
@@ -438,7 +523,7 @@ class ChassisComponent:
                 self.set_pose(ChassisComponent.BLUE_TEST_POSE)
 
     def update_odometry(self) -> None:
-        self.estimator.update(self.imu.getRotation2d(), self.get_module_positions())
+        self.estimator.update(self.getRotation2d(), self.get_module_positions())
         self.field_obj.setPose(self.get_pose())
         if self.send_modules:
             robot_location = self.estimator.getEstimatedPosition()
@@ -458,7 +543,7 @@ class ChassisComponent:
 
     def set_pose(self, pose: Pose2d) -> None:
         self.estimator.resetPosition(
-            self.imu.getRotation2d(), self.get_module_positions(), pose
+            self.getRotation2d(), self.get_module_positions(), pose
         )
         self.field.setRobotPose(pose)
         self.field_obj.setPose(pose)

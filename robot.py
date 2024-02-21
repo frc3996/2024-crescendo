@@ -40,8 +40,7 @@ from magicbot import MagicRobot, tunable
 from navx import AHRS
 
 from autonomous.auto_modes import RunAuto
-from common import arduino_light, game
-from common.tools import rescale_js
+from common import arduino_light
 from components.chassis import ChassisComponent
 from components.climber import Climber, ClimberFollower
 from components.field import FieldLayout
@@ -133,8 +132,6 @@ class MyRobot(MagicRobot):
     nt: ntcore.NetworkTable
     is_sim: bool
 
-    max_speed = tunable(4)  # m/s
-
     def createObjects(self):
         """
         C'est ici que les composants sont vraiment créé avec le signe =.
@@ -182,41 +179,10 @@ class MyRobot(MagicRobot):
         self.arduino_light.set_RGB(0, 0, 0)
         self.actionStow.engage()
 
-    def drive(self):
-        # Driving
-        spin_rate = 4
-        drive_x = -rescale_js(self.gamepad.getLeftY(), 0.1) * self.max_speed
-        drive_y = -rescale_js(self.gamepad.getLeftX(), 0.1) * self.max_speed
-        drive_z = -rescale_js(self.gamepad.getRightX(), 0.1, exponential=2) * spin_rate
-        local_driving = self.gamepad.getYButton()
-
-        if local_driving:
-            self.drivetrain.drive_local(drive_x, drive_y, drive_z)
-        else:
-            if game.is_red():
-                drive_x = -drive_x
-                drive_y = -drive_y
-            self.drivetrain.drive_field(drive_x, drive_y, drive_z)
-
-        # give rotational access to the driver
-        if drive_z != 0:
-            self.drivetrain.stop_snapping()
-
-        dpad = self.gamepad.getPOV()
-        if dpad != -1:
-            if game.is_red():
-                self.drivetrain.snap_to_heading(-math.radians(dpad) + math.pi)
-            else:
-                self.drivetrain.snap_to_heading(-math.radians(dpad))
-
-        # Set current robot direction to forward
-        if self.gamepad.getXButton():
-            self.drivetrain.reset_yaw()
-
     def teleopPeriodic(self):
         """Cette fonction est appelée de façon périodique lors du mode téléopéré."""
 
-        self.drive()
+        self.drivetrain.drive(self.gamepad)
 
         # # Reset navx zero
         # if self.gamepad1.getRightStickButton():
