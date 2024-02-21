@@ -38,12 +38,11 @@ import ntcore
 import phoenix6
 import wpilib
 from magicbot import MagicRobot, feedback, tunable
-from navx import AHRS
+# from navx import AHRS
 from wpimath.geometry import Pose2d, Rotation2d
 
 import constants
 from common import arduino_light, game
-from common.tools import rescale_js
 from components.chassis import ChassisComponent
 from components.climber import Climber, ClimberFollower
 from components.field import FieldLayout
@@ -61,7 +60,6 @@ from components.robot_actions import (ActionDewinch, ActionDummy,
                                       ActionShootAmpAuto, ActionStow,
                                       ActionWinch, FeedAndRetract)
 from components.shooter import Shooter, ShooterFollower, ShooterMain
-from components.swervemodule import SwerveModule, SwerveModuleConfig
 
 
 class MyRobot(MagicRobot):
@@ -101,7 +99,7 @@ class MyRobot(MagicRobot):
     # LOW Level components after
 
     # NAVX
-    navx: AHRS
+    # navx: AHRS
 
     # Lobras
     lobras_arm: LoBrasArm
@@ -137,7 +135,6 @@ class MyRobot(MagicRobot):
     nt: ntcore.NetworkTable
     is_sim: bool
 
-    max_speed = tunable(4)  # m/s
 
     def createObjects(self):
         """
@@ -154,7 +151,7 @@ class MyRobot(MagicRobot):
         # self.status_light = wpilib.Solenoid(10, wpilib.PneumaticsModuleType.CTREPCM, 1)
 
         # NAVX
-        self.navx = AHRS.create_i2c(wpilib.I2C.Port.kMXP, update_rate_hz=50)
+        # self.navx = AHRS.create_i2c(wpilib.I2C.Port.kMXP, update_rate_hz=50)
 
         # General
         self.keyboard0 = wpilib.Joystick(0)
@@ -186,44 +183,10 @@ class MyRobot(MagicRobot):
         self.actionStow.engage()
         # self.drivetrain.resetPose(Pose2d(-0.038099999999999995, 5.547867999999999, 0))
 
-    def drive(self):
-        # Driving
-        spin_rate = 4
-        drive_x = -rescale_js(self.keyboard0.getRawAxis(0), 0.1) * self.max_speed
-        drive_y = -rescale_js(self.keyboard0.getRawAxis(1), 0.1) * self.max_speed
-        drive_z = (
-            -rescale_js(self.keyboard1.getRawAxis(0), 0.1, exponential=2) * spin_rate
-        )
-        # local_driving = self.gamepad1.getYButton()
-
-        if game.is_red():
-            drive_x = -drive_x
-            drive_y = -drive_y
-
-        # if local_driving:
-        # self.drivetrain.drive_local(drive_x, drive_y, drive_z)
-        # else:
-        self.drivetrain.drive_field(drive_x, drive_y, drive_z)
-
-        # give rotational access to the driver
-        if drive_z != 0:
-            self.drivetrain.stop_snapping()
-
-        dpad = self.gamepad1.getPOV()
-        if dpad != -1:
-            if game.is_red():
-                self.drivetrain.snap_to_heading(-math.radians(dpad) + math.pi)
-            else:
-                self.drivetrain.snap_to_heading(-math.radians(dpad))
-
-        # Set current robot direction to forward
-        if self.gamepad1.getXButton():
-            self.drivetrain.zero_yaw()
-
     def teleopPeriodic(self):
         """Cette fonction est appelée de façon périodique lors du mode téléopéré."""
 
-        self.drive()
+        self.drivetrain.drive(self.gamepad1)
 
         # # Reset navx zero
         # if self.gamepad1.getRightStickButton():
