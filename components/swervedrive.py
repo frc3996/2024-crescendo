@@ -14,18 +14,15 @@ from dataclasses import dataclass
 import magicbot
 import ntcore
 import pathplannerlib.telemetry
+from magicbot import feedback
 from navx import AHRS
 from wpimath import (controller, estimator, filter, geometry, kinematics,
                      trajectory, units)
 from wpimath.geometry import Rotation2d
 
-from magicbot import feedback
 import constants
 from common import tools
 from components import swervemodule
-
-constants.MAX_WHEEL_SPEED = 4  # meter per second
-constants.MAX_MODULE_SPEED = 4.5
 
 
 @dataclass
@@ -65,7 +62,6 @@ class SwerveDrive:
         """
         self.chassis_speed = kinematics.ChassisSpeeds()
         self.navx_offset = Rotation2d()
-
 
         self.target_angle = Rotation2d(0)
         self.sim_angle = Rotation2d(0)
@@ -107,7 +103,6 @@ class SwerveDrive:
 
         self.navx_zero()
 
-
     def flush(self):
         """
         Cette méthode devrait être appelé pour remettre à zéro le drivetrain.
@@ -139,7 +134,10 @@ class SwerveDrive:
 
     def angle_reached(self, acceptable_error=5):
         """Returns if the target angle have been reached"""
-        if abs((self.target_angle - self.get_odometry_angle()).degrees()) < acceptable_error:
+        if (
+            abs((self.target_angle - self.get_odometry_angle()).degrees())
+            < acceptable_error
+        ):
             return True
         return False
 
@@ -163,7 +161,9 @@ class SwerveDrive:
         self.target_angle = self.get_odometry_angle() + Rotation2d.fromDegrees(rotation)
 
     def set_relative_automove_value(self, forward, strafe, strength=0.2):
-        vector = tools.rotate_vector([-forward, strafe], self.get_odometry_angle().degrees())
+        vector = tools.rotate_vector(
+            [-forward, strafe], self.get_odometry_angle().degrees()
+        )
         self.automove_forward = vector[0]
         self.automove_strafe = vector[1]
         self.automove_strength = strength
@@ -215,7 +215,9 @@ class SwerveDrive:
 
         fwdSpeed, strafeSpeed = self.__compute_move()
         # rot = self.__compute_navx_angle_error()
-        omega = self.angle_pid.calculate(self.get_odometry_angle().degrees(), self.target_angle.degrees())
+        omega = self.angle_pid.calculate(
+            self.get_odometry_angle().degrees(), self.target_angle.degrees()
+        )
         omega = max(min(omega, 2), -2)
         if abs(omega) <= 0.002:
             omega = 0
@@ -306,7 +308,9 @@ class SwerveDrive:
         self.angle_pid.reset(trajectory.TrapezoidProfile.State(0, 0))
 
     def navx_update_offset(self):
-        self.navx_offset = self.navx.getRotation2d() - self.odometry.getEstimatedPosition().rotation()
+        self.navx_offset = (
+            self.navx.getRotation2d() - self.odometry.getEstimatedPosition().rotation()
+        )
 
     @tools.print_exec_time("__updateOdometry")
     def __updateOdometry(self) -> None:
@@ -373,7 +377,6 @@ class SwerveDrive:
 
         # Calcul des vecteurs
         self.__calculate_vectors()
-
 
         self.frontLeftModule.process()
         self.frontRightModule.process()

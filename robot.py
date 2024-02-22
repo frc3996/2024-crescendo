@@ -35,13 +35,14 @@ INDICATEUR LUMINEUX
 import math
 
 import ntcore
+import phoenix6
 import wpilib
 from magicbot import MagicRobot, tunable
 from navx import AHRS
 
+import constants
 from autonomous.auto_modes import RunAuto
 from common import arduino_light
-from components.chassis import ChassisComponent
 from components.climber import Climber, ClimberFollower
 from components.field import FieldLayout
 from components.intake import Intake
@@ -57,6 +58,8 @@ from components.robot_actions import (ActionDewinch, ActionDummy,
                                       ActionShootAmpAuto, ActionStow,
                                       ActionWinch)
 from components.shooter import Shooter, ShooterFollower, ShooterMain
+from components.swervedrive import SwerveDrive, SwerveDriveConfig
+from components.swervemodule import SwerveModule, SwerveModuleConfig
 
 
 class MyRobot(MagicRobot):
@@ -105,7 +108,11 @@ class MyRobot(MagicRobot):
     lobras_head: LoBrasHead
 
     # SwerveDrive
-    drivetrain: ChassisComponent
+    frontLeftModule: SwerveModule
+    frontRightModule: SwerveModule
+    rearLeftModule: SwerveModule
+    rearRightModule: SwerveModule
+    drivetrain: SwerveDrive
 
     # Shooter
     shooter: Shooter
@@ -126,7 +133,7 @@ class MyRobot(MagicRobot):
     field_layout: FieldLayout
 
     # XXX: Re-Enable vision after we're done testing
-    # limelight_vision: LimeLightVision
+    limelight_vision: LimeLightVision
 
     # Networktables pour de la configuration et retour d'information
     nt: ntcore.NetworkTable
@@ -151,6 +158,9 @@ class MyRobot(MagicRobot):
         # NAVX
         self.navx = AHRS.create_i2c(wpilib.I2C.Port.kMXP, update_rate_hz=50)
 
+        # Configuration de la base swerve
+        self.initSwerve()
+
         # General
         self.gamepad = wpilib.XboxController(0)
         # self.gamepad = wpilib.PS5Controller(0)
@@ -160,6 +170,82 @@ class MyRobot(MagicRobot):
         # What's this?
         self.field = wpilib.Field2d()
         wpilib.SmartDashboard.putData(self.field)
+
+    def initSwerve(self):
+        """
+        Configuration de la base Swerve Drive
+        """
+        # On assigne nos moteurs à nos swerve
+        # Il est important d'utiliser le logiciel de la compagnie pour trouver (ou configurer) les CAN id
+        # On utilise également les encodeurs absolues CAN pour orienter la roue
+        self.drivetrain_cfg = SwerveDriveConfig(
+            base_width=20.75,
+            base_length=22.75,
+        )
+
+        self.frontLeftModule_driveMotor = phoenix6.hardware.TalonFX(
+            constants.CANIds.SWERVE_DRIVE_FL
+        )
+        self.frontLeftModule_rotateMotor = phoenix6.hardware.TalonFX(
+            constants.CANIds.SWERVE_ROTATE_FL
+        )
+        self.frontLeftModule_encoder = phoenix6.hardware.CANcoder(
+            constants.CANIds.SWERVE_CANCODER_FL
+        )
+        self.frontLeftModule_cfg = SwerveModuleConfig(
+            nt_name="frontLeftModule",
+            inverted=False,
+            allow_reverse=True,
+            rotation_zero=193,
+        )
+
+        self.frontRightModule_driveMotor = phoenix6.hardware.TalonFX(
+            constants.CANIds.SWERVE_DRIVE_FR
+        )
+        self.frontRightModule_rotateMotor = phoenix6.hardware.TalonFX(
+            constants.CANIds.SWERVE_ROTATE_FR
+        )
+        self.frontRightModule_encoder = phoenix6.hardware.CANcoder(
+            constants.CANIds.SWERVE_CANCODER_FR
+        )
+        self.frontRightModule_cfg = SwerveModuleConfig(
+            nt_name="frontRightModule",
+            inverted=True,
+            allow_reverse=True,
+            rotation_zero=76,
+        )
+
+        self.rearLeftModule_driveMotor = phoenix6.hardware.TalonFX(
+            constants.CANIds.SWERVE_DRIVE_RL
+        )
+        self.rearLeftModule_rotateMotor = phoenix6.hardware.TalonFX(
+            constants.CANIds.SWERVE_ROTATE_RL
+        )
+        self.rearLeftModule_encoder = phoenix6.hardware.CANcoder(
+            constants.CANIds.SWERVE_CANCODER_RL
+        )
+        self.rearLeftModule_cfg = SwerveModuleConfig(
+            nt_name="rearLeftModule",
+            inverted=True,
+            allow_reverse=True,
+            rotation_zero=216,
+        )
+
+        self.rearRightModule_driveMotor = phoenix6.hardware.TalonFX(
+            constants.CANIds.SWERVE_DRIVE_RR
+        )
+        self.rearRightModule_rotateMotor = phoenix6.hardware.TalonFX(
+            constants.CANIds.SWERVE_ROTATE_RR
+        )
+        self.rearRightModule_encoder = phoenix6.hardware.CANcoder(
+            constants.CANIds.SWERVE_CANCODER_RR
+        )
+        self.rearRightModule_cfg = SwerveModuleConfig(
+            nt_name="rearRightModule",
+            inverted=False,
+            allow_reverse=True,
+            rotation_zero=318,
+        )
 
     def disabledPeriodic(self):
         """Mets à jours le dashboard, même quand le robot est désactivé"""
@@ -182,8 +268,14 @@ class MyRobot(MagicRobot):
     def teleopPeriodic(self):
         """Cette fonction est appelée de façon périodique lors du mode téléopéré."""
 
-        self.drivetrain.drive(self.gamepad)
+        self.drivetrain.set_controller_values(
+            self.gamepad.getLeftY(),
+            self.gamepad.getLeftX(),
+            self.gamepad.getRightX(),
+            self.gamepad.getRightY(),
+        )
 
+        ## XXX: This is not needed as limelight is resetting zeo for us
         # # Reset navx zero
         # if self.gamepad1.getRightStickButton():
         #     self.drivetrain.navx_zero_angle()
@@ -194,15 +286,15 @@ class MyRobot(MagicRobot):
             self.actionGrabAuto.engage()
             pass
         elif self.gamepad.getRightBumper():
-            # self.drivetrain.set_tmp_speed_factor(0.5)
+            self.drivetrain.set_tmp_speed_factor(0.5)
             self.actionShootAmpAssisted.engage()
             pass
         elif self.gamepad.getLeftTriggerAxis() > 0.75:
-            # self.drivetrain.set_tmp_speed_factor(0.5)
+            self.drivetrain.set_tmp_speed_factor(0.5)
             self.actionLowShootAuto.engage()
             pass
         elif self.gamepad.getLeftBumper():
-            # self.drivetrain.set_tmp_speed_factor(0.5)
+            self.drivetrain.set_tmp_speed_factor(0.5)
             self.actionHighShootAuto.engage()
             pass
         elif self.gamepad.getAButton():

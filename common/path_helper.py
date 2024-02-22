@@ -7,12 +7,12 @@ from pathplannerlib.path import PathPlannerPath
 from wpimath import controller, geometry, kinematics, trajectory
 
 import constants
-from components.chassis import ChassisComponent
+from components.swervedrive import SwerveDrive
 
 
 class PathHelper:
     def __init__(self, drivetrain, path_name, kp=1, ki=0, kd=0, profile_kp=1):
-        self.drivetrain: ChassisComponent = drivetrain
+        self.drivetrain: SwerveDrive = drivetrain
         self.timer = wpilib.Timer()
         self.timer.start()
         self.kp = kp
@@ -56,9 +56,9 @@ class PathHelper:
         new_pose = geometry.Pose2d(
             reset_pose.X(),
             reset_pose.Y(),
-            self.drivetrain.get_rotation(),
+            self.drivetrain.get_odometry_angle(),
         )
-        self.drivetrain.set_pose(new_pose)
+        self.drivetrain.resetPose(new_pose)
 
     def move_to_end(self):
         # If odometry is bad, compute now + 0.02 as goal and now as current position
@@ -70,18 +70,20 @@ class PathHelper:
         target_rotation = self.path.getGoalEndState().rotation.degrees()
 
         goal.targetHolonomicRotation = geometry.Rotation2d(0)
-        current = self.drivetrain.get_pose()
+        current = self.drivetrain.get_odometry_pose()
         current = geometry.Pose2d(current.X(), current.Y(), geometry.Rotation2d(0))
         adjustedSpeeds = self.controller.calculate(
             current, goal.getTargetHolonomicPose(), 0, geometry.Rotation2d(0)
         )
         # speed = kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(adjustedSpeeds.vx, adjustedSpeeds.vy, adjustedSpeeds.omega, goal.heading)
-        self.drivetrain.drive_field(adjustedSpeeds.vx, adjustedSpeeds.vy, 0)
-        self.drivetrain.snap_to_heading(target_rotation)
+        self.drivetrain.set_absolute_automove_value(
+            adjustedSpeeds.vx, adjustedSpeeds.vy
+        )
+        self.drivetrain.set_angle(target_rotation)
 
     def target_end_angle(self):
         target_rotation = self.path.getGoalEndState().rotation.degrees()
-        self.drivetrain.snap_to_heading(target_rotation)
+        self.drivetrain.set_angle(target_rotation)
 
     def auto_move(self):
         # If odometry is bad, compute now + 0.02 as goal and now as current position
@@ -93,14 +95,16 @@ class PathHelper:
         target_rotation = self.path.getGoalEndState().rotation.degrees()
 
         goal.targetHolonomicRotation = geometry.Rotation2d(0)
-        current = self.drivetrain.get_pose()
+        current = self.drivetrain.get_odometry_pose()
         current = geometry.Pose2d(current.X(), current.Y(), geometry.Rotation2d(0))
         adjustedSpeeds = self.controller.calculate(
             current, goal.getTargetHolonomicPose(), 0, geometry.Rotation2d(0)
         )
         # speed = kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(adjustedSpeeds.vx, adjustedSpeeds.vy, adjustedSpeeds.omega, goal.heading)
-        self.drivetrain.drive_field(adjustedSpeeds.vx, adjustedSpeeds.vy, 0)
-        self.drivetrain.snap_to_heading(target_rotation)
+        self.drivetrain.set_absolute_automove_value(
+            adjustedSpeeds.vx, adjustedSpeeds.vy
+        )
+        self.drivetrain.set_angle(target_rotation)
 
     def path_reached_end(self):
         return self.timer.get() >= self.trajectory.getTotalTimeSeconds()
@@ -110,7 +114,7 @@ class PathHelper:
         goal.targetHolonomicRotation = geometry.Rotation2d(0)
         goal = goal.getTargetHolonomicPose()
 
-        current = self.drivetrain.get_pose()
+        current = self.drivetrain.get_odometry_pose()
         current = geometry.Pose2d(current.X(), current.Y(), geometry.Rotation2d(0))
         distance = math.sqrt(pow(current.x - goal.x, 2) + pow(current.y - goal.y, 2))
 
@@ -124,11 +128,11 @@ class PathHelper:
         goal.targetHolonomicRotation = geometry.Rotation2d(0)
         goal = goal.getTargetHolonomicPose()
 
-        current = self.drivetrain.get_pose()
+        current = self.drivetrain.get_odometry_pose()
         current = geometry.Pose2d(current.X(), current.Y(), geometry.Rotation2d(0))
         distance = math.sqrt(pow(current.x - goal.x, 2) + pow(current.y - goal.y, 2))
 
-        angle_error = target_rotation - self.drivetrain.get_rotation()
+        angle_error = target_rotation - self.drivetrain.get_odometry_angle()
         angle_error = abs(angle_error.degrees())
 
         if distance > acceptable_distance_error:

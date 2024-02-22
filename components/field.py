@@ -14,7 +14,7 @@ from robotpy_apriltag import AprilTagField, AprilTagFieldLayout
 from wpimath.geometry import Pose3d, Rotation3d, Transform3d, Translation3d
 from wpimath.units import inchesToMeters
 
-from components.chassis import ChassisComponent
+from components.swervedrive import SwerveDrive
 
 apriltagsFilename = r"2024-crescendo.json"
 # get the dir of THIS file (vision.py), go up one level (..), and use the specified filename
@@ -68,7 +68,7 @@ def getAlliance():
 
 
 class FieldLayout(AprilTagFieldLayout):
-    drivetrain: ChassisComponent
+    drivetrain: SwerveDrive
 
     def __init__(self):
         self.logger = logging.getLogger("FieldLayout")
@@ -93,7 +93,7 @@ class FieldLayout(AprilTagFieldLayout):
         tag_pose = self.getTagPose(tagID)
         if tag_pose is None:
             return None
-        odometry = self.drivetrain.get_pose()
+        odometry = self.drivetrain.get_odometry_pose()
 
         # TODO: Maybe implement a pose3d in the swerve, pass in the height??
         odometry_3d = Pose3d(

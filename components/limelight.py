@@ -8,12 +8,12 @@ from wpimath.filter import MedianFilter
 from wpimath.geometry import Pose2d, Pose3d, Rotation3d, Translation3d
 
 from common.tools import map_value
-from components.chassis import ChassisComponent
 from components.field import BLUE_ALLIANCE, RED_ALLIANCE, FieldLayout
+from components.swervedrive import SwerveDrive
 
 
 class LimeLightVision:
-    drivetrain: ChassisComponent
+    drivetrain: SwerveDrive
     field_layout: FieldLayout
 
     def __init__(self, name="limelight"):
@@ -137,7 +137,7 @@ class LimeLightVision:
 
             self.std_devs = [stddev_xy, stddev_xy, stddev_rot]
             self.filter_pos = [x, y, yaw]
-            self.drivetrain.estimator.addVisionMeasurement(
+            self.drivetrain.odometry.addVisionMeasurement(
                 vision_pose[0].toPose2d(),
                 # Pose2d(x, y, yaw),
                 vision_pose[1],

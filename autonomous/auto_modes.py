@@ -6,10 +6,10 @@ from magicbot.state_machine import AutonomousStateMachine, StateMachine, state
 from wpimath import geometry
 
 from common.path_helper import PathHelper
-from components.chassis import ChassisComponent
 from components.robot_actions import (ActionGrabAuto, ActionHighShootAuto,
                                       ActionLowShootAuto, ActionShootAmpAuto,
                                       ActionStow)
+from components.swervedrive import SwerveDrive
 
 
 def get_next_auto_command(auto_name):
@@ -42,8 +42,7 @@ class RunAuto(AutonomousStateMachine):
     path_profile = tunable(2)
 
     # Injection
-    # drivetrain: swervedrive.SwerveDrive
-    drivetrain: ChassisComponent
+    drivetrain: SwerveDrive
     actionGrabAuto: ActionGrabAuto
     actionLowShootAuto: ActionLowShootAuto
     actionHighShootAuto: ActionHighShootAuto
@@ -62,7 +61,7 @@ class RunAuto(AutonomousStateMachine):
             reset_pose["position"]["y"],
             reset_pose["rotation"],
         )
-        self.drivetrain.set_pose(new_pose)
+        self.drivetrain.resetPose(new_pose)
         self.next_state("execute_next_command")
 
     @state()
