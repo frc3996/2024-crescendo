@@ -35,7 +35,7 @@ class RunAuto(AutonomousStateMachine):
     DEFAULT = True
 
     # Tunables
-    auto_name = tunable("3_notes")
+    auto_name = tunable("1 amp + 3_speakers")
     path_kp = tunable(2)
     path_ki = tunable(0)
     path_kd = tunable(0)

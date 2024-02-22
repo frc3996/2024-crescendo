@@ -1,0 +1,67 @@
+{
+  "version": 1.0,
+  "startingPose": {
+    "position": {
+      "x": 1.8700428947763699,
+      "y": 7.59882590193911
+    },
+    "rotation": 0
+  },
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "named",
+          "data": {
+            "name": "actionAmpShoot"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "amp_to_1"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionGrabAuto"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionLowShoot"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "note_1_to_2"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionGrabAuto"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionLowShoot"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionStow"
+          }
+        }
+      ]
+    }
+  },
+  "folder": null,
+  "choreoAuto": false
+}

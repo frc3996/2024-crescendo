@@ -5,8 +5,8 @@ from enum import IntEnum
 MAX_ANGULAR_VEL = math.degrees(math.pi * 2) * 2
 MAX_ANGULAR_ACCEL = math.degrees(math.pi * 5) * 2
 LOWER_INPUT_THRESH = 0.1  # Minimum speed before considered 0
-MAX_WHEEL_SPEED = 5 / 10  # 4  # meter per second
-MAX_MODULE_SPEED = 5.625 / 10  # 4.5
+MAX_WHEEL_SPEED = 5  # 4  # meter per second
+MAX_MODULE_SPEED = 5.625  # 4.5
 
 SWERVE_DIRECTION_GEAR_RATIO = (14 / 50) * (10 / 60)
 

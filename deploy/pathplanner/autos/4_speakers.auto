@@ -1,0 +1,85 @@
+{
+  "version": 1.0,
+  "startingPose": {
+    "position": {
+      "x": 1.6418043646898104,
+      "y": 5.676247748891894
+    },
+    "rotation": 0
+  },
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "named",
+          "data": {
+            "name": "actionLowShoot"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Speaker_to_1"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionGrabAuto"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionLowShoot"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "note_1_to_2"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionGrabAuto"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionLowShoot"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "note_2_to_3"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionGrabAuto"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionLowShoot"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionStow"
+          }
+        }
+      ]
+    }
+  },
+  "folder": null,
+  "choreoAuto": false
+}

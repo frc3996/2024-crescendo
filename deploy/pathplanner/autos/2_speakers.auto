@@ -1,0 +1,49 @@
+{
+  "version": 1.0,
+  "startingPose": {
+    "position": {
+      "x": 1.8636772408679951,
+      "y": 5.583800717150984
+    },
+    "rotation": 0.0
+  },
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "named",
+          "data": {
+            "name": "actionLowShoot"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "speakers_to_2"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionGrabAuto"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionLowShoot"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionStow"
+          }
+        }
+      ]
+    }
+  },
+  "folder": null,
+  "choreoAuto": false
+}

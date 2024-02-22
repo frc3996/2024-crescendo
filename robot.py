@@ -156,7 +156,7 @@ class MyRobot(MagicRobot):
         # self.status_light = wpilib.Solenoid(10, wpilib.PneumaticsModuleType.CTREPCM, 1)
 
         # NAVX
-        self.navx = AHRS.create_i2c(wpilib.I2C.Port.kMXP, update_rate_hz=50)
+        self.navx = AHRS.create_spi()
 
         # Configuration de la base swerve
         self.initSwerve()

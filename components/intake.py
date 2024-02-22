@@ -1,6 +1,6 @@
 import rev
 import wpilib
-from magicbot import StateMachine, feedback, state, tunable
+from magicbot import StateMachine, feedback, state, tunable, timed_state
 
 import constants
 
@@ -83,14 +83,13 @@ class Intake(StateMachine):
     @state(first=True, must_finish=True)
     def jiggle_start(self):
         if self.has_object():
-            self.pid.setReference(-0.3, rev.CANSparkMax.ControlType.kDutyCycle)
+            self.pid.setReference(-0.2, rev.CANSparkMax.ControlType.kDutyCycle)
+        else:
             self.next_state_now("jiggle_intake")
 
-    @state(must_finish=True)
+    @timed_state(duration=0.1, must_finish=True, next_state="jiggle_stop")
     def jiggle_intake(self):
-        if not self.has_object():
-            self.pid.setReference(0.3, rev.CANSparkMax.ControlType.kDutyCycle)
-            self.next_state_now("jiggle_stop")
+        self.pid.setReference(0.2, rev.CANSparkMax.ControlType.kDutyCycle)
 
     @state(must_finish=True)
     def jiggle_stop(self):
