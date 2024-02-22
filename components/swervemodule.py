@@ -7,6 +7,8 @@ import constants
 import phoenix6
 from magicbot import feedback, tunable, will_reset_to
 from wpimath import controller, geometry, kinematics, units
+from wpimath.geometry import Rotation2d
+import wpimath.trajectory
 
 
 # Classe de configuration des swerve
@@ -26,12 +28,12 @@ class SwerveModule:
     encoder: phoenix6.hardware.CANcoder
     cfg: SwerveModuleConfig
 
-    current_encoder_pos = will_reset_to(None)
-    get_current_position = will_reset_to(None)
-
     kP = tunable(0.005)
     kI = tunable(0.0)
     kD = tunable(0.0)
+    ang_vel = tunable(math.pi)
+    ang_acc = tunable(math.tau)
+
     debug = tunable(False)
     calibration_mode = tunable(False)
     encoder_zero = tunable(0.0)
@@ -51,8 +53,7 @@ class SwerveModule:
             wheel_gear_ratio / wheel_circumference_meter * fudge_factor
         )
         self.sim_currentPosition = kinematics.SwerveModulePosition()
-        self.currentState = kinematics.SwerveModuleState()
-        self.lastPosition = 0
+        self.targetState = kinematics.SwerveModuleState()
 
         # Drive Motor
         config = phoenix6.configs.TalonFXConfiguration()
@@ -72,7 +73,6 @@ class SwerveModule:
         self.driveMotor_control = phoenix6.controls.VelocityVoltage(
             0, 0, True, 0, 0, False, False, False
         )
-        self._requested_speed = 0
 
         # Rotation Motor
         config = phoenix6.configs.TalonFXConfiguration()
@@ -83,15 +83,18 @@ class SwerveModule:
         motor_config.inverted = phoenix6.signals.InvertedValue.CLOCKWISE_POSITIVE
         config.motor_output = motor_config
         self.rotateMotor.configurator.apply(config)  # type: ignore
-        self._requested_degree = 0
         self.rotateMotor_control = phoenix6.controls.DutyCycleOut(0)
-        self.rotation_pid = controller.PIDController(
-            0, 0, 0
+        self.rotation_pid = controller.ProfiledPIDController(
+            self.kP, self.kI, self.kD, wpimath.trajectory.TrapezoidProfile.Constraints(
+                self.ang_vel,
+                self.ang_acc,
+            ),
         )  # PID configuré via le ShuffleBoard
         self.rotation_pid.enableContinuousInput(
             0, 360
         )  # 0 et 360 sont considérés comme la même valeur
         cancoder_config = phoenix6.configs.CANcoderConfiguration()
+        cancoder_config.magnet_sensor.absolute_sensor_range = phoenix6.signals.AbsoluteSensorRangeValue.SIGNED_PLUS_MINUS_HALF
         self.encoder.configurator.apply(cancoder_config)  # type: ignore
 
         self.driveMotor.get_position().set_update_frequency(10)
@@ -105,111 +108,53 @@ class SwerveModule:
         self.rotation_pid.setP(self.kP)
         self.rotation_pid.setI(self.kI)
         self.rotation_pid.setD(self.kD)
+        self.rotation_pid.setConstraints(wpimath.trajectory.TrapezoidProfile.Constraints(
+            self.ang_vel,
+            self.ang_acc,
+        ))
 
     def flush(self):
         """
         Remets à Zéro l'angle et la vitesse demandé
         ainsi que le PID
         """
-        self._requested_degree = self.encoder_zero
+        self._requested_degree = self.get_encoder_rotation().degrees()
         self._requested_speed = 0
-        self.rotation_pid.reset()
+        self.rotation_pid.reset(wpimath.trajectory.TrapezoidProfile.State(0, 0))
 
-    def get_encoder_abs_position(self):
+    def get_encoder_rotation(self) -> Rotation2d:
         """Retourne la position actuelle de l'encodeur"""
-        if self.current_encoder_pos is not None:
-            return self.current_encoder_pos
-        abs_pos = (self.encoder.get_absolute_position().value + 0.5) * 360
-        computed_value = (abs_pos + self.encoder_zero) % 359
-        self.current_encoder_pos = computed_value
-        return computed_value
-
-    def kinematic_move(self):
-        """
-        Spécifie la vitesse et l'angle requise.
-        :param speed: Vitesse de la roue, de -1 à 1
-        :param deg: Angle de la roue, de 0 à 359
-        """
-        deg = self.currentState.angle.degrees() + 360
-        speed = self.currentState.speed
-        deg %= 360  # Empêche les valeurs au dessus de 359 degrée
-
-        if self.cfg.allow_reverse:
-            # Si la différence d'angle est de plus de 90 degrée, on inverse la vitesse et pivote moins
-            offset = abs(deg - self.get_encoder_abs_position())
-            if offset > 90 and offset < 270:
-                speed *= -1
-                deg += 180
-                deg %= 360
-
-        self._requested_degree = deg
-        self._requested_speed = speed
+        abs_pos = Rotation2d(self.encoder.get_absolute_position().value * math.tau)
+        rotation = abs_pos + Rotation2d.fromDegrees(self.encoder_zero)
+        return rotation
 
     def resetPose(self):
         if self.is_sim:
             self.sim_currentPosition = kinematics.SwerveModulePosition(
-                0, self.currentState.angle
+                0, self.targetState.angle
             )
         else:
             self.driveMotor.set_position(0)
 
     def setTargetState(self, targetState):
-        self.currentState = kinematics.SwerveModuleState.optimize(
-            targetState, self.currentState.angle
+        self.targetState = kinematics.SwerveModuleState.optimize(
+            targetState, self.targetState.angle
         )
-        if self.is_sim:
-            self.sim_currentPosition = kinematics.SwerveModulePosition(
-                self.sim_currentPosition.distance + (self.currentState.speed * 0.02),
-                self.currentState.angle,
-            )
-
-    def getState(self):
-        """
-        For PathPlannerLib
-        Return Swerve module state
-        """
-        return self.currentState
 
     def getPosition(self):
         """
-        For PathPlannerLib
         Return Swerve module position
         """
-        if self.get_current_position is not None:
-            return self.get_current_position
-
         if self.is_sim:
             return self.sim_currentPosition
 
-        current_position = (
+        drive_position = (
             self.driveMotor.get_position().value
             / self.velocity_to_rps_conversion_factor
         )
-        current_angle = geometry.Rotation2d.fromDegrees(
-            self.get_encoder_abs_position() - 180
-        )
-        result = kinematics.SwerveModulePosition(-current_position, current_angle)
-        self.get_current_position = result
-        # print(f"{self.cfg.nt_name} rotation abs position: {self.get_encoder_abs_position()}")
+        result = kinematics.SwerveModulePosition(-drive_position, self.get_encoder_rotation())
         return result
 
-    # @feedback
-    def get_angle_degrees(self):
-        return self.get_encoder_abs_position()
-
-    # @feedback
-    def get_angle_error(self):
-        return self._requested_degree - self.get_encoder_abs_position()
-
-    # @feedback
-    def get_requested_degree(self):
-        return self._requested_degree
-
-    # # @feedback
-    def get_requested_speed(self):
-        return self._requested_speed
-
-    @tools.print_exec_time("process")
     def process(self):
         """
         Utilise le PID pour se rendre à la position demandée.
@@ -217,24 +162,38 @@ class SwerveModule:
 
         Appelé à chaque itération/boucle
         """
-        # Calcul de l'angle avec le PID
-        self.kinematic_move()
+        # Reversing the wheel direction if angle is greater than 90 degree
+        rotation_offset = (self.targetState.angle - self.get_encoder_rotation())
+        if self.cfg.allow_reverse:
+            if rotation_offset.degrees() < -90 or rotation_offset.degrees() > 90:
+                self.targetState.speed *= -1
+                self.targetState.angle += Rotation2d(math.pi)
 
-        # Commande d'angle
+        # Scaling speed if wheel is too offset
+        self.targetState.speed *= rotation_offset.cos()
+
+        # Calibration mode
         if self.calibration_mode:
-            self._requested_degree = 0
+            self.targetState.angle = Rotation2d(0)
+            self.targetState.speed = 0.05
+
+        # Computing the angle PID
         error = self.rotation_pid.calculate(
-            self.get_encoder_abs_position(), self._requested_degree
+            self.get_encoder_rotation().degrees(), self.targetState.angle.degrees()
         )
-        self.rotateMotor_control.output = max(min(error, 1), -1)
+        self.rotateMotor_control.output = tools.fit_to_boundaries(error, -1, 1)
         self.rotateMotor.set_control(self.rotateMotor_control)
 
-        # Commande de vitesse au moteur, conversion de la vitesse en RPM
-        if self.calibration_mode:
-            self._requested_speed = 0.05
-        rps = self._requested_speed * self.velocity_to_rps_conversion_factor
+        # Setting drive motor speed
+        rps = self.targetState.speed * self.velocity_to_rps_conversion_factor
         self.driveMotor.set_control(self.driveMotor_control.with_velocity(rps))
-        self._requested_speed = 0
+
+        # Setting sim values
+        if self.is_sim:
+            self.sim_currentPosition = kinematics.SwerveModulePosition(
+                self.sim_currentPosition.distance + (self.targetState.speed * 0.02),
+                self.targetState.angle,
+            )
 
     def execute(self):
         pass

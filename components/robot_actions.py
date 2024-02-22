@@ -2,7 +2,7 @@ import math
 
 from magicbot import StateMachine, feedback, state, timed_state, tunable
 from magicbot.state_machine import StateRef
-from wpimath import controller
+from wpimath import controller, geometry
 
 from common import arduino_light, tools
 from components.climber import Climber
@@ -188,7 +188,7 @@ class ActionGrabAuto(StateMachine):
         else:
             fwd = 0.5
             error = 0
-        self.drivetrain.set_relative_automove_value(-fwd, error)
+        self.drivetrain.set_robot_relative_automove_value(-fwd, error)
 
         if self.intake.has_object():
             self.next_state("finish_intaking")
@@ -408,7 +408,7 @@ class ActionShootAmpAssisted(StateMachine):
     def rotate(self):
         self.ready_to_fire = False
 
-        self.drivetrain.set_angle(-90)  # We throw from behind
+        self.drivetrain.snap_angle(geometry.Rotation2d.fromDegrees(-90))  # We throw from behind
         if self.drivetrain.angle_reached():
             self.next_state("prepare_to_shoot")
 
@@ -417,6 +417,7 @@ class ActionShootAmpAssisted(StateMachine):
         self.lobras_head.set_angle(self.head_angle)
         self.lobras_arm.set_angle(self.arm_angle)
         self.shooter.shoot_amp()
+        self.drivetrain.snap_angle(geometry.Rotation2d.fromDegrees(-90))  # We throw from behind
 
         if not self.lobras_arm.is_ready(acceptable_error=10):
             return
@@ -426,6 +427,7 @@ class ActionShootAmpAssisted(StateMachine):
 
     @state
     def wait_release(self):
+        self.drivetrain.snap_angle(geometry.Rotation2d.fromDegrees(-90))  # We throw from behind
         self.ready_to_fire = True
         self.arduino_light.set_RGB(255, 0, 0)
 
@@ -553,7 +555,7 @@ class ActionLowShootAuto(StateMachine):
 
         # Rotate the robot
         target_angle = tools.compute_angle(speaker_position.X(), speaker_position.Y())
-        self.drivetrain.set_angle(target_angle + 180)  # We throw from behind
+        self.drivetrain.snap_angle(geometry.Rotation2d.fromDegrees(target_angle + 180))  # We throw from behind
         if self.drivetrain.angle_reached(acceptable_error=1):
             self._launch_rotation = target_angle
             return True
@@ -693,7 +695,7 @@ class ActionWinch(StateMachine):
 
         # Rotate the robot
         target_rotation = tools.compute_angle(target_position.X(), target_position.Y())
-        self.drivetrain.set_angle(target_rotation)
+        self.drivetrain.snap_angle(geometry.Rotation2d.fromDegrees(target_rotation))
         if self.drivetrain.angle_reached(acceptable_error=1):
             self.next_state("position_arm")
 

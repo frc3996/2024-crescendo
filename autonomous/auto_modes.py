@@ -59,7 +59,7 @@ class RunAuto(AutonomousStateMachine):
         new_pose = geometry.Pose2d(
             reset_pose["position"]["x"],
             reset_pose["position"]["y"],
-            reset_pose["rotation"],
+            geometry.Rotation2d.fromDegrees(reset_pose["rotation"]),
         )
         self.drivetrain.resetPose(new_pose)
         self.next_state("execute_next_command")

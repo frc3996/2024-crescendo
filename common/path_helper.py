@@ -67,7 +67,7 @@ class PathHelper:
         # adjustedSpeeds = self.controller.calculate(fake_pose.getTargetHolonomicPose(), goal.getTargetHolonomicPose(), goal.velocityMps, goal.heading)
         goal = self.trajectory.getEndState()
 
-        target_rotation = self.path.getGoalEndState().rotation.degrees()
+        target_rotation = self.path.getGoalEndState().rotation
 
         goal.targetHolonomicRotation = geometry.Rotation2d(0)
         current = self.drivetrain.get_odometry_pose()
@@ -76,14 +76,14 @@ class PathHelper:
             current, goal.getTargetHolonomicPose(), 0, geometry.Rotation2d(0)
         )
         # speed = kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(adjustedSpeeds.vx, adjustedSpeeds.vy, adjustedSpeeds.omega, goal.heading)
-        self.drivetrain.set_absolute_automove_value(
+        self.drivetrain.set_field_relative_automove_value(
             adjustedSpeeds.vx, adjustedSpeeds.vy
         )
-        self.drivetrain.set_angle(target_rotation)
+        self.drivetrain.snap_angle(target_rotation)
 
     def target_end_angle(self):
-        target_rotation = self.path.getGoalEndState().rotation.degrees()
-        self.drivetrain.set_angle(target_rotation)
+        target_rotation = self.path.getGoalEndState().rotation
+        self.drivetrain.snap_angle(target_rotation)
 
     def auto_move(self):
         # If odometry is bad, compute now + 0.02 as goal and now as current position
@@ -92,7 +92,7 @@ class PathHelper:
         # adjustedSpeeds = self.controller.calculate(fake_pose.getTargetHolonomicPose(), goal.getTargetHolonomicPose(), goal.velocityMps, goal.heading)
         goal = self.trajectory.sample(self.timer.get())
 
-        target_rotation = self.path.getGoalEndState().rotation.degrees()
+        target_rotation = self.path.getGoalEndState().rotation
 
         goal.targetHolonomicRotation = geometry.Rotation2d(0)
         current = self.drivetrain.get_odometry_pose()
@@ -101,10 +101,10 @@ class PathHelper:
             current, goal.getTargetHolonomicPose(), 0, geometry.Rotation2d(0)
         )
         # speed = kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(adjustedSpeeds.vx, adjustedSpeeds.vy, adjustedSpeeds.omega, goal.heading)
-        self.drivetrain.set_absolute_automove_value(
+        self.drivetrain.set_field_relative_automove_value(
             adjustedSpeeds.vx, adjustedSpeeds.vy
         )
-        self.drivetrain.set_angle(target_rotation)
+        self.drivetrain.snap_angle(target_rotation)
 
     def path_reached_end(self):
         return self.timer.get() >= self.trajectory.getTotalTimeSeconds()
