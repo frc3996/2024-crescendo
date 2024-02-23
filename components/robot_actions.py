@@ -227,7 +227,7 @@ class ActionGrabAuto(StateMachine):
         else:
             fwd = 0.5
             error = 0
-        self.drivetrain.set_robot_relative_automove_value(fwd, error)
+        self.drivetrain.set_robot_relative_automove_value(-fwd, -error)
 
         if self.intake.has_object():
             self.next_state("finish_intaking")
