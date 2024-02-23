@@ -43,8 +43,8 @@ class SwerveDrive:
     nt: ntcore.NetworkTable
 
     tmp_speed_factor = magicbot.will_reset_to(1)
-    controller_chassis_speed = kinematics.ChassisSpeeds(0, 0, 0)
-    auto_chassis_speed = kinematics.ChassisSpeeds(0, 0, 0)
+    controller_chassis_speed = magicbot.will_reset_to(kinematics.ChassisSpeeds(0, 0, 0))
+    auto_chassis_speed = magicbot.will_reset_to(None)
     request_wheel_lock = magicbot.will_reset_to(False)
     __snap_enabled = magicbot.will_reset_to(False)
 
@@ -106,7 +106,7 @@ class SwerveDrive:
         self.frontRightModule.flush()
         self.rearLeftModule.flush()
         self.rearRightModule.flush()
-        self.angle_pid.reset(trajectory.TrapezoidProfile.State(0, 0))
+        # self.angle_pid.reset(trajectory.TrapezoidProfile.State(self.getRotation2d().degrees(), 0))
 
     def on_enable(self):
         """Automatic robotpy call when robot enter teleop or auto"""
@@ -147,24 +147,20 @@ class SwerveDrive:
         self.__snap_enabled = True
 
     def set_field_relative_automove_value(self, forward, strafe):
-        self.automove_forward = forward
-        self.automove_strafe = strafe
         self.auto_chassis_speed = kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(forward, strafe, 0, self.getRotation2d())
 
     def relative_rotate(self, rotation):
         self.__snap_angle = self.get_odometry_angle() + Rotation2d.fromDegrees(rotation)
 
     def set_robot_relative_automove_value(self, forward, strafe):
-        self.automove_forward = forward
-        self.automove_strafe = strafe
-        self.auto_chassis_speed = kinematics.ChassisSpeeds.fromRobotRelativeSpeeds(forward, strafe, 0, self.getRotation2d())
+        self.auto_chassis_speed = kinematics.ChassisSpeeds(forward, strafe, 0)
 
     def set_tmp_speed_factor(self, factor):
         self.tmp_speed_factor = factor
 
     def set_controller_values(self, forward, strafe, angle_stick_x, angle_stick_y):
-        forward = tools.square_input(-forward)
-        strafe = tools.square_input(-strafe)
+        forward = tools.square_input(forward)
+        strafe = tools.square_input(strafe)
         if abs(forward) < constants.LOWER_INPUT_THRESH:
             forward = 0
         if abs(strafe) < constants.LOWER_INPUT_THRESH:
@@ -190,7 +186,10 @@ class SwerveDrive:
         en fonction des commandes reçues
         """
 
-        chassis_speed = self.controller_chassis_speed + self. auto_chassis_speed
+        chassis_speed = self.controller_chassis_speed
+        if self.auto_chassis_speed is not None:
+            chassis_speed += self.auto_chassis_speed
+
         if self.__snap_enabled:
             omega = self.angle_pid.calculate(
                 self.get_odometry_angle().degrees(), self.__snap_angle.degrees()
@@ -198,14 +197,14 @@ class SwerveDrive:
             omega = max(min(omega, 2), -2)
             if abs(omega) <= 0.002:
                 omega = 0
+            chassis_speed.omega = -omega
         else:
-            omega = chassis_speed.omega
+            self.angle_pid.reset(trajectory.TrapezoidProfile.State(self.getRotation2d().degrees(), 0))
 
-        self.sim_angle = self.sim_angle + Rotation2d.fromDegrees(omega * 5 * 20)
-
+        self.sim_angle = self.sim_angle + Rotation2d.fromDegrees(chassis_speed.omega * 5 * 20)
 
         # Ne fais rien si les vecteurs sont trop petits
-        if chassis_speed.vx == 0 and chassis_speed.vy == 0 and omega == 0 and self.request_wheel_lock:
+        if chassis_speed.vx == 0 and chassis_speed.vy == 0 and chassis_speed.omega == 0 and self.request_wheel_lock:
             self.frontLeftModule.setTargetState(kinematics.SwerveModuleState(0, Rotation2d.fromDegrees(-45)))
             self.frontRightModule.setTargetState(kinematics.SwerveModuleState(0, Rotation2d.fromDegrees(45)))
             self.rearLeftModule.setTargetState(kinematics.SwerveModuleState(0, Rotation2d.fromDegrees(-45)))
@@ -233,7 +232,7 @@ class SwerveDrive:
         self.navx.reset()
         self.navx_update_offset()
         self.__snap_angle = self.get_odometry_angle()
-        self.angle_pid.reset(trajectory.TrapezoidProfile.State(0, 0))
+        # self.angle_pid.reset(trajectory.TrapezoidProfile.State(0, 0))
 
     def navx_update_offset(self):
         self.navx_offset = (
@@ -263,8 +262,7 @@ class SwerveDrive:
                 self.rearRightModule.getPosition(),
             ),
         )
-        current_pose = self.get_odometry_pose()
-        pathplannerlib.telemetry.PPLibTelemetry.setCurrentPose(current_pose)
+        pathplannerlib.telemetry.PPLibTelemetry.setCurrentPose(self.get_odometry_pose())
 
     def get_odometry_pose(self) -> geometry.Pose2d:
         """
@@ -278,11 +276,6 @@ class SwerveDrive:
         For PathPlannerLib
         Method to reset odometry (will be called if your auto has a starting pose)
         """
-        self.frontLeftModule.resetPose()
-        self.frontRightModule.resetPose()
-        self.rearLeftModule.resetPose()
-        self.rearRightModule.resetPose()
-
         gyro = self.sim_angle if self.is_sim else (self.navx.getRotation2d() + self.navx_offset)
 
         self.odometry.resetPosition(
@@ -300,11 +293,11 @@ class SwerveDrive:
         """
         Calcul et transmet la commande de vitesse et d'angle à chaque swerve module.
         """
-        # Évaluation de la commande selon le mode d'opération
-        self.__updateOdometry()
-
         # Calcul des vecteurs
         self.__calculate_vectors()
+
+        # Évaluation de la commande selon le mode d'opération
+        self.__updateOdometry()
 
         self.frontLeftModule.process()
         self.frontRightModule.process()

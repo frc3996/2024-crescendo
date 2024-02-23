@@ -12,6 +12,7 @@ from components.lobra import LoBrasArm, LoBrasHead
 from components.pixy import Pixy
 from components.shooter import Shooter
 from components.swervedrive import SwerveDrive
+from common.path_helper import PathHelper
 
 
 class ActionStow(StateMachine):
@@ -81,6 +82,44 @@ class ActionDummy(StateMachine):
         if initial_call:
             print(self.x)
         pass
+
+    def done(self):
+        self.actionStow.engage()
+        super().done()
+
+
+class ActionPathTester(StateMachine):
+    actionStow: ActionStow
+    drivetrain: SwerveDrive
+    path_kp = tunable(2)
+    path_ki = tunable(0)
+    path_kd = tunable(0)
+    path_profile = tunable(2)
+    force_reset_pose = tunable(False)
+
+    def engage(
+        self, initial_state: StateRef | None = None, force: bool = False
+    ) -> None:
+        return super().engage(initial_state, force)
+
+    @state(first=True)
+    def init(self):
+        self.auto_path = PathHelper(
+            self.drivetrain,
+            "amp_to_1",
+            kp=self.path_kp,
+            ki=self.path_ki,
+            kd=self.path_kd,
+            profile_kp=self.path_profile,
+        )
+        self.auto_path.init_path(force_robot_starting_position=self.force_reset_pose)
+        self.next_state("move")
+
+    @state
+    def move(self):
+        self.auto_path.move_to_end()
+        if self.auto_path.robot_reached_end_position():
+            print("Reached end!")
 
     def done(self):
         self.actionStow.engage()
@@ -188,25 +227,37 @@ class ActionGrabAuto(StateMachine):
         else:
             fwd = 0.5
             error = 0
-        self.drivetrain.set_robot_relative_automove_value(-fwd, error)
+        self.drivetrain.set_robot_relative_automove_value(-fwd, -error)
 
         if self.intake.has_object():
             self.next_state("finish_intaking")
 
-    @timed_state(duration=0.05, next_state="finish")
-    def finish_intaking(self):
-        pass
+    @state
+    def finish_intaking(self, initial_call):
+        self.lobras_head.set_angle(40)
+        self.intake.jiggle()
+        if self.intake.is_executing and not initial_call:
+            self.next_state("finish")
 
     @state
     def finish(self, initial_call):
         if initial_call:
             self.arduino_light.set_RGB(255, 136, 0)
-            self.intake.jiggle()
             self.lobras_head.set_angle(0)
+        self.done()
 
     def done(self) -> None:
         self.actionStow.engage()
         return super().done()
+
+
+class ActionGrabAssisted(ActionGrabAuto):
+
+    @state
+    def finish(self, initial_call):
+        if initial_call:
+            self.arduino_light.set_RGB(255, 136, 0)
+            self.lobras_head.set_angle(0)
 
 
 class ActionShoot(StateMachine):
@@ -514,6 +565,8 @@ class ActionLowShootAuto(StateMachine):
     THROW_OFFSET = tunable(45)
     ARM_OFFSET = tunable(0)
 
+    _teleop = False
+
     # @feedback
     def get_best_angle(self):
         speaker_position = self.field_layout.getSpeakerRelativePosition()
@@ -536,11 +589,23 @@ class ActionLowShootAuto(StateMachine):
     ) -> None:
         return super().engage(initial_state, force)
 
+    @state
+    def manual(self):
+        self._teleop = True
+        self.next_state_now("position_arm")
+
     @state(first=True)
-    def position_arm(self):
-        if self.intake.has_object() is False:
-            self.next_state("finish")
+    def position_arm(self, initial_call):
+        if self.intake.has_object() is False and initial_call:
+            self.intake.jiggle()
             return
+
+        if self.intake.is_executing:
+            return
+
+        # if self.intake.has_object() is False:
+        #     self.next_state("finish")
+        #     return
 
         self.lobras_arm.set_angle(self.ARM_OFFSET)
         self.lobras_head.set_angle(self.THROW_OFFSET)
@@ -606,7 +671,8 @@ class ActionLowShootAuto(StateMachine):
         self.shooter.disable()
         self.lobras_head.set_angle(0)
         self.arduino_light.set_RGB(0, 255, 0)
-        pass
+        if self._teleop is False:
+            self.done()
 
     def done(self) -> None:
         self.actionStow.engage()

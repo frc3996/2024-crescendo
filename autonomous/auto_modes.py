@@ -35,7 +35,7 @@ class RunAuto(AutonomousStateMachine):
     DEFAULT = True
 
     # Tunables
-    auto_name = tunable("1 amp + 3_speakers")
+    auto_name = tunable("1_amp + 2_speakers")
     path_kp = tunable(2)
     path_ki = tunable(0)
     path_kd = tunable(0)
@@ -76,9 +76,10 @@ class RunAuto(AutonomousStateMachine):
     def named(self, initial_call):
         command_name = self.current_command["data"]["name"]
         command = getattr(self, command_name)  # type: StateMachine
-        command.engage()
         if not command.is_executing and not initial_call:
             self.next_state("execute_next_command")
+        else:
+            command.engage()
 
     @state
     def path(self, initial_call):

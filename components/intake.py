@@ -80,16 +80,23 @@ class Intake(StateMachine):
     def jiggle(self):
         self.engage(initial_state="jiggle_start")
 
-    @state(first=True, must_finish=True)
+    @timed_state(duration=0.2, must_finish=True, next_state="jiggle_out")
     def jiggle_start(self):
+        if not self.has_object():
+            self.pid.setReference(0.4, rev.CANSparkMax.ControlType.kDutyCycle)
+        else:
+            self.next_state_now("jiggle_out")
+
+    @state(first=True, must_finish=True)
+    def jiggle_out(self):
         if self.has_object():
-            self.pid.setReference(-0.2, rev.CANSparkMax.ControlType.kDutyCycle)
+            self.pid.setReference(-0.4, rev.CANSparkMax.ControlType.kDutyCycle)
         else:
             self.next_state_now("jiggle_intake")
 
     @timed_state(duration=0.1, must_finish=True, next_state="jiggle_stop")
     def jiggle_intake(self):
-        self.pid.setReference(0.2, rev.CANSparkMax.ControlType.kDutyCycle)
+        self.pid.setReference(0.4, rev.CANSparkMax.ControlType.kDutyCycle)
 
     @state(must_finish=True)
     def jiggle_stop(self):

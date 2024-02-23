@@ -5,7 +5,7 @@
       "x": 1.8700428947763699,
       "y": 7.59882590193911
     },
-    "rotation": 0
+    "rotation": -89.83161107215781
   },
   "command": {
     "type": "sequential",
@@ -14,7 +14,7 @@
         {
           "type": "named",
           "data": {
-            "name": "actionAmpShoot"
+            "name": "actionShootAmpAuto"
           }
         },
         {
@@ -32,7 +32,7 @@
         {
           "type": "named",
           "data": {
-            "name": "actionLowShoot"
+            "name": "actionLowShootAuto"
           }
         },
         {
@@ -50,7 +50,7 @@
         {
           "type": "named",
           "data": {
-            "name": "actionLowShoot"
+            "name": "actionLowShootAuto"
           }
         },
         {

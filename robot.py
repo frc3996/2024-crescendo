@@ -56,7 +56,7 @@ from components.robot_actions import (ActionDewinch, ActionDummy,
                                       ActionShoot, ActionShootAmp,
                                       ActionShootAmpAssisted,
                                       ActionShootAmpAuto, ActionStow,
-                                      ActionWinch)
+                                      ActionWinch, ActionPathTester)
 from components.shooter import Shooter, ShooterFollower, ShooterMain
 from components.swervedrive import SwerveDrive, SwerveDriveConfig
 from components.swervemodule import SwerveModule, SwerveModuleConfig
@@ -96,6 +96,7 @@ class MyRobot(MagicRobot):
     actionDewinch: ActionDewinch
     actionWinch: ActionWinch
     actionDummy: ActionDummy
+    actionPathTester: ActionPathTester
 
     # LOW Level components after
 
@@ -156,7 +157,7 @@ class MyRobot(MagicRobot):
         # self.status_light = wpilib.Solenoid(10, wpilib.PneumaticsModuleType.CTREPCM, 1)
 
         # NAVX
-        self.navx = AHRS.create_spi()
+        self.navx = AHRS.create_spi(update_rate_hz=50)
 
         # Configuration de la base swerve
         self.initSwerve()
@@ -304,6 +305,7 @@ class MyRobot(MagicRobot):
             self.actionOuttake.engage()
             pass
         elif self.gamepad.getXButton():
+            self.actionPathTester.engage()
             pass
         elif self.gamepad.getYButton():
             self.actionDewinch.engage()

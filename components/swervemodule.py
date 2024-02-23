@@ -31,8 +31,6 @@ class SwerveModule:
     kP = tunable(0.005)
     kI = tunable(0.0)
     kD = tunable(0.0)
-    ang_vel = tunable(math.pi)
-    ang_acc = tunable(math.tau)
 
     debug = tunable(False)
     calibration_mode = tunable(False)
@@ -84,11 +82,8 @@ class SwerveModule:
         config.motor_output = motor_config
         self.rotateMotor.configurator.apply(config)  # type: ignore
         self.rotateMotor_control = phoenix6.controls.DutyCycleOut(0)
-        self.rotation_pid = controller.ProfiledPIDController(
-            self.kP, self.kI, self.kD, wpimath.trajectory.TrapezoidProfile.Constraints(
-                self.ang_vel,
-                self.ang_acc,
-            ),
+        self.rotation_pid = controller.PIDController(
+            self.kP, self.kI, self.kD
         )  # PID configuré via le ShuffleBoard
         self.rotation_pid.enableContinuousInput(
             0, 360
@@ -108,10 +103,6 @@ class SwerveModule:
         self.rotation_pid.setP(self.kP)
         self.rotation_pid.setI(self.kI)
         self.rotation_pid.setD(self.kD)
-        self.rotation_pid.setConstraints(wpimath.trajectory.TrapezoidProfile.Constraints(
-            self.ang_vel,
-            self.ang_acc,
-        ))
 
     def flush(self):
         """
@@ -120,7 +111,7 @@ class SwerveModule:
         """
         self._requested_degree = self.get_encoder_rotation().degrees()
         self._requested_speed = 0
-        self.rotation_pid.reset(wpimath.trajectory.TrapezoidProfile.State(0, 0))
+        self.rotation_pid.reset()
 
     def get_encoder_rotation(self) -> Rotation2d:
         """Retourne la position actuelle de l'encodeur"""
