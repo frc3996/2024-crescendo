@@ -143,7 +143,7 @@ class SwerveModule:
             self.driveMotor.get_position().value
             / self.velocity_to_rps_conversion_factor
         )
-        result = kinematics.SwerveModulePosition(-drive_position, self.get_encoder_rotation())
+        result = kinematics.SwerveModulePosition(drive_position, self.get_encoder_rotation())
         return result
 
     def process(self):

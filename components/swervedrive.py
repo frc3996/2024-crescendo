@@ -159,8 +159,8 @@ class SwerveDrive:
         self.tmp_speed_factor = factor
 
     def set_controller_values(self, forward, strafe, angle_stick_x, angle_stick_y):
-        forward = tools.square_input(forward)
-        strafe = tools.square_input(strafe)
+        forward = tools.square_input(-forward)
+        strafe = tools.square_input(-strafe)
         if abs(forward) < constants.LOWER_INPUT_THRESH:
             forward = 0
         if abs(strafe) < constants.LOWER_INPUT_THRESH:

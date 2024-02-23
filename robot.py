@@ -195,7 +195,7 @@ class MyRobot(MagicRobot):
         )
         self.frontLeftModule_cfg = SwerveModuleConfig(
             nt_name="frontLeftModule",
-            inverted=False,
+            inverted=True,
             allow_reverse=True,
             rotation_zero=193,
         )
@@ -211,7 +211,7 @@ class MyRobot(MagicRobot):
         )
         self.frontRightModule_cfg = SwerveModuleConfig(
             nt_name="frontRightModule",
-            inverted=True,
+            inverted=False,
             allow_reverse=True,
             rotation_zero=76,
         )
@@ -227,7 +227,7 @@ class MyRobot(MagicRobot):
         )
         self.rearLeftModule_cfg = SwerveModuleConfig(
             nt_name="rearLeftModule",
-            inverted=True,
+            inverted=False,
             allow_reverse=True,
             rotation_zero=216,
         )
@@ -243,7 +243,7 @@ class MyRobot(MagicRobot):
         )
         self.rearRightModule_cfg = SwerveModuleConfig(
             nt_name="rearRightModule",
-            inverted=False,
+            inverted=True,
             allow_reverse=True,
             rotation_zero=318,
         )

@@ -77,7 +77,7 @@ class PathHelper:
         )
         # speed = kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(adjustedSpeeds.vx, adjustedSpeeds.vy, adjustedSpeeds.omega, goal.heading)
         self.drivetrain.set_field_relative_automove_value(
-            -adjustedSpeeds.vx, -adjustedSpeeds.vy
+            adjustedSpeeds.vx, adjustedSpeeds.vy
         )
         print(adjustedSpeeds.vx, adjustedSpeeds.vy)
         self.drivetrain.snap_angle(target_rotation)
@@ -103,7 +103,7 @@ class PathHelper:
         )
         # speed = kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(adjustedSpeeds.vx, adjustedSpeeds.vy, adjustedSpeeds.omega, goal.heading)
         self.drivetrain.set_field_relative_automove_value(
-            -adjustedSpeeds.vx, -adjustedSpeeds.vy
+            adjustedSpeeds.vx, adjustedSpeeds.vy
         )
         self.drivetrain.snap_angle(target_rotation)
 
