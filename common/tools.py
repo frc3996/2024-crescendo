@@ -2,6 +2,7 @@ import math
 
 import wpilib
 import wpimath.units
+import numpy
 
 
 def apply_deadzone(value: float, threshold: float) -> float:
@@ -65,8 +66,14 @@ def rotate_vector(vector, angle):
     y = vector[0] * math.sin(rad) + vector[1] * math.cos(rad)
     return (x, y)
 
-
+distance_points = [0.36+0.85, 1.85,  2.85, 3.33, 3.85,  4.85, 5.85]
+angle_points =    [96,  86, 78, 77 ,74, 74, 70.6]
 def calculate_optimal_launch_angle(
+            distance, height_difference, initial_velocity):
+    interp_fn = numpy.interp(distance, distance_points, angle_points)
+    return interp_fn
+
+def old_calculate_optimal_launch_angle(
     distance, height_difference, initial_velocity
 ) -> wpimath.units.degrees | None:
     """

@@ -10,10 +10,10 @@ import constants
 class ShooterMain:
     # Valeurs de PID
     CANID = constants.CANIds.SHOOTER_LEFT
-    kP = magicbot.tunable(0.00037)
-    kI = magicbot.tunable(0.0000007)
-    kD = magicbot.tunable(0.0)
-    kFF = magicbot.tunable(0.0)
+    kP = magicbot.tunable(0.000000032857)
+    kI = magicbot.tunable(0)
+    kD = magicbot.tunable(0)
+    kFF = magicbot.tunable(0.000215)
     kMotorClosedLoopRampRate = magicbot.tunable(0.0)
     kInverted = True
     delta = magicbot.tunable(100)
@@ -63,16 +63,19 @@ class ShooterMain:
         # self.pid.setReference(0, rev.CANSparkMax.ControlType.kVelocity)
 
     def is_enabled(self):
-        if self.getVelocity() > 0:
+        if self.get_velocity() > 0:
             return True
         return False
 
-    # @feedback
-    def getVelocity(self):
+    def get_velocity(self):
         return self.encoder.getVelocity()
 
+    @feedback
+    def get_velocity_and_target(self):
+        return [self.encoder.getVelocity(), self.__target_velocity]
+
     def is_ready(self):
-        return abs(self.getVelocity() - self.__target_velocity) < self.delta
+        return self.get_velocity() > self.__target_velocity
 
     def on_enable(self):
         # Update the tunables
@@ -92,12 +95,12 @@ class ShooterMain:
 class ShooterFollower(ShooterMain):
     # Valeurs de PID
     CANID = constants.CANIds.SHOOTER_RIGHT
-    kP = magicbot.tunable(0.00030)
-    kI = magicbot.tunable(0.0000008)
-    kD = magicbot.tunable(0.0)
-    kFF = magicbot.tunable(0.0)
     kMotorClosedLoopRampRate = magicbot.tunable(0.0)
     kInverted = False
+    kP = magicbot.tunable(0.000000032857)
+    kI = magicbot.tunable(0)
+    kD = magicbot.tunable(0)
+    kFF = magicbot.tunable(0.00023)
 
     # Duty cycle maximal utiliser par le PID
     kMinOutput = -1
@@ -109,10 +112,10 @@ class Shooter:
     shooter_follower: ShooterFollower
 
     # MAX SPEED IS 5676
-    main_speaker_velocity = magicbot.tunable(4500)
-    follower_speaker_velocity = magicbot.tunable(4500)
+    main_speaker_velocity = magicbot.tunable(4200)
+    follower_speaker_velocity = magicbot.tunable(3200)
 
-    amp_velocity = magicbot.tunable(4000)
+    amp_velocity = magicbot.tunable(3000)
 
 
     # Control methods

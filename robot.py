@@ -56,7 +56,7 @@ from components.robot_actions import (ActionDewinch, ActionDummy,
                                       ActionShoot, ActionShootAmp,
                                       ActionShootAmpAssisted,
                                       ActionShootAmpAuto, ActionStow,
-                                      ActionWinch, ActionPathTester)
+                                      ActionWinch, ActionPathTester, ActionLowShootTune)
 from components.shooter import Shooter, ShooterFollower, ShooterMain
 from components.swervedrive import SwerveDrive, SwerveDriveConfig
 from components.swervemodule import SwerveModule, SwerveModuleConfig
@@ -97,6 +97,7 @@ class MyRobot(MagicRobot):
     actionWinch: ActionWinch
     actionDummy: ActionDummy
     actionPathTester: ActionPathTester
+    actionLowShootTune: ActionLowShootTune
 
     # LOW Level components after
 
@@ -157,7 +158,8 @@ class MyRobot(MagicRobot):
         # self.status_light = wpilib.Solenoid(10, wpilib.PneumaticsModuleType.CTREPCM, 1)
 
         # NAVX
-        self.navx = AHRS.create_spi(update_rate_hz=50)
+        # self.navx = AHRS.create_spi(update_rate_hz=50)
+        self.navx = AHRS(wpilib.SerialPort.Port.kUSB2)
 
         # Configuration de la base swerve
         self.initSwerve()
@@ -299,16 +301,17 @@ class MyRobot(MagicRobot):
             self.actionHighShootAuto.engage()
             pass
         elif self.gamepad.getAButton():
-            self.actionWinch.engage()
+            self.actionLowShootTune.engage()
+            # self.actionWinch.engage()
             pass
         elif self.gamepad.getBButton():
-            self.actionOuttake.engage()
+            # self.actionOuttake.engage()
             pass
         elif self.gamepad.getXButton():
-            self.actionPathTester.engage()
+            # self.actionPathTester.engage()
             pass
         elif self.gamepad.getYButton():
-            self.actionDewinch.engage()
+            # self.actionDewinch.engage()
             pass
         # else:
         #     # NOW CALLED FROM OTHER ACTION, WHEN NEEDED

@@ -23,8 +23,7 @@ class SysIdRoutineBot:
         # self.subsystem = Drive()
 
         # The driver's controller
-        # self.controller = CommandXboxController(0)
-        self.controller = CommandPS4Controller(0)
+        self.controller = CommandXboxController(0)
 
     def configureBindings(self) -> None:
         """Use this method to define bindings between conditions and commands. These are useful for
@@ -40,16 +39,16 @@ class SysIdRoutineBot:
 
         # Bind full set of SysId routine tests to buttons; a complete routine should run each of these
         # once.
-        self.controller.cross().whileTrue(
+        self.controller.a().whileTrue(
             self.subsystem.sysIdQuasistatic(SysIdRoutine.Direction.kForward)
         )
-        self.controller.square().whileTrue(
+        self.controller.x().whileTrue(
             self.subsystem.sysIdQuasistatic(SysIdRoutine.Direction.kReverse)
         )
-        self.controller.triangle().whileTrue(
+        self.controller.y().whileTrue(
             self.subsystem.sysIdDynamic(SysIdRoutine.Direction.kForward)
         )
-        self.controller.circle().whileTrue(
+        self.controller.b().whileTrue(
             self.subsystem.sysIdDynamic(SysIdRoutine.Direction.kReverse)
         )
 
