@@ -179,7 +179,7 @@ class LoBrasHead:
         self.motor.burnFlash()
 
     def on_disable(self):
-        self.motor.setIdleMode(rev.CANSparkMax.IdleMode.kCoast)
+        self.motor.setIdleMode(rev.CANSparkMax.IdleMode.kBrake)
         self.motor.burnFlash()
 
 
@@ -373,7 +373,7 @@ class LoBrasArm:
         self.motor.burnFlash()
 
     def on_disable(self):
-        self.motor.setIdleMode(rev.CANSparkMax.IdleMode.kCoast)
+        self.motor.setIdleMode(rev.CANSparkMax.IdleMode.kBrake)
         self.motor.burnFlash()
 
 

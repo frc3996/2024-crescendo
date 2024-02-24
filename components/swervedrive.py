@@ -42,7 +42,7 @@ class SwerveDrive:
     navx: AHRS
     nt: ntcore.NetworkTable
 
-    tmp_speed_factor = magicbot.will_reset_to(1)
+    tmp_speed_factor = magicbot.will_reset_to((1, 1))
     controller_chassis_speed = magicbot.will_reset_to(kinematics.ChassisSpeeds(0, 0, 0))
     auto_chassis_speed = magicbot.will_reset_to(None)
     request_wheel_lock = magicbot.will_reset_to(False)
@@ -155,12 +155,17 @@ class SwerveDrive:
     def set_robot_relative_automove_value(self, forward, strafe):
         self.auto_chassis_speed = kinematics.ChassisSpeeds(forward, strafe, 0)
 
-    def set_tmp_speed_factor(self, factor):
-        self.tmp_speed_factor = factor
+    def set_tmp_speed_factor(self, factor_movement=1, factor_rotation=1):
+        self.tmp_speed_factor = (factor_movement, factor_rotation)
 
     def set_controller_values(self, forward, strafe, angle_stick_x, angle_stick_y):
         forward = tools.square_input(forward)
         strafe = tools.square_input(strafe)
+
+        if tools.is_red():
+            forward = -forward
+            strafe = -strafe
+
         if abs(forward) < constants.LOWER_INPUT_THRESH:
             forward = 0
         if abs(strafe) < constants.LOWER_INPUT_THRESH:
@@ -170,14 +175,17 @@ class SwerveDrive:
         # if abs(omega) < constants.LOWER_INPUT_THRESH:
         #     omega = 0
 
-        forward *= constants.MAX_WHEEL_SPEED * self.tmp_speed_factor
-        strafe *= constants.MAX_WHEEL_SPEED * self.tmp_speed_factor
+        forward *= constants.MAX_WHEEL_SPEED
+        strafe *= constants.MAX_WHEEL_SPEED
 
         self.controller_chassis_speed = kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(forward, strafe, omega, self.getRotation2d())
 
         # Élimite la zone morte du joystick (petits déplacements)
         if math.sqrt(angle_stick_x**2 + angle_stick_y**2) > 0.25:
             angle = Rotation2d(-math.atan2(angle_stick_y, angle_stick_x)) + Rotation2d.fromDegrees(270)
+
+            if tools.is_red():
+                angle += Rotation2d.fromDegrees(180)
             self.snap_angle(angle)
 
     def __calculate_vectors(self):
@@ -211,6 +219,10 @@ class SwerveDrive:
             self.rearRightModule.setTargetState(kinematics.SwerveModuleState(0, Rotation2d.fromDegrees(45)))
             return
 
+
+        chassis_speed.vx = chassis_speed.vx * self.tmp_speed_factor[0]
+        chassis_speed.vy = chassis_speed.vy * self.tmp_speed_factor[0]
+        chassis_speed.omega = chassis_speed.omega * self.tmp_speed_factor[1]
 
         chassis_speed = kinematics.ChassisSpeeds.discretize(
             chassis_speed,

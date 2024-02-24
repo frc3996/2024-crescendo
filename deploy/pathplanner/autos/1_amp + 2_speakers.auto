@@ -2,8 +2,8 @@
   "version": 1.0,
   "startingPose": {
     "position": {
-      "x": 1.8700428947763699,
-      "y": 7.59882590193911
+      "x": 1.55860203612276,
+      "y": 7.349539023404296
     },
     "rotation": -89.83161107215781
   },
@@ -11,6 +11,12 @@
     "type": "sequential",
     "data": {
       "commands": [
+        {
+          "type": "path",
+          "data": {
+            "pathName": "move_to_amp"
+          }
+        },
         {
           "type": "named",
           "data": {

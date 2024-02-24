@@ -25,7 +25,7 @@ class Intake(StateMachine):
     kMotorClosedLoopRampRate = tunable(0.0)
 
     # Local configs
-    kInverted = False
+    kInverted = True
     beamWithObject = 1100
     beamNoObject = 275
     kMinOutput = -1
@@ -48,6 +48,7 @@ class Intake(StateMachine):
         #      configuration frames
         # self.motor.restoreFactoryDefaults()
         self.motor.setInverted(self.kInverted)
+        self.motor.setSmartCurrentLimit(40)
         self.pid = self.motor.getPIDController()
         self.motor.burnFlash()
 
@@ -55,7 +56,7 @@ class Intake(StateMachine):
         # Update the tunables
         self.motor.setClosedLoopRampRate(self.kMotorClosedLoopRampRate)
 
-    # @feedback
+    @feedback
     def has_object(self):
         if self.beam.getValue() < ((self.beamWithObject - self.beamNoObject) / 2):
             return True

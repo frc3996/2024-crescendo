@@ -36,11 +36,12 @@ import ntcore
 import phoenix6
 import wpilib
 from magicbot import MagicRobot
+from magicbot import tunable
 from navx import AHRS
-
+import rev
 import constants
 from autonomous.auto_modes import RunAuto
-from common import arduino_light
+from common import arduino_light, tools
 from components.climber import Climber, ClimberFollower
 from components.field import FieldLayout
 from components.intake import Intake
@@ -79,19 +80,13 @@ class MyRobot(MagicRobot):
 
     # HIGH Level components first (components that use components)
     actionGrabAuto: ActionGrabAuto
-    actionGrabManual: ActionGrabManual
-    actionOuttake: ActionOuttake
-    actionShoot: ActionShoot
     actionStow: ActionStow
-    actionLowShoot: ActionLowShoot
     actionLowShootAuto: ActionLowShootAuto
     actionHighShootAuto: ActionHighShootAuto
-    actionShootAmp: ActionShootAmp
     actionShootAmpAssisted: ActionShootAmpAssisted
     actionShootAmpAuto: ActionShootAmpAuto
     actionDewinch: ActionDewinch
     actionWinch: ActionWinch
-    actionDummy: ActionDummy
     actionPathTester: ActionPathTester
     actionLowShootTune: ActionLowShootTune
 
@@ -136,6 +131,7 @@ class MyRobot(MagicRobot):
     # Networktables pour de la configuration et retour d'information
     nt: ntcore.NetworkTable
     is_sim: bool
+    fast_climb_arm_angle = tunable(100)
 
     def createObjects(self):
         """
@@ -155,7 +151,7 @@ class MyRobot(MagicRobot):
 
         # NAVX
         # self.navx = AHRS.create_spi(update_rate_hz=50)
-        self.navx = AHRS(wpilib.SerialPort.Port.kUSB2)
+        self.navx = AHRS(wpilib.SerialPort.Port.kMXP)
 
         # Configuration de la base swerve
         self.initSwerve()
@@ -248,10 +244,12 @@ class MyRobot(MagicRobot):
 
     def disabledPeriodic(self):
         """Mets à jours le dashboard, même quand le robot est désactivé"""
+        pass
         # self.limelight_vision.execute()
 
     def autonomousInit(self):
         """Cette fonction est appelée une seule fois lorsque le robot entre en mode autonome."""
+        self.actionStow.done()
         pass
 
     def autonomous(self):
@@ -274,6 +272,10 @@ class MyRobot(MagicRobot):
             self.gamepad.getRightY(),
         )
 
+        speed_factor_when_arm_high = tools.map_value(self.lobras_arm.get_angle(), 0, 45, 1, 0.2)
+        speed_factor_when_arm_high = tools.fit_to_boundaries(speed_factor_when_arm_high, 0.4, 1)
+        self.drivetrain.set_tmp_speed_factor(factor_movement=speed_factor_when_arm_high, factor_rotation=speed_factor_when_arm_high)
+
         ## XXX: This is not needed as limelight is resetting zeo for us
         # # Reset navx zero
         # if self.gamepad1.getRightStickButton():
@@ -285,28 +287,31 @@ class MyRobot(MagicRobot):
             self.actionGrabAuto.engage()
             pass
         elif self.gamepad.getRightBumper():
-            self.drivetrain.set_tmp_speed_factor(0.5)
             self.actionShootAmpAssisted.engage()
             pass
         elif self.gamepad.getLeftTriggerAxis() > 0.75:
-            self.drivetrain.set_tmp_speed_factor(0.5)
+            self.drivetrain.set_tmp_speed_factor(factor_movement=0.2)
             self.actionLowShootAuto.engage()
             pass
         elif self.gamepad.getLeftBumper():
-            self.drivetrain.set_tmp_speed_factor(0.5)
             self.actionHighShootAuto.engage()
             pass
         elif self.gamepad.getAButton():
-            self.actionLowShootTune.engage()
+            self.lobras_arm.set_angle(0)
+            # self.actionLowShootTune.engage()
             # self.actionWinch.engage()
             pass
-        elif self.gamepad.getBButton():
+        elif self.gamepad.getBButtonPressed():
+            self.intake.outtake()
+            pass
+        elif self.gamepad.getBButtonReleased():
+            self.intake.disable()
             pass
         elif self.gamepad.getXButton():
-            # self.actionPathTester.engage()
+            self.actionPathTester.engage()
             pass
         elif self.gamepad.getYButton():
-            # self.actionDewinch.engage()
+            self.lobras_arm.set_angle(self.fast_climb_arm_angle)
             pass
         # else:
         #     # NOW CALLED FROM OTHER ACTION, WHEN NEEDED

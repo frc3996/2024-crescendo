@@ -1,7 +1,7 @@
 import json
 import math
 import os
-
+from common import tools
 import wpilib
 from pathplannerlib.path import PathPlannerPath
 from wpimath import controller, geometry, kinematics, trajectory
@@ -30,6 +30,8 @@ class PathHelper:
                 path_name,
             )
         )
+        if tools.is_red():
+            self.path = self.path.flipPath()
 
     def init_path(self, force_robot_starting_position=False):
         self.trajectory = self.path.getTrajectory(

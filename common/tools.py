@@ -48,6 +48,9 @@ def square_input(input):
     return math.copysign(input * input, input)
 
 
+def is_autonomous():
+    return wpilib.DriverStation.isAutonomous()
+
 def map_value(value, old_min, old_max, new_min, new_max):
     # Figure out how 'wide' each range is
     old_span = old_max - old_min
@@ -60,14 +63,16 @@ def map_value(value, old_min, old_max, new_min, new_max):
     return new_min + (valueScaled * new_span)
 
 
+def is_red() -> bool:
+    return wpilib.DriverStation.getAlliance() == wpilib.DriverStation.Alliance.kRed
+
+
 def rotate_vector(vector, angle):
     rad = math.radians(angle)
     x = vector[0] * math.cos(rad) - vector[1] * math.sin(rad)
     y = vector[0] * math.sin(rad) + vector[1] * math.cos(rad)
     return (x, y)
 
-distance_points = [0.36+0.85, 1.85,  2.85, 3.33, 3.85,  4.85, 5.85]
-angle_points =    [96,  86, 78, 77 ,74, 74, 70.6]
 def calculate_optimal_launch_angle(
             distance, height_difference, initial_velocity):
     interp_fn = numpy.interp(distance, distance_points, angle_points)

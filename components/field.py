@@ -6,7 +6,7 @@ https://github.com/FROG3160/2023-charged-up/blob/445c4d6225902a0fd2359cf92854632
 """
 import logging
 import os
-
+from common import tools
 import wpilib
 import wpimath
 import wpimath.units
@@ -120,7 +120,7 @@ class FieldLayout(AprilTagFieldLayout):
         AMP_HEIGHT_LOW = wpimath.units.feetToMeters(6.5)  # 6'6
         AMP_HEIGHT_HIGH = wpimath.units.feetToMeters(6.90626)  # 6'10 7/8
         # Tag under the Speaker
-        tag_pose = self.getTagRelativePosition(7)
+        tag_pose = self.getTagRelativePosition(4 if tools.is_red() else 7)
         if tag_pose is None:
             return None
         # Adjust it for the speaker
