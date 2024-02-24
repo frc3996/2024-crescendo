@@ -1,0 +1,110 @@
+{
+    "name": "3996 Rikitik 2024",
+    "sourceUrl": "",
+    "rotations": [
+        {
+            "axis": "x",
+            "degrees": 0
+        },
+        {
+            "axis": "y",
+            "degrees": 180
+        },
+        {
+            "axis": "z",
+            "degrees": 0
+        }
+    ],
+    "position": [
+        0.289,
+        0,
+        0
+    ],
+    "cameras": [
+        {
+          "name": "Front Camera",
+          "rotations": [],
+          "position": [
+            0.35,
+            0,
+            0.5
+          ],
+          "resolution": [
+            960,
+            720
+          ],
+          "fov": 90
+        },
+        {
+          "name": "Back Camera",
+          "rotations": [
+            {
+              "axis": "z",
+              "degrees": 180
+            }
+          ],
+          "position": [
+            -0.35,
+            0,
+            0.5
+          ],
+          "resolution": [
+            960,
+            720
+          ],
+          "fov": 90
+        }
+      ],
+    "components": [
+      {
+        "zeroedRotations": [
+          {
+            "axis": "x",
+            "degrees": 90
+          },
+          {
+            "axis": "z",
+            "degrees": 90
+          },
+          {
+            "axis": "y",
+            "degrees": 90
+          },
+          {
+            "axis": "x",
+            "degrees": 90
+          }
+        ],
+        "zeroedPosition": [
+          0,
+          0,
+          1
+        ]
+      },
+      {
+        "zeroedRotations": [
+          {
+            "axis": "x",
+            "degrees": 90
+          },
+          {
+            "axis": "z",
+            "degrees": 90
+          },
+          {
+            "axis": "y",
+            "degrees": 90
+          },
+          {
+            "axis": "x",
+            "degrees": 90
+          }
+        ],
+        "zeroedPosition": [
+          0,
+          0,
+          1
+        ]
+      }
+    ]
+  }
