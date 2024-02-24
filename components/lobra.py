@@ -134,9 +134,15 @@ class LoBrasHead:
 
     def set_angle(self, angle: float):
         """Set target angle from 0 to 360 degree"""
+        # XXX: Uncomment if crash
+        # self._target_position = angle
+        # if self.get_angle() > 180 and angle <= 90:
+        #     angle = 90
+        # angle = math.radians(angle)
+        # angle += self.kSoftLimitReverse
+        # self.pid.setReference(angle, rev.CANSparkMax.ControlType.kPosition)
+
         self._target_position = angle
-        if self.get_angle() > 180 and angle <= 90:
-            angle = 90
         angle = math.radians(angle)
         angle += self.kSoftLimitReverse
         self.pid.setReference(angle, rev.CANSparkMax.ControlType.kPosition)
@@ -308,16 +314,28 @@ class LoBrasArm:
 
     def set_angle(self, angle: float):
         """Set target angle from 0 to 360 degree"""
-        if self.get_angle() > 250 and angle < 200:
-            angle = 200
-        elif self.get_angle() > 200 and angle < 150:
-            angle = 150
-        elif self.get_angle() > 150 and angle < 100:
-            angle = 100
-        elif self.get_angle() > 100 and angle < 50:
-            angle = 50
+        # XXX: Bro, what the hell is happening here
+        # Degree and Radians are mixed up
+        # _target_position: is degree
+        # angle: is degree
+        # kSoftLimitReverse is rads
+        # The PID expects radians
+        # if self.get_angle() > 250 and angle < 200:
+        #     angle = 200
+        # elif self.get_angle() > 200 and angle < 150:
+        #     angle = 150
+        # elif self.get_angle() > 150 and angle < 100:
+        #     angle = 100
+        # elif self.get_angle() > 100 and angle < 50:
+        #     angle = 50
+        #
+        # angle = tools.fit_to_boundaries(angle, 0, 120)
+        # self._target_position = angle
+        # angle = math.radians(angle)
+        # angle += self.kSoftLimitReverse
+        # self.pid.setReference(angle, rev.CANSparkMax.ControlType.kPosition)
 
-        angle = tools.fit_to_boundaries(angle, 0, 120)
+        # XXX: New code, this whole thing is too complicated
         self._target_position = angle
         angle = math.radians(angle)
         angle += self.kSoftLimitReverse

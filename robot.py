@@ -32,12 +32,10 @@ INDICATEUR LUMINEUX
 
 """
 
-import math
-
 import ntcore
 import phoenix6
 import wpilib
-from magicbot import MagicRobot, tunable
+from magicbot import MagicRobot
 from navx import AHRS
 
 import constants
@@ -49,14 +47,12 @@ from components.intake import Intake
 from components.limelight import LimeLightVision
 from components.lobra import LoBrasArm, LoBrasArmFollower, LoBrasHead
 from components.pixy import Pixy
-from components.robot_actions import (ActionDewinch, ActionDummy,
-                                      ActionGrabAuto, ActionGrabManual,
-                                      ActionHighShootAuto, ActionLowShoot,
-                                      ActionLowShootAuto, ActionOuttake,
-                                      ActionShoot, ActionShootAmp,
+from components.robot_actions import (ActionDewinch, ActionGrabAuto,
+                                      ActionHighShootAuto, ActionLowShootAuto,
+                                      ActionLowShootTune, ActionPathTester,
                                       ActionShootAmpAssisted,
                                       ActionShootAmpAuto, ActionStow,
-                                      ActionWinch, ActionPathTester, ActionLowShootTune)
+                                      ActionWinch)
 from components.shooter import Shooter, ShooterFollower, ShooterMain
 from components.swervedrive import SwerveDrive, SwerveDriveConfig
 from components.swervemodule import SwerveModule, SwerveModuleConfig
@@ -305,7 +301,6 @@ class MyRobot(MagicRobot):
             # self.actionWinch.engage()
             pass
         elif self.gamepad.getBButton():
-            # self.actionOuttake.engage()
             pass
         elif self.gamepad.getXButton():
             # self.actionPathTester.engage()
