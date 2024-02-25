@@ -144,3 +144,15 @@ class PathHelper:
             return False
 
         return True
+
+    def robot_reached_end_angle(
+        self, acceptable_angle_error=2
+    ):
+        target_rotation = self.path.getGoalEndState().rotation
+        angle_error = target_rotation - self.drivetrain.get_odometry_angle()
+        angle_error = abs(angle_error.degrees())
+        print("ANGLE_ERROR", angle_error, acceptable_angle_error)
+        if angle_error > acceptable_angle_error:
+            return False
+
+        return True

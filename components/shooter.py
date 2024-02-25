@@ -10,10 +10,10 @@ import constants
 class ShooterMain:
     # Valeurs de PID
     CANID = constants.CANIds.SHOOTER_LEFT
-    kP = magicbot.tunable(0.000000032857)
-    kI = magicbot.tunable(0)
+    kP = magicbot.tunable(0.00037)
+    kI = magicbot.tunable(0.0000007)
     kD = magicbot.tunable(0)
-    kFF = magicbot.tunable(0.000215)
+    kFF = magicbot.tunable(0)
     kMotorClosedLoopRampRate = magicbot.tunable(0.0)
     kInverted = True
     delta = magicbot.tunable(100)
@@ -75,7 +75,8 @@ class ShooterMain:
         return [self.encoder.getVelocity(), self.__target_velocity]
 
     def is_ready(self):
-        return self.get_velocity() > self.__target_velocity
+        limit = 200 if tools.is_autonomous() else 100
+        return abs(self.get_velocity() - self.__target_velocity) < limit
 
     def on_enable(self):
         # Update the tunables
@@ -97,10 +98,10 @@ class ShooterFollower(ShooterMain):
     CANID = constants.CANIds.SHOOTER_RIGHT
     kMotorClosedLoopRampRate = magicbot.tunable(0.0)
     kInverted = False
-    kP = magicbot.tunable(0.000000032857)
-    kI = magicbot.tunable(0)
+    kP = magicbot.tunable(0.00025)
+    kI = magicbot.tunable(0.0000001)
     kD = magicbot.tunable(0)
-    kFF = magicbot.tunable(0.00023)
+    kFF = magicbot.tunable(0.0002)
 
     # Duty cycle maximal utiliser par le PID
     kMinOutput = -1

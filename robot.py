@@ -37,6 +37,7 @@ import phoenix6
 import wpilib
 from magicbot import MagicRobot
 from magicbot import tunable
+from wpimath.geometry import Rotation2d
 from navx import AHRS
 import rev
 import constants
@@ -131,7 +132,7 @@ class MyRobot(MagicRobot):
     # Networktables pour de la configuration et retour d'information
     nt: ntcore.NetworkTable
     is_sim: bool
-    fast_climb_arm_angle = tunable(100)
+    fast_climb_arm_angle = tunable(125)
 
     def createObjects(self):
         """
@@ -158,6 +159,7 @@ class MyRobot(MagicRobot):
 
         # General
         self.gamepad = wpilib.XboxController(0)
+        self.gamepad2 = wpilib.XboxController(1)
         # self.gamepad = wpilib.PS5Controller(0)
         self.pdp = wpilib.PowerDistribution(1, wpilib.PowerDistribution.ModuleType.kRev)
         self.pdp.clearStickyFaults()
@@ -250,6 +252,7 @@ class MyRobot(MagicRobot):
     def autonomousInit(self):
         """Cette fonction est appelée une seule fois lorsque le robot entre en mode autonome."""
         self.actionStow.done()
+        self.limelight_vision.light_off()
         pass
 
     def autonomous(self):
@@ -257,10 +260,13 @@ class MyRobot(MagicRobot):
         super().autonomous()
 
     def teleopInit(self):
-        """Cette fonction est appelée une seule fois lorsque le robot entre en mode téléopéré."""
+        """Cette fonction est appelée une seule fois lorsque le robot en
+        tre en mode téléopéré."""
         self.pdp.clearStickyFaults()
+        self.limelight_vision.light_off()
         self.arduino_light.set_RGB(0, 0, 0)
         self.actionStow.engage()
+        self.drivetrain.permanent_snap = False
 
     def teleopPeriodic(self):
         """Cette fonction est appelée de façon périodique lors du mode téléopéré."""
@@ -296,11 +302,6 @@ class MyRobot(MagicRobot):
         elif self.gamepad.getLeftBumper():
             self.actionHighShootAuto.engage()
             pass
-        elif self.gamepad.getAButton():
-            self.lobras_arm.set_angle(0)
-            # self.actionLowShootTune.engage()
-            # self.actionWinch.engage()
-            pass
         elif self.gamepad.getBButtonPressed():
             self.intake.outtake()
             pass
@@ -313,6 +314,23 @@ class MyRobot(MagicRobot):
         elif self.gamepad.getYButton():
             self.lobras_arm.set_angle(self.fast_climb_arm_angle)
             pass
+        elif self.gamepad.getAButton():
+            self.lobras_arm.set_angle(0)
+            pass
         # else:
         #     # NOW CALLED FROM OTHER ACTION, WHEN NEEDED
         #     self.actionStow.engage()
+
+        # Gamepad 2
+        if self.gamepad2.getXButton():
+            angle = Rotation2d.fromDegrees(-60.69 + 180) if tools.is_red() else Rotation2d.fromDegrees(-60.69)
+            self.drivetrain.snap_angle(angle)
+        elif self.gamepad2.getYButton():
+            angle = Rotation2d.fromDegrees(180 + 180) if tools.is_red() else Rotation2d.fromDegrees(180)
+            self.drivetrain.snap_angle(angle)
+        elif self.gamepad2.getBButton():
+            angle = Rotation2d.fromDegrees(60.69 + 180) if tools.is_red() else Rotation2d.fromDegrees(60.69)
+            self.drivetrain.snap_angle(angle)
+        elif self.gamepad2.getBButton():
+            angle = Rotation2d.fromDegrees(60.69 + 180) if tools.is_red() else Rotation2d.fromDegrees(60.69)
+            self.drivetrain.snap_angle(angle)

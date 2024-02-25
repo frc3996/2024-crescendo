@@ -31,11 +31,11 @@ def get_next_auto_command(auto_name):
 
 
 class RunAuto(AutonomousStateMachine):
-    MODE_NAME = "RunAuto"
-    DEFAULT = True
+    MODE_NAME = "DO_NOT_USE"
+    PATH_NAME = ""
+    look_only = False
 
     # Tunables
-    auto_name = tunable("1_amp + 2_speakers")
     path_kp = tunable(2)
     path_ki = tunable(0)
     path_kd = tunable(0)
@@ -53,7 +53,7 @@ class RunAuto(AutonomousStateMachine):
 
     @state(first=True)
     def get_auto_mode(self):
-        json_commands = get_next_auto_command(self.auto_name)
+        json_commands = get_next_auto_command(self.PATH_NAME)
         self.auto_commands = json_commands["command"]["data"]["commands"]  # type: list
         reset_pose = json_commands["startingPose"]
         new_pose = geometry.Pose2d(
@@ -70,6 +70,12 @@ class RunAuto(AutonomousStateMachine):
             self.current_command = self.auto_commands.pop(0)
         else:
             self.done()
+        if self.current_command["type"] == "named" and self.current_command["data"]["name"] == "enable_look_only":
+            self.look_only = True
+            return
+        elif self.current_command["type"] == "named" and self.current_command["data"]["name"] == "disable_look_only":
+            self.look_only = False
+            return
         self.next_state(self.current_command["type"])
 
     @state
@@ -97,6 +103,24 @@ class RunAuto(AutonomousStateMachine):
             )
             self.auto_path.init_path()
 
+        if self.look_only:
+            self.auto_path.target_end_angle()
+            self.drivetrain.permanent_snap = True
+            if self.auto_path.robot_reached_end_angle(acceptable_angle_error=20):
+                self.next_state("execute_next_command")
+            return
+
         self.auto_path.auto_move()
+        self.drivetrain.permanent_snap = True
         if self.auto_path.robot_reached_end_position():
             self.next_state("execute_next_command")
+
+
+class Speaker4(RunAuto):
+    MODE_NAME = "4_speakers"
+    PATH_NAME = "4_speakers"
+
+class Speaker4Fast(RunAuto):
+    DEFAULT = True
+    MODE_NAME = "4_speakers_fast"
+    PATH_NAME = "4_speakers_fast"

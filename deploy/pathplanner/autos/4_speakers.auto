@@ -2,8 +2,8 @@
   "version": 1.0,
   "startingPose": {
     "position": {
-      "x": 1.6418043646898104,
-      "y": 5.676247748891894
+      "x": 1.482434660059203,
+      "y": 5.565311310802802
     },
     "rotation": 0
   },
@@ -14,13 +14,7 @@
         {
           "type": "named",
           "data": {
-            "name": "actionLowShoot"
-          }
-        },
-        {
-          "type": "path",
-          "data": {
-            "pathName": "Speaker_to_1"
+            "name": "actionLowShootAuto"
           }
         },
         {
@@ -32,13 +26,13 @@
         {
           "type": "named",
           "data": {
-            "name": "actionLowShoot"
+            "name": "actionLowShootAuto"
           }
         },
         {
           "type": "path",
           "data": {
-            "pathName": "note_1_to_2"
+            "pathName": "note_2_to_1"
           }
         },
         {
@@ -50,13 +44,13 @@
         {
           "type": "named",
           "data": {
-            "name": "actionLowShoot"
+            "name": "actionLowShootAuto"
           }
         },
         {
           "type": "path",
           "data": {
-            "pathName": "note_2_to_3"
+            "pathName": "note_1_to_3"
           }
         },
         {
@@ -68,7 +62,7 @@
         {
           "type": "named",
           "data": {
-            "name": "actionLowShoot"
+            "name": "actionLowShootAuto"
           }
         },
         {

@@ -16,6 +16,7 @@ from components.lobra import LoBrasArm, LoBrasHead
 from components.pixy import Pixy
 from components.shooter import Shooter
 from components.swervedrive import SwerveDrive
+from components.limelight import LimeLightVision
 
 
 class ActionStow(StateMachine):
@@ -73,6 +74,7 @@ class ActionGrabAuto(StateMachine):
     intake_target_angle = tunable(103)
     intake_target_speed = tunable(1.25)
     actionStow: ActionStow
+    limelight_vision: LimeLightVision
 
     def engage(
         self, initial_state: StateRef | None = None, force: bool = False
@@ -83,6 +85,7 @@ class ActionGrabAuto(StateMachine):
     def position_head(self):
         """Premier etat, position la tete"""
         if self.intake.has_object():
+            self.limelight_vision.light_blink()
             self.next_state("finish")
             return
 
@@ -93,20 +96,22 @@ class ActionGrabAuto(StateMachine):
         )
         self.auto_intake_pid.reset()
 
+        self.lobras_arm.set_angle(0)
         self.lobras_head.set_angle(self.intake_target_angle)
 
-        if self.lobras_head.is_ready(acceptable_error=5):
-            self.next_state("position_arm")
-
-    @state
-    def position_arm(self):
-        self.lobras_arm.set_angle(0)
-        if self.lobras_arm.is_ready(acceptable_error=5):
-            self.next_state("start_intake")
+        self.next_state("start_intake")
 
     @state
     def start_intake(self, initial_call):
+        if initial_call:
+            self.timer = wpilib.Timer()
+            self.timer.start()
+
+        if tools.is_autonomous() and self.timer.get() > 2:
+            self.next_state("finish")
+
         if self.intake.has_object():
+            self.limelight_vision.light_blink()
             self.next_state("finish")
 
         if initial_call:
@@ -115,25 +120,29 @@ class ActionGrabAuto(StateMachine):
         # # Automove to target
         if self.pixy.get_target_valid():
             offset = self.pixy.get_offset()
-            res = tools.map_value(abs(offset), 0, 1000, 0, 1)
+            res = tools.map_value(abs(offset), 0, 1000, 0, 0.5)
             fwd = self.intake_target_speed * (1 - res)
             error = self.auto_intake_pid.calculate(offset, 0)
         else:
-            fwd = 0.5
+            fwd = 0.35
             error = 0
         self.drivetrain.set_robot_relative_automove_value(-fwd, -error)
 
     @state
     def finish(self, initial_call):
+        if tools.is_autonomous():
+            self.intake.disable()
+            self.done()
+            return
         if initial_call:
             self.lobras_head.set_angle(70)
             self.intake.disable()
-        if tools.is_autonomous():
-            self.done()
 
     def done(self) -> None:
+        self.limelight_vision.light_off()
         self.intake.jiggle()
-        self.actionStow.engage()
+        if not tools.is_autonomous():
+            self.actionStow.engage()
         return super().done()
 
 
@@ -298,12 +307,13 @@ class ActionLowShootAuto(StateMachine):
 
     @state(first=True)
     def position_arm(self, initial_call):
+        if self.intake.is_executing:
+            return
+
         if self.intake.has_object() is False and initial_call:
             self.intake.jiggle()
             return
 
-        if self.intake.is_executing:
-            return
 
         # if self.intake.has_object() is False:
         #     self.next_state("finish")
@@ -314,28 +324,26 @@ class ActionLowShootAuto(StateMachine):
         if self.lobras_arm.is_ready(acceptable_error=2) or self.is_sim:
             self.next_state("prepare_to_fire")
 
-    # @state
     def set_launch_rotation(self):
         speaker_position = self.field_layout.getSpeakerRelativePosition()
         if speaker_position is None:
-            return
+            return 0
 
         # Rotate the robot
         target_angle = tools.compute_angle(speaker_position.X(), speaker_position.Y())
         self.drivetrain.snap_angle(
             geometry.Rotation2d.fromDegrees(target_angle + 180)
         )  # We throw from behind
-        if self.drivetrain.angle_reached(acceptable_error=2):
+        if self.drivetrain.angle_reached(acceptable_error=4):
             self._launch_rotation = target_angle
-            return True
+            return 1
             # self.next_state("set_launch_angle")
-        return False
+        return 0
 
-    # @state
     def set_launch_angle(self):
         speaker_position = self.field_layout.getSpeakerRelativePosition()
         if speaker_position is None:
-            return
+            return 0
 
         # Set the head angle
         distance = math.sqrt(speaker_position.x**2 + speaker_position.y**2)
@@ -344,17 +352,23 @@ class ActionLowShootAuto(StateMachine):
         )
 
         self.lobras_head.set_angle(angle)
-        if self.lobras_head.is_ready(acceptable_error=2):
-            return True
+        if self.lobras_head.is_ready(acceptable_error=4):
+            return 1
             # self.next_state("prepare_to_fire")
-        return False
+        return 0
 
-    @timed_state(duration=4, next_state="fire")
+    def prepare_shooter(self):
+        self.shooter.shoot_speaker()
+        res = self.shooter.is_ready()
+        return 1 if res else 0
+
+    @timed_state(duration=2, next_state="fire")
     def prepare_to_fire(self):
         res1 = self.set_launch_rotation()
         res2 = self.set_launch_angle()
-        self.shooter.shoot_speaker()
-        if self.shooter.is_ready() and res1 and res2:
+        res3 = self.prepare_shooter()
+        print(res1, res2, res3)
+        if res1 == 1 and res2 == 1 and res3 == 1:
             self.next_state_now("fire")
 
     @timed_state(must_finish=True, duration=0.7, next_state="finish")
@@ -365,13 +379,17 @@ class ActionLowShootAuto(StateMachine):
     def finish(self):
         self.intake.disable()
         self.shooter.disable()
-        self.lobras_head.set_angle(0)
         self.arduino_light.set_RGB(0, 255, 0)
         if wpilib.DriverStation.isAutonomous():
             self.done()
+            return
+        self.lobras_head.set_angle(0)
 
     def done(self) -> None:
-        self.actionStow.engage()
+        self.intake.disable()
+        self.shooter.disable()
+        if not wpilib.DriverStation.isAutonomous():
+            self.actionStow.engage()
         return super().done()
 
 

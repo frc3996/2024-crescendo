@@ -51,6 +51,7 @@ class Intake(StateMachine):
         self.motor.setSmartCurrentLimit(40)
         self.pid = self.motor.getPIDController()
         self.motor.burnFlash()
+        self.object_average = [False, False, False]
 
     def on_enable(self):
         # Update the tunables
@@ -58,7 +59,10 @@ class Intake(StateMachine):
 
     @feedback
     def has_object(self):
-        if self.beam.getValue() < ((self.beamWithObject - self.beamNoObject) / 2):
+        value = self.beam.getValue() > ((self.beamWithObject - self.beamNoObject) / 2)
+        self.object_average.append(value)
+        self.object_average = self.object_average[-3:]
+        if all(self.object_average):
             return True
         else:
             return False
@@ -82,22 +86,25 @@ class Intake(StateMachine):
         self.engage(initial_state="jiggle_start")
 
     @timed_state(duration=0.2, must_finish=True, next_state="jiggle_out")
-    def jiggle_start(self):
+    def jiggle_start(self, initial_call):
         if not self.has_object():
-            self.pid.setReference(0.4, rev.CANSparkMax.ControlType.kDutyCycle)
+            if initial_call:
+                self.pid.setReference(0.4, rev.CANSparkMax.ControlType.kDutyCycle)
         else:
             self.next_state_now("jiggle_out")
 
-    @state(first=True, must_finish=True)
-    def jiggle_out(self):
+    @timed_state(first=True, duration=0.2, must_finish=True, next_state="jiggle_intake")
+    def jiggle_out(self, initial_call):
         if self.has_object():
-            self.pid.setReference(-0.4, rev.CANSparkMax.ControlType.kDutyCycle)
+            if initial_call:
+                self.pid.setReference(-0.4, rev.CANSparkMax.ControlType.kDutyCycle)
         else:
             self.next_state_now("jiggle_intake")
 
     @timed_state(duration=0.1, must_finish=True, next_state="jiggle_stop")
-    def jiggle_intake(self):
-        self.pid.setReference(0.4, rev.CANSparkMax.ControlType.kDutyCycle)
+    def jiggle_intake(self, initial_call):
+        if initial_call:
+            self.pid.setReference(0.4, rev.CANSparkMax.ControlType.kDutyCycle)
 
     @state(must_finish=True)
     def jiggle_stop(self):

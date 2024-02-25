@@ -91,6 +91,18 @@ class LimeLightVision:
     def get_std_devs(self):
         return self.std_devs
 
+    def light_pipeline(self):
+        self.nt.putNumber("ledMode", 0)
+
+    def light_off(self):
+        self.nt.putNumber("ledMode", 1)
+
+    def light_blink(self):
+        self.nt.putNumber("ledMode", 2)
+
+    def light_on(self):
+        self.nt.putNumber("ledMode", 3)
+
     # @feedback
     def get_filter_pos(self):
         return self.filter_pos

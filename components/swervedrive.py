@@ -47,6 +47,7 @@ class SwerveDrive:
     auto_chassis_speed = magicbot.will_reset_to(None)
     request_wheel_lock = magicbot.will_reset_to(False)
     __snap_enabled = magicbot.will_reset_to(False)
+    permanent_snap = False
 
     angle_kp = magicbot.tunable(0.002)
     angle_ki = magicbot.tunable(0)
@@ -58,6 +59,7 @@ class SwerveDrive:
         """
         Appelé après l'injection
         """
+        self.permanent_snap = False
         self.navx_offset = Rotation2d()
 
         self.__snap_angle = Rotation2d(0)
@@ -198,7 +200,7 @@ class SwerveDrive:
         if self.auto_chassis_speed is not None:
             chassis_speed += self.auto_chassis_speed
 
-        if self.__snap_enabled:
+        if self.__snap_enabled or self.permanent_snap:
             omega = self.angle_pid.calculate(
                 self.get_odometry_angle().degrees(), self.__snap_angle.degrees()
             )
