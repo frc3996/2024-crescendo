@@ -1,10 +1,11 @@
 import magicbot
 import rev
-from magicbot import StateMachine, default_state, state, timed_state, will_reset_to, feedback
+from magicbot import (StateMachine, default_state, feedback, state,
+                      timed_state, will_reset_to)
 from wpimath import controller
-from common import tools
 
 import constants
+from common import tools
 
 
 class ShooterMain:
@@ -23,17 +24,25 @@ class ShooterMain:
     kMaxOutput = 1
 
     def setup(self):
-        self.motor = rev.CANSparkMax(
-            self.CANID, rev.CANSparkMax.MotorType.kBrushless
-        )
+        self.motor = rev.CANSparkMax(self.CANID, rev.CANSparkMax.MotorType.kBrushless)
         # self.motor.restoreFactoryDefaults()
         self.motor.setControlFramePeriodMs(0)  # Control frame from the rio?
         self.motor.setIdleMode(self.motor.IdleMode.kCoast)
-        self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus0, 20)  # Faults and output (default 10ms)
-        self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus3, 500)   # Analog sensor (default 50ms)
-        self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus4, 60000)   # Alternate encoder (default 20ms)
-        self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus5, 60000)   # Absolute encoder Pos/Angle (default 200ms)
-        self.motor.setPeriodicFramePeriod(self.motor.PeriodicFrame.kStatus6, 60000)   # Absolute encoder Vel/Freq (default 200ms)
+        self.motor.setPeriodicFramePeriod(
+            self.motor.PeriodicFrame.kStatus0, 20
+        )  # Faults and output (default 10ms)
+        self.motor.setPeriodicFramePeriod(
+            self.motor.PeriodicFrame.kStatus3, 500
+        )  # Analog sensor (default 50ms)
+        self.motor.setPeriodicFramePeriod(
+            self.motor.PeriodicFrame.kStatus4, 60000
+        )  # Alternate encoder (default 20ms)
+        self.motor.setPeriodicFramePeriod(
+            self.motor.PeriodicFrame.kStatus5, 60000
+        )  # Absolute encoder Pos/Angle (default 200ms)
+        self.motor.setPeriodicFramePeriod(
+            self.motor.PeriodicFrame.kStatus6, 60000
+        )  # Absolute encoder Vel/Freq (default 200ms)
         self.motor.setInverted(self.kInverted)
         self.encoder = self.motor.getEncoder()
         self.pid = self.motor.getPIDController()
@@ -118,7 +127,6 @@ class Shooter:
 
     amp_velocity = magicbot.tunable(3000)
 
-
     # Control methods
     def shoot_amp(self):
         self.shooter_main.set_velocity(self.amp_velocity)
@@ -133,6 +141,11 @@ class Shooter:
     def disable(self):
         self.shooter_main.disable()
         self.shooter_follower.disable()
+
+    def get_velocity(self):
+        return (
+            self.shooter_main.get_velocity() + self.shooter_follower.get_velocity()
+        ) / 2
 
     def is_ready(self):
         return self.shooter_main.is_ready() and self.shooter_follower.is_ready()

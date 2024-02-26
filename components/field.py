@@ -6,7 +6,7 @@ https://github.com/FROG3160/2023-charged-up/blob/445c4d6225902a0fd2359cf92854632
 """
 import logging
 import os
-from common import tools
+
 import wpilib
 import wpimath
 import wpimath.units
@@ -14,6 +14,7 @@ from robotpy_apriltag import AprilTagField, AprilTagFieldLayout
 from wpimath.geometry import Pose3d, Rotation3d, Transform3d, Translation3d
 from wpimath.units import inchesToMeters
 
+from common import tools
 from components.swervedrive import SwerveDrive
 
 apriltagsFilename = r"2024-crescendo.json"
@@ -99,7 +100,7 @@ class FieldLayout(AprilTagFieldLayout):
         odometry_3d = Pose3d(
             odometry.x,
             odometry.y,
-            wpimath.units.meters(0),  # TODO: This should be the height of the head
+            wpimath.units.meters(0),  # Robot is on the floor
             Rotation3d(0, 0, 0),
         )
         return tag_pose - odometry_3d
@@ -116,7 +117,7 @@ class FieldLayout(AprilTagFieldLayout):
     #     """
     #     return self.getTagRelativePosition(*self.gridPositions[position])
 
-    def getSpeakerRelativePosition(self) -> Transform3d | None:
+    def getSpeakerRelativePosition(self, z_offset=0) -> Transform3d | None:
         AMP_HEIGHT_LOW = wpimath.units.feetToMeters(6.5)  # 6'6
         AMP_HEIGHT_HIGH = wpimath.units.feetToMeters(6.90626)  # 6'10 7/8
         # Tag under the Speaker
@@ -129,7 +130,8 @@ class FieldLayout(AprilTagFieldLayout):
             tag_pose.y,
             wpimath.units.meters(
                 AMP_HEIGHT_LOW + (AMP_HEIGHT_HIGH - AMP_HEIGHT_LOW) / 2
-            ),
+            )
+            - z_offset,
             Rotation3d(0, 0, 0),
         )
         return speaker_pose

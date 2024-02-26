@@ -1,8 +1,9 @@
 import math
 
+import numpy
 import wpilib
 import wpimath.units
-import numpy
+from wpimath import geometry, kinematics
 
 
 def apply_deadzone(value: float, threshold: float) -> float:
@@ -51,6 +52,7 @@ def square_input(input):
 def is_autonomous():
     return wpilib.DriverStation.isAutonomous()
 
+
 def map_value(value, old_min, old_max, new_min, new_max):
     # Figure out how 'wide' each range is
     old_span = old_max - old_min
@@ -73,61 +75,104 @@ def rotate_vector(vector, angle):
     y = vector[0] * math.sin(rad) + vector[1] * math.cos(rad)
     return (x, y)
 
-def calculate_optimal_launch_angle(
-            distance, height_difference, initial_velocity):
-    interp_fn = numpy.interp(distance, distance_points, angle_points)
-    return interp_fn
 
-def old_calculate_optimal_launch_angle(
-    distance, height_difference, initial_velocity
-) -> wpimath.units.degrees | None:
-    """
-    Calculates the optimal launch angle to hit a target at a given distance and height difference.
+def get_projectile_launch_angle_and_rotation(
+    transform: geometry.Transform3d,
+    projectile_velocity,
+    chassis_speed: kinematics.ChassisSpeeds,
+):
+    # Calculate the direct distance to the target and the effective initial
+    # velocity in the direction of the target
+    distance_to_target = numpy.sqrt((transform.x) ** 2 + (transform.y) ** 2)
 
-    :param distance: The horizontal distance to the target (meters).
-    :param height_difference: The height difference to the target (meters).
-    :param initial_velocity: The initial velocity of the disk (meters/second).
-    :return: The optimal launch angle (degrees) to hit the target.
-    """
-    # angle = math.degrees(math.atan(height_difference/distance))
-    # return angle
+    # Pythagorean theorem for the velocity in the xz-plane
+    effective_velocity = numpy.sqrt(projectile_velocity**2 + chassis_speed.vx**2)
 
-    g = 9.81
-    min_error = float("inf")
-    best_angle = 0
+    # Calculate launch angle using the formula for projectile motion, ignoring
+    # lateral displacement for now
+    g = 9.81  # Acceleration due to gravity, m/s^2
+    a = g * distance_to_target**2 / (2 * effective_velocity**2)
+    b = distance_to_target
+    c = -(a + transform.z)
 
-    for angle in range(1, 180):
-        theta = math.radians(angle / 2)
-        t = distance / (initial_velocity * math.cos(theta))
-        y = (initial_velocity * math.sin(theta) * t) - (0.5 * 9.8 * t**2)
-        error = abs(y - height_difference)
-        if error < min_error:
-            min_error = error
-            best_angle = angle / 2
-    return best_angle
-
-    # TODO Make it better?
-    g = 9.81  # Acceleration due to gravity (m/s^2)
-    v = initial_velocity
-
-    # The quadratic formula components (a, b, and c) are used in solving for the angle.
-    a = g * distance**2
-    b = 2 * height_difference * v**2 - 2 * g * distance**2
-    c = v**4 - g * (g * distance**2 + 2 * height_difference * v**2)
-
-    # Check if the discriminant is positive to ensure a real solution exists.
+    # Quadratic formula components for calculating the launch angle
     discriminant = b**2 - 4 * a * c
     if discriminant < 0:
-        return None
+        # No real solution, indicating that the target cannot be reached with
+        # the given parameters
+        return (
+            None,
+            None,
+        )
 
-    # Calculate the two possible angles and select the smaller one for the optimal trajectory.
-    theta1 = math.atan2(v**2 + math.sqrt(discriminant), g * distance)
-    theta2 = math.atan2(v**2 - math.sqrt(discriminant), g * distance)
+    # Two possible angles, select the smaller one (more direct shot)
+    theta_1 = numpy.arctan((-b + numpy.sqrt(discriminant)) / (2 * a))
+    theta_2 = numpy.arctan((-b - numpy.sqrt(discriminant)) / (2 * a))
+    launch_angle = numpy.degrees(min(theta_1, theta_2))
 
-    # Convert the optimal angle to degrees.
-    angle_deg = math.degrees(min(theta1, theta2))
+    # Calculate rotation angle to compensate for lateral displacement
+    # Assuming time of flight based on direct distance and effective velocity
+    time_of_flight = distance_to_target / (effective_velocity * numpy.cos(theta_1))
+    lateral_displacement = (
+        chassis_speed.vy * time_of_flight
+    )  # Simple displacement = speed * time
+    rotation_angle = numpy.degrees(
+        numpy.arctan(lateral_displacement / distance_to_target)
+    )  # Angle to rotate to compensate for lateral displacement
 
-    return angle_deg
+    return launch_angle, rotation_angle
+
+
+# def old_calculate_optimal_launch_angle(
+#     distance, height_difference, initial_velocity
+# ) -> wpimath.units.degrees | None:
+#     """
+#     Calculates the optimal launch angle to hit a target at a given distance and height difference.
+#
+#     :param distance: The horizontal distance to the target (meters).
+#     :param height_difference: The height difference to the target (meters).
+#     :param initial_velocity: The initial velocity of the disk (meters/second).
+#     :return: The optimal launch angle (degrees) to hit the target.
+#     """
+#     # angle = math.degrees(math.atan(height_difference/distance))
+#     # return angle
+#
+#     g = 9.81
+#     min_error = float("inf")
+#     best_angle = 0
+#
+#     for angle in range(1, 180):
+#         theta = math.radians(angle / 2)
+#         t = distance / (initial_velocity * math.cos(theta))
+#         y = (initial_velocity * math.sin(theta) * t) - (0.5 * 9.8 * t**2)
+#         error = abs(y - height_difference)
+#         if error < min_error:
+#             min_error = error
+#             best_angle = angle / 2
+#     return best_angle
+#
+#     # TODO Make it better?
+#     g = 9.81  # Acceleration due to gravity (m/s^2)
+#     v = initial_velocity
+#
+#     # The quadratic formula components (a, b, and c) are used in solving for the angle.
+#     a = g * distance**2
+#     b = 2 * height_difference * v**2 - 2 * g * distance**2
+#     c = v**4 - g * (g * distance**2 + 2 * height_difference * v**2)
+#
+#     # Check if the discriminant is positive to ensure a real solution exists.
+#     discriminant = b**2 - 4 * a * c
+#     if discriminant < 0:
+#         return None
+#
+#     # Calculate the two possible angles and select the smaller one for the optimal trajectory.
+#     theta1 = math.atan2(v**2 + math.sqrt(discriminant), g * distance)
+#     theta2 = math.atan2(v**2 - math.sqrt(discriminant), g * distance)
+#
+#     # Convert the optimal angle to degrees.
+#     angle_deg = math.degrees(min(theta1, theta2))
+#
+#     return angle_deg
 
 
 def compute_angle(x, y):
@@ -136,7 +181,10 @@ def compute_angle(x, y):
     angle_degrees = math.degrees(angle_radians)
     return angle_degrees
 
+
 DISABLE_WRAPPER = True
+
+
 def print_exec_time(name):
     def decorator(function):
         def wrapper(*args, **kwargs):

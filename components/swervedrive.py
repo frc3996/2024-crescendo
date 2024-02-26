@@ -96,6 +96,7 @@ class SwerveDrive:
             geometry.Pose2d(),
         )
         self.odometry.setVisionMeasurementStdDevs((0.5, 0.5, math.pi / 2))
+        self._chassis_speed = kinematics.ChassisSpeeds()
 
         self.navx_zero()
 
@@ -128,6 +129,9 @@ class SwerveDrive:
     def getRotation2d(self):
         return self.get_odometry_pose().rotation()
 
+    def get_chassis_speed(self) -> kinematics.ChassisSpeeds:
+        return self._chassis_speed
+
     def angle_reached(self, acceptable_error=5):
         """Returns if the target angle have been reached"""
         if (
@@ -149,7 +153,9 @@ class SwerveDrive:
         self.__snap_enabled = True
 
     def set_field_relative_automove_value(self, forward, strafe):
-        self.auto_chassis_speed = kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(forward, strafe, 0, self.getRotation2d())
+        self.auto_chassis_speed = kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(
+            forward, strafe, 0, self.getRotation2d()
+        )
 
     def relative_rotate(self, rotation):
         self.__snap_angle = self.get_odometry_angle() + Rotation2d.fromDegrees(rotation)
@@ -180,11 +186,17 @@ class SwerveDrive:
         forward *= constants.MAX_WHEEL_SPEED
         strafe *= constants.MAX_WHEEL_SPEED
 
-        self.controller_chassis_speed = kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(forward, strafe, omega, self.getRotation2d())
+        self.controller_chassis_speed = (
+            kinematics.ChassisSpeeds.fromFieldRelativeSpeeds(
+                forward, strafe, omega, self.getRotation2d()
+            )
+        )
 
         # Élimite la zone morte du joystick (petits déplacements)
         if math.sqrt(angle_stick_x**2 + angle_stick_y**2) > 0.25:
-            angle = Rotation2d(-math.atan2(angle_stick_y, angle_stick_x)) + Rotation2d.fromDegrees(270)
+            angle = Rotation2d(
+                -math.atan2(angle_stick_y, angle_stick_x)
+            ) + Rotation2d.fromDegrees(270)
 
             if tools.is_red():
                 angle += Rotation2d.fromDegrees(180)
@@ -209,18 +221,34 @@ class SwerveDrive:
                 omega = 0
             chassis_speed.omega = -omega
         else:
-            self.angle_pid.reset(trajectory.TrapezoidProfile.State(self.getRotation2d().degrees(), 0))
+            self.angle_pid.reset(
+                trajectory.TrapezoidProfile.State(self.getRotation2d().degrees(), 0)
+            )
 
-        self.sim_angle = self.sim_angle + Rotation2d.fromDegrees(chassis_speed.omega * 5 * 20)
+        self.sim_angle = self.sim_angle + Rotation2d.fromDegrees(
+            chassis_speed.omega * 5 * 20
+        )
 
         # Ne fais rien si les vecteurs sont trop petits
-        if chassis_speed.vx == 0 and chassis_speed.vy == 0 and chassis_speed.omega == 0 and self.request_wheel_lock:
-            self.frontLeftModule.setTargetState(kinematics.SwerveModuleState(0, Rotation2d.fromDegrees(-45)))
-            self.frontRightModule.setTargetState(kinematics.SwerveModuleState(0, Rotation2d.fromDegrees(45)))
-            self.rearLeftModule.setTargetState(kinematics.SwerveModuleState(0, Rotation2d.fromDegrees(-45)))
-            self.rearRightModule.setTargetState(kinematics.SwerveModuleState(0, Rotation2d.fromDegrees(45)))
+        if (
+            chassis_speed.vx == 0
+            and chassis_speed.vy == 0
+            and chassis_speed.omega == 0
+            and self.request_wheel_lock
+        ):
+            self.frontLeftModule.setTargetState(
+                kinematics.SwerveModuleState(0, Rotation2d.fromDegrees(-45))
+            )
+            self.frontRightModule.setTargetState(
+                kinematics.SwerveModuleState(0, Rotation2d.fromDegrees(45))
+            )
+            self.rearLeftModule.setTargetState(
+                kinematics.SwerveModuleState(0, Rotation2d.fromDegrees(-45))
+            )
+            self.rearRightModule.setTargetState(
+                kinematics.SwerveModuleState(0, Rotation2d.fromDegrees(45))
+            )
             return
-
 
         chassis_speed.vx = chassis_speed.vx * self.tmp_speed_factor[0]
         chassis_speed.vy = chassis_speed.vy * self.tmp_speed_factor[0]
@@ -230,6 +258,7 @@ class SwerveDrive:
             chassis_speed,
             0.02,
         )
+        self._chassis_speed = chassis_speed
 
         swerveModuleStates = self.kinematics.toSwerveModuleStates(chassis_speed)
         kinematics.SwerveDrive4Kinematics.desaturateWheelSpeeds(
@@ -240,7 +269,6 @@ class SwerveDrive:
         self.frontRightModule.setTargetState(swerveModuleStates[1])
         self.rearLeftModule.setTargetState(swerveModuleStates[2])
         self.rearRightModule.setTargetState(swerveModuleStates[3])
-
 
     def navx_zero(self):
         self.navx.reset()
@@ -290,7 +318,11 @@ class SwerveDrive:
         For PathPlannerLib
         Method to reset odometry (will be called if your auto has a starting pose)
         """
-        gyro = self.sim_angle if self.is_sim else (self.navx.getRotation2d() + self.navx_offset)
+        gyro = (
+            self.sim_angle
+            if self.is_sim
+            else (self.navx.getRotation2d() + self.navx_offset)
+        )
 
         self.odometry.resetPosition(
             gyro,
