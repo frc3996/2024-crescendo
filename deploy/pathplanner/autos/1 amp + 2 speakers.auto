@@ -2,19 +2,37 @@
   "version": 1.0,
   "startingPose": {
     "position": {
-      "x": 1.482434660059203,
-      "y": 5.565311310802802
+      "x": 1.3737079726411698,
+      "y": 7.318107032610461
     },
-    "rotation": 0
+    "rotation": -89.83161107215781
   },
   "command": {
     "type": "sequential",
     "data": {
       "commands": [
         {
+          "type": "path",
+          "data": {
+            "pathName": "move_to_amp"
+          }
+        },
+        {
           "type": "named",
           "data": {
-            "name": "actionLowShootAuto"
+            "name": "actionShootAmpAuto"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "enable_look_only"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "amp_to_1"
           }
         },
         {
@@ -32,25 +50,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "note_2_to_1"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "actionGrabAuto"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "actionLowShootAuto"
-          }
-        },
-        {
-          "type": "path",
-          "data": {
-            "pathName": "note_1_to_3"
+            "pathName": "note_1_to_2"
           }
         },
         {

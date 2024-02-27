@@ -116,11 +116,23 @@ class RunAuto(AutonomousStateMachine):
             self.next_state("execute_next_command")
 
 
-class Speaker4(RunAuto):
-    MODE_NAME = "4_speakers"
-    PATH_NAME = "4_speakers"
+class amp_2_m1_grab_m2(RunAuto):
+    MODE_NAME = "2 amp m1 + grab m2"
+    PATH_NAME = "2 amp m1 + grab m2"
+
+class amp_1_speaker_2(RunAuto):
+    MODE_NAME = "1 amp + 2 speakers"
+    PATH_NAME = "1 amp + 2 speakers"
+
+class loin_2(RunAuto):
+    MODE_NAME = "2 loin"
+    PATH_NAME = "2 loin"
+
+class taxi(RunAuto):
+    MODE_NAME = "taxi"
+    PATH_NAME = "taxi"
 
 class Speaker4Fast(RunAuto):
     DEFAULT = True
-    MODE_NAME = "4_speakers_fast"
-    PATH_NAME = "4_speakers_fast"
+    MODE_NAME = "4 speakers fast"
+    PATH_NAME = "4 speakers fast"

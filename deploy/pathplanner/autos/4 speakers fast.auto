@@ -76,6 +76,12 @@
           "data": {
             "name": "actionStow"
           }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "1_shoot_to_m1"
+          }
         }
       ]
     }
