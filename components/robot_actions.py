@@ -338,7 +338,7 @@ class ActionLowShootAuto(StateMachine):
         # Rotate the robot
         target_angle = tools.compute_angle(speaker_position.X(), speaker_position.Y())
         self.drivetrain.snap_angle(
-            geometry.Rotation2d.fromDegrees(target_angle + 180)
+            geometry.Rotation2d.fromDegrees(target_angle)
         )  # We throw from behind
         if self.drivetrain.angle_reached(acceptable_error=4):
             self._launch_rotation = target_angle
@@ -392,7 +392,7 @@ class ActionLowShootAuto(StateMachine):
         )
 
         angle, rotation = tools.get_projectile_launch_angle_and_rotation(
-            speaker_position, projectile_velocity, self.drivetrain.get_chassis_speed()
+            speaker_position, projectile_velocity, self.drivetrain.get_chassis_speed(), self.drivetrain.getRotation2d()
         )
 
         self.drivetrain.snap_angle(
@@ -622,7 +622,6 @@ class ActionLowShootTune(StateMachine):
     ) -> None:
         return super().engage(initial_state, force)
 
-    @feedback
     def get_aim(self):
         speaker_position = self.field_layout.getSpeakerRelativePosition(
             0.40
@@ -638,7 +637,7 @@ class ActionLowShootTune(StateMachine):
         )
 
         angle, rotation = tools.get_projectile_launch_angle_and_rotation(
-            speaker_position, projectile_velocity, self.drivetrain.get_chassis_speed()
+            speaker_position, projectile_velocity, self.drivetrain.get_chassis_speed(), self.drivetrain.getRotation2d()
         )
 
         # self.drivetrain.snap_angle(

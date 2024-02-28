@@ -80,7 +80,14 @@ def get_projectile_launch_angle_and_rotation(
     transform: geometry.Transform3d,
     projectile_velocity,
     chassis_speed: kinematics.ChassisSpeeds,
+    current_angle: geometry.Rotation2d
 ):
+
+    # Convert chassis speed to field relative
+    vx, vy = rotate_vector([chassis_speed.vx, chassis_speed.vy], current_angle.degrees())
+    chassis_speed.vx = vx
+    chassis_speed.vy = vy
+
     # Calculate the direct distance to the target and the effective initial
     # velocity in the direction of the target
     distance_to_target = numpy.sqrt((transform.x) ** 2 + (transform.y) ** 2)
@@ -119,6 +126,11 @@ def get_projectile_launch_angle_and_rotation(
         launch_angle = theta_1
     elif (theta_1 > 0 and theta_2 > 0):
         launch_angle = numpy.radians(min(theta_1, theta_2))
+    else:
+        return (
+            None,
+            math.atan2(transform.y, transform.x),
+        )
 
     # Calculate rotation angle to compensate for lateral displacement
     # Assuming time of flight based on direct distance and effective velocity

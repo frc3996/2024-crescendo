@@ -225,10 +225,6 @@ class SwerveDrive:
                 trajectory.TrapezoidProfile.State(self.getRotation2d().degrees(), 0)
             )
 
-        self.sim_angle = self.sim_angle + Rotation2d.fromDegrees(
-            chassis_speed.omega * 5 * 20
-        )
-
         # Ne fais rien si les vecteurs sont trop petits
         if (
             chassis_speed.vx == 0
@@ -253,6 +249,10 @@ class SwerveDrive:
         chassis_speed.vx = chassis_speed.vx * self.tmp_speed_factor[0]
         chassis_speed.vy = chassis_speed.vy * self.tmp_speed_factor[0]
         chassis_speed.omega = chassis_speed.omega * self.tmp_speed_factor[1]
+
+        self.sim_angle = self.sim_angle + Rotation2d.fromDegrees(
+            chassis_speed.omega * 1 * 20
+        )
 
         chassis_speed = kinematics.ChassisSpeeds.discretize(
             chassis_speed,
