@@ -12,7 +12,7 @@ MAX_MODULE_SPEED = 5.625  # 4.5
 
 SWERVE_DIRECTION_GEAR_RATIO = (14 / 50) * (10 / 60)
 
-SHOOTER_WHEEL_DIAMETER = wpimath.units.inchesToMeters(4)
+SHOOTER_WHEEL_DIAMETER = wpimath.units.inchesToMeters(2.5)
 
 
 class AnalogIO(IntEnum):

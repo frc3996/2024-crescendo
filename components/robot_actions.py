@@ -3,9 +3,11 @@ import math
 import numpy
 import wpilib
 import wpimath
+import wpimath.units
 from magicbot import StateMachine, feedback, state, timed_state, tunable
 from magicbot.state_machine import StateRef
 from wpimath import controller, geometry
+import math
 
 import constants
 from common import arduino_light, tools
@@ -73,7 +75,7 @@ class ActionGrabAuto(StateMachine):
     auto_intake_ki = tunable(0)  # For relative_rotate: 0
     auto_intake_kd = tunable(0)  # For relative_rotate: 0
     auto_intake_pid = controller.PIDController(0, 0, 0)
-    intake_target_angle = tunable(103)
+    intake_target_angle = tunable(109)
     intake_target_speed = tunable(1.25)
     actionStow: ActionStow
     limelight_vision: LimeLightVision
@@ -287,7 +289,7 @@ class ActionLowShootAuto(StateMachine):
     actionStow: ActionStow
     ARM_ANGLE = tunable(0)
     FUDGE_FACTOR = tunable(0.85)
-    THROW_OFFSET = tunable(45)
+    THROW_OFFSET = tunable(58)
 
     DISTANCE_POINTS = [1.21, 1.85, 2.85, 3.33, 3.85, 4.85, 5.85]
     ANGLE_POINTS = [96, 87, 79, 77, 73, 70.9, 70.9]
@@ -324,7 +326,7 @@ class ActionLowShootAuto(StateMachine):
 
         self.lobras_arm.set_angle(self.ARM_ANGLE)
         self.lobras_head.set_angle(70)
-        if self.lobras_arm.is_ready(acceptable_error=2) or self.is_sim:
+        if self.lobras_arm.is_ready(acceptable_error=20) or self.is_sim:
             # self.next_state("prepare_to_fire_basic")
             self.next_state("prepare_to_fire_fancy")
 
@@ -377,7 +379,7 @@ class ActionLowShootAuto(StateMachine):
         self.shooter.shoot_speaker()
 
         speaker_position = self.field_layout.getSpeakerRelativePosition(
-            self.THROW_OFFSET
+            0.40
         )
         if speaker_position is None:
             return
@@ -393,13 +395,15 @@ class ActionLowShootAuto(StateMachine):
             speaker_position, projectile_velocity, self.drivetrain.get_chassis_speed()
         )
 
-        if angle is None or rotation is None:
+        self.drivetrain.snap_angle(
+            geometry.Rotation2d.fromDegrees(math.degrees(rotation))
+        )  # We throw from behind
+
+        if angle is None:
             return
 
-        self.lobras_head.set_angle(angle)
-        self.drivetrain.snap_angle(
-            geometry.Rotation2d.fromDegrees(angle + 180)
-        )  # We throw from behind
+        self.lobras_head.set_angle(math.degrees(angle) + self.THROW_OFFSET)
+
 
     @timed_state(duration=10, next_state="finish")
     def prepare_to_fire_fancy(self):
@@ -413,13 +417,13 @@ class ActionLowShootAuto(StateMachine):
     def fire(self):
         self.intake.feed()
 
-    @timed_state(must_finish=True, duration=2, next_state="finish")
+    @timed_state(must_finish=True, duration=2, next_state="fire")
     def fire_until_out(self):
         # Keep on aiming
         self.aim()
         self.intake.feed()
         if not self.intake.has_object():
-            self.next_state_now("finish")
+            self.next_state_now("fire" )
 
     @state
     def finish(self):
@@ -604,14 +608,50 @@ class ActionLowShootTune(StateMachine):
     lobras_head: LoBrasHead
     shooter: Shooter
     intake: Intake
+    drivetrain: SwerveDrive
     shoot_angle = tunable(79)
     actionStow: ActionStow
     field_layout: FieldLayout
+    THROW_OFFSET = tunable(60)
+    FUDGE_FACTOR = tunable(0.85)
+
+
 
     def engage(
         self, initial_state: StateRef | None = None, force: bool = False
     ) -> None:
         return super().engage(initial_state, force)
+
+    @feedback
+    def get_aim(self):
+        speaker_position = self.field_layout.getSpeakerRelativePosition(
+            0.40
+        )
+        if speaker_position is None:
+            return
+
+        projectile_velocity = (
+            math.pi
+            * (constants.SHOOTER_WHEEL_DIAMETER)
+            * (self.shooter.get_velocity() / 60)
+            * self.FUDGE_FACTOR
+        )
+
+        angle, rotation = tools.get_projectile_launch_angle_and_rotation(
+            speaker_position, projectile_velocity, self.drivetrain.get_chassis_speed()
+        )
+
+        # self.drivetrain.snap_angle(
+        #     geometry.Rotation2d.fromDegrees(math.degrees(rotation))
+        # )  # We throw from behind
+
+        if angle is None:
+            return
+
+        # self.lobras_head.set_angle(math.degrees(angle) + self.THROW_OFFSET)
+        return [math.degrees(rotation), math.degrees(angle) + self.THROW_OFFSET]
+
+
 
     @feedback
     def get_distance(self):

@@ -102,22 +102,32 @@ def get_projectile_launch_angle_and_rotation(
         # the given parameters
         return (
             None,
-            None,
+            math.atan2(transform.y, transform.x),
         )
 
     # Two possible angles, select the smaller one (more direct shot)
     theta_1 = numpy.arctan((-b + numpy.sqrt(discriminant)) / (2 * a))
     theta_2 = numpy.arctan((-b - numpy.sqrt(discriminant)) / (2 * a))
-    launch_angle = numpy.degrees(min(theta_1, theta_2))
+    if (theta_1 < 0 and theta_2 < 0):
+        return (
+            None,
+            math.atan2(transform.y, transform.x),
+        )
+    elif (theta_1 < 0):
+        launch_angle = theta_2
+    elif (theta_2 < 0):
+        launch_angle = theta_1
+    elif (theta_1 > 0 and theta_2 > 0):
+        launch_angle = numpy.radians(min(theta_1, theta_2))
 
     # Calculate rotation angle to compensate for lateral displacement
     # Assuming time of flight based on direct distance and effective velocity
-    time_of_flight = distance_to_target / (effective_velocity * numpy.cos(theta_1))
+    time_of_flight = distance_to_target / (effective_velocity * numpy.cos(launch_angle))
     lateral_displacement = (
         chassis_speed.vy * time_of_flight
     )  # Simple displacement = speed * time
-    rotation_angle = numpy.degrees(
-        numpy.arctan(lateral_displacement / distance_to_target)
+    rotation_angle = numpy.radians(
+        math.atan2(transform.y + lateral_displacement, transform.x)
     )  # Angle to rotate to compensate for lateral displacement
 
     return launch_angle, rotation_angle

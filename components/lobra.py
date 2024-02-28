@@ -15,10 +15,10 @@ class LoBrasHead:
     kEncoderInverted = True
 
     ## Position minimale
-    kSoftLimitReverse = math.radians(43)
+    kSoftLimitReverse = math.radians(51)
 
     ## Position maximale
-    kSoftLimitForward = math.radians(235)
+    kSoftLimitForward = math.radians(243)
 
     # Duty cycle maximal utiliser par le PID
     kMinOutput = -1
@@ -190,7 +190,7 @@ class LoBrasArm:
     kEncoderInverted = False
 
     ## Position minimale
-    kSoftLimitReverse = math.radians(101)
+    kSoftLimitReverse = math.radians(102)
 
     ## Position maximale
     kSoftLimitForward = math.radians(327)

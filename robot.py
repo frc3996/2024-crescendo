@@ -43,18 +43,17 @@ import rev
 import constants
 from autonomous.auto_modes import RunAuto
 from common import arduino_light, tools
-from components.climber import Climber, ClimberFollower
 from components.field import FieldLayout
 from components.intake import Intake
 from components.limelight import LimeLightVision
 from components.lobra import LoBrasArm, LoBrasArmFollower, LoBrasHead
 from components.pixy import Pixy
-from components.robot_actions import (ActionDewinch, ActionGrabAuto,
+from components.robot_actions import (ActionGrabAuto,
                                       ActionHighShootAuto, ActionLowShootAuto,
                                       ActionLowShootTune, ActionPathTester,
                                       ActionShootAmpAssisted,
                                       ActionShootAmpAuto, ActionStow,
-                                      ActionWinch)
+                                      )
 from components.shooter import Shooter, ShooterFollower, ShooterMain
 from components.swervedrive import SwerveDrive, SwerveDriveConfig
 from components.swervemodule import SwerveModule, SwerveModuleConfig
@@ -86,8 +85,6 @@ class MyRobot(MagicRobot):
     actionHighShootAuto: ActionHighShootAuto
     actionShootAmpAssisted: ActionShootAmpAssisted
     actionShootAmpAuto: ActionShootAmpAuto
-    actionDewinch: ActionDewinch
-    actionWinch: ActionWinch
     actionPathTester: ActionPathTester
     actionLowShootTune: ActionLowShootTune
 
@@ -112,10 +109,6 @@ class MyRobot(MagicRobot):
     shooter: Shooter
     shooter_main: ShooterMain
     shooter_follower: ShooterFollower
-
-    # Climber
-    climber: Climber
-    climber_follower: ClimberFollower
 
     # Intake
     intake: Intake
