@@ -126,9 +126,7 @@ def get_projectile_launch_angle_and_rotation(
     lateral_displacement = (
         chassis_speed.vy * time_of_flight
     )  # Simple displacement = speed * time
-    rotation_angle = numpy.radians(
-        math.atan2(transform.y + lateral_displacement, transform.x)
-    )  # Angle to rotate to compensate for lateral displacement
+    rotation_angle = math.atan2(transform.y + lateral_displacement, transform.x)  # Angle to rotate to compensate for lateral displacement
 
     return launch_angle, rotation_angle
 
