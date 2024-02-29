@@ -10,6 +10,8 @@ from components.robot_actions import (ActionGrabAuto, ActionHighShootAuto,
                                       ActionLowShootAuto, ActionShootAmpAuto,
                                       ActionStow)
 from components.swervedrive import SwerveDrive
+from pathplannerlib.geometry_util import flipFieldPose
+from common import tools
 
 
 def get_next_auto_command(auto_name):
@@ -51,6 +53,15 @@ class RunAuto(AutonomousStateMachine):
 
     current_command = {}
 
+# def flipFieldPos(pos: Translation2d) -> Translation2d:
+#     """
+#     Flip a field position to the other side of the field, maintaining a blue alliance origin
+
+#     :param pos: The position to flip
+#     :return: The flipped position
+#     """
+#     return Translation2d(FIELD_LENGTH - pos.X(), pos.Y())
+
     @state(first=True)
     def get_auto_mode(self):
         json_commands = get_next_auto_command(self.PATH_NAME)
@@ -61,6 +72,8 @@ class RunAuto(AutonomousStateMachine):
             reset_pose["position"]["y"],
             geometry.Rotation2d.fromDegrees(reset_pose["rotation"]),
         )
+        if tools.is_red():
+           new_pose = flipFieldPose(new_pose)
         self.drivetrain.resetPose(new_pose)
         self.next_state("execute_next_command")
 

@@ -91,7 +91,6 @@ def get_projectile_launch_angle_and_rotation(
     # Calculate the direct distance to the target and the effective initial
     # velocity in the direction of the target
     distance_to_target = numpy.sqrt((transform.x) ** 2 + (transform.y) ** 2)
-
     # Pythagorean theorem for the velocity in the xz-plane
     effective_velocity = numpy.sqrt(projectile_velocity**2 + chassis_speed.vx**2)
 
@@ -118,7 +117,7 @@ def get_projectile_launch_angle_and_rotation(
     if (theta_1 < 0 and theta_2 < 0):
         return (
             None,
-            math.atan2(transform.y, transform.x),
+            compute_angle(transform.x, transform.y),
         )
     elif (theta_1 < 0):
         launch_angle = theta_2
@@ -129,7 +128,7 @@ def get_projectile_launch_angle_and_rotation(
     else:
         return (
             None,
-            math.atan2(transform.y, transform.x),
+            compute_angle(transform.x, transform.y),
         )
 
     # Calculate rotation angle to compensate for lateral displacement
@@ -138,8 +137,7 @@ def get_projectile_launch_angle_and_rotation(
     lateral_displacement = (
         chassis_speed.vy * time_of_flight
     )  # Simple displacement = speed * time
-    rotation_angle = math.atan2(transform.y + lateral_displacement, transform.x)  # Angle to rotate to compensate for lateral displacement
-
+    rotation_angle = compute_angle(transform.x, transform.y + lateral_displacement)
     return launch_angle, rotation_angle
 
 

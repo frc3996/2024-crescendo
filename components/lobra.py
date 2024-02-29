@@ -141,8 +141,9 @@ class LoBrasHead:
         # angle = math.radians(angle)
         # angle += self.kSoftLimitReverse
         # self.pid.setReference(angle, rev.CANSparkMax.ControlType.kPosition)
-
         self._target_position = angle
+        if angle > 2:
+            angle -= 2
         angle = math.radians(angle)
         angle += self.kSoftLimitReverse
         self.pid.setReference(angle, rev.CANSparkMax.ControlType.kPosition)

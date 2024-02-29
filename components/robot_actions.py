@@ -75,7 +75,7 @@ class ActionGrabAuto(StateMachine):
     auto_intake_ki = tunable(0)  # For relative_rotate: 0
     auto_intake_kd = tunable(0)  # For relative_rotate: 0
     auto_intake_pid = controller.PIDController(0, 0, 0)
-    intake_target_angle = tunable(109)
+    intake_target_angle = tunable(111)
     intake_target_speed = tunable(1.25)
     actionStow: ActionStow
     limelight_vision: LimeLightVision
@@ -135,16 +135,15 @@ class ActionGrabAuto(StateMachine):
     @state
     def finish(self, initial_call):
         if tools.is_autonomous():
-            self.intake.disable()
+            self.intake.jiggle()
             self.done()
             return
         if initial_call:
             self.lobras_head.set_angle(70)
-            self.intake.disable()
+            self.intake.jiggle()
 
     def done(self) -> None:
         self.limelight_vision.light_off()
-        self.intake.jiggle()
         if not tools.is_autonomous():
             self.actionStow.engage()
         return super().done()
@@ -288,7 +287,7 @@ class ActionLowShootAuto(StateMachine):
     arduino_light: arduino_light.I2CArduinoLight
     actionStow: ActionStow
     ARM_ANGLE = tunable(0)
-    FUDGE_FACTOR = tunable(0.85)
+    FUDGE_FACTOR = tunable(0.7)
     THROW_OFFSET = tunable(58)
 
     DISTANCE_POINTS = [1.21, 1.85, 2.85, 3.33, 3.85, 4.85, 5.85]
@@ -312,7 +311,7 @@ class ActionLowShootAuto(StateMachine):
         return [distance, angle]
 
     @state(first=True)
-    def position_arm(self, initial_call):
+    def jiggle(self, initial_call):
         if self.intake.is_executing:
             return
 
@@ -320,15 +319,14 @@ class ActionLowShootAuto(StateMachine):
             self.intake.jiggle()
             return
 
-        # if self.intake.has_object() is False:
-        #     self.next_state("finish")
-        #     return
+        # self.next_state("prepare_to_fire_basic")
+        self.next_state("prepare_to_fire_fancy")
 
+    def set_arm(self):
         self.lobras_arm.set_angle(self.ARM_ANGLE)
-        self.lobras_head.set_angle(70)
-        if self.lobras_arm.is_ready(acceptable_error=20) or self.is_sim:
-            # self.next_state("prepare_to_fire_basic")
-            self.next_state("prepare_to_fire_fancy")
+        if self.lobras_arm.is_ready(acceptable_error=4) or self.is_sim:
+            return True
+        return False
 
     def set_launch_rotation(self):
         speaker_position = self.field_layout.getSpeakerRelativePosition()
@@ -371,12 +369,14 @@ class ActionLowShootAuto(StateMachine):
         res1 = self.set_launch_rotation()
         res2 = self.set_launch_angle()
         res3 = self.prepare_shooter()
-        print(res1, res2, res3)
-        if res1 == 1 and res2 == 1 and res3 == 1:
+        res4 = self.set_arm()
+        print(res1, res2, res3, res4)
+        if res1 == 1 and res2 == 1 and res3 == 1 and res4 == 1:
             self.next_state_now("fire")
 
-    def aim(self):
-        self.shooter.shoot_speaker()
+    def aim(self, enable_shooter=True):
+        if enable_shooter:
+            self.shooter.shoot_speaker()
 
         speaker_position = self.field_layout.getSpeakerRelativePosition(
             0.40
@@ -396,21 +396,28 @@ class ActionLowShootAuto(StateMachine):
         )
 
         self.drivetrain.snap_angle(
-            geometry.Rotation2d.fromDegrees(math.degrees(rotation))
+            geometry.Rotation2d.fromDegrees(rotation + 180)
         )  # We throw from behind
 
         if angle is None:
             return
-
-        self.lobras_head.set_angle(math.degrees(angle) + self.THROW_OFFSET)
+        angle = math.degrees(angle) + self.THROW_OFFSET
+        print(angle, rotation)
+        self.drivetrain.set_tmp_speed_factor(factor_rotation=1)
+        self.lobras_head.set_angle(angle)
 
 
     @timed_state(duration=10, next_state="finish")
     def prepare_to_fire_fancy(self):
         self.aim()
-        if self.lobras_head.is_ready(
-            acceptable_error=4
-        ) and self.drivetrain.angle_reached(acceptable_error=4):
+        res1 = self.lobras_head.is_ready(acceptable_error=3)
+        res2 = self.drivetrain.angle_reached(acceptable_error=2)
+        res3 = abs(self.lobras_head.encoder.getVelocity()) < 0.015
+        res4 = abs(self.drivetrain._chassis_speed.omega) < 0.0075
+        res5 = self.set_arm()
+        res = [res1, res2, res3, res4, res5]
+        print(res)
+        if all(res):
             self.next_state_now("fire_until_out")
 
     @timed_state(must_finish=True, duration=0.7, next_state="finish")
@@ -448,7 +455,7 @@ class ActionHighShootAuto(ActionLowShootAuto):
     X_OFFSET = tunable(-0.4)
     THROW_VELOCITY = tunable(10.7)
     ARM_ANGLE = tunable(100)
-    THROW_OFFSET = tunable(140)
+    THROW_OFFSET = tunable(147)
 
     # TODO: NEED TO FILL THESE POINTS
     DISTANCE_POINTS = [1.21, 1.85, 2.85, 3.33, 3.85, 4.85, 5.85]
@@ -612,7 +619,7 @@ class ActionLowShootTune(StateMachine):
     shoot_angle = tunable(79)
     actionStow: ActionStow
     field_layout: FieldLayout
-    THROW_OFFSET = tunable(60)
+    THROW_OFFSET = tunable(58.5)
     FUDGE_FACTOR = tunable(0.85)
 
 

@@ -124,6 +124,12 @@ class FieldLayout(AprilTagFieldLayout):
         tag_pose = self.getTagRelativePosition(4 if tools.is_red() else 7)
         if tag_pose is None:
             return None
+
+        # Aim in front to better adjust angle
+        if tools.is_red():
+            tag_pose = Transform3d(tag_pose.x, tag_pose.y, tag_pose.z, tag_pose.rotation())
+        else:
+            tag_pose = Transform3d(tag_pose.x, tag_pose.y, tag_pose.z, tag_pose.rotation())
         # Adjust it for the speaker
         speaker_pose = Transform3d(
             tag_pose.x,

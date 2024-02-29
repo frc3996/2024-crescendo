@@ -105,6 +105,9 @@ class Intake(StateMachine):
     def jiggle_intake(self, initial_call):
         if initial_call:
             self.pid.setReference(0.4, rev.CANSparkMax.ControlType.kDutyCycle)
+        if self.has_object():
+            self.next_state_now("jiggle_stop")
+
 
     @state(must_finish=True)
     def jiggle_stop(self):
