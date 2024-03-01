@@ -324,6 +324,5 @@ class MyRobot(MagicRobot):
         elif self.gamepad2.getBButton():
             angle = Rotation2d.fromDegrees(60.69 + 180) if tools.is_red() else Rotation2d.fromDegrees(60.69)
             self.drivetrain.snap_angle(angle)
-        elif self.gamepad2.getBButton():
-            angle = Rotation2d.fromDegrees(60.69 + 180) if tools.is_red() else Rotation2d.fromDegrees(60.69)
-            self.drivetrain.snap_angle(angle)
+        elif self.gamepad2.getAButton():
+            self.intake.engage(initial_state="deep_throat")

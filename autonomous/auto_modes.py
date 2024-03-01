@@ -3,15 +3,15 @@ import os
 
 from magicbot import tunable
 from magicbot.state_machine import AutonomousStateMachine, StateMachine, state
+from pathplannerlib.geometry_util import flipFieldPose
 from wpimath import geometry
 
+from common import tools
 from common.path_helper import PathHelper
 from components.robot_actions import (ActionGrabAuto, ActionHighShootAuto,
                                       ActionLowShootAuto, ActionShootAmpAuto,
                                       ActionStow)
 from components.swervedrive import SwerveDrive
-from pathplannerlib.geometry_util import flipFieldPose
-from common import tools
 
 
 def get_next_auto_command(auto_name):
@@ -38,10 +38,10 @@ class RunAuto(AutonomousStateMachine):
     look_only = False
 
     # Tunables
-    path_kp = tunable(2)
+    path_kp = tunable(5)
     path_ki = tunable(0)
     path_kd = tunable(0)
-    path_profile = tunable(2)
+    path_profile = tunable(5)
 
     # Injection
     drivetrain: SwerveDrive
@@ -53,14 +53,14 @@ class RunAuto(AutonomousStateMachine):
 
     current_command = {}
 
-# def flipFieldPos(pos: Translation2d) -> Translation2d:
-#     """
-#     Flip a field position to the other side of the field, maintaining a blue alliance origin
+    # def flipFieldPos(pos: Translation2d) -> Translation2d:
+    #     """
+    #     Flip a field position to the other side of the field, maintaining a blue alliance origin
 
-#     :param pos: The position to flip
-#     :return: The flipped position
-#     """
-#     return Translation2d(FIELD_LENGTH - pos.X(), pos.Y())
+    #     :param pos: The position to flip
+    #     :return: The flipped position
+    #     """
+    #     return Translation2d(FIELD_LENGTH - pos.X(), pos.Y())
 
     @state(first=True)
     def get_auto_mode(self):
@@ -73,7 +73,7 @@ class RunAuto(AutonomousStateMachine):
             geometry.Rotation2d.fromDegrees(reset_pose["rotation"]),
         )
         if tools.is_red():
-           new_pose = flipFieldPose(new_pose)
+            new_pose = flipFieldPose(new_pose)
         self.drivetrain.resetPose(new_pose)
         self.next_state("execute_next_command")
 
@@ -83,10 +83,16 @@ class RunAuto(AutonomousStateMachine):
             self.current_command = self.auto_commands.pop(0)
         else:
             self.done()
-        if self.current_command["type"] == "named" and self.current_command["data"]["name"] == "enable_look_only":
+        if (
+            self.current_command["type"] == "named"
+            and self.current_command["data"]["name"] == "enable_look_only"
+        ):
             self.look_only = True
             return
-        elif self.current_command["type"] == "named" and self.current_command["data"]["name"] == "disable_look_only":
+        elif (
+            self.current_command["type"] == "named"
+            and self.current_command["data"]["name"] == "disable_look_only"
+        ):
             self.look_only = False
             return
         self.next_state(self.current_command["type"])
@@ -133,17 +139,21 @@ class amp_2_m1_grab_m2(RunAuto):
     MODE_NAME = "2 amp m1 + grab m2"
     PATH_NAME = "2 amp m1 + grab m2"
 
+
 class amp_1_speaker_2(RunAuto):
     MODE_NAME = "1 amp + 2 speakers"
     PATH_NAME = "1 amp + 2 speakers"
+
 
 class loin_2(RunAuto):
     MODE_NAME = "2 loin"
     PATH_NAME = "2 loin"
 
+
 class taxi(RunAuto):
     MODE_NAME = "taxi"
     PATH_NAME = "taxi"
+
 
 class Speaker4Fast(RunAuto):
     DEFAULT = True

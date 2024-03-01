@@ -1,6 +1,6 @@
 import rev
 import wpilib
-from magicbot import StateMachine, feedback, state, tunable, timed_state
+from magicbot import StateMachine, feedback, state, timed_state, tunable
 
 import constants
 
@@ -108,6 +108,11 @@ class Intake(StateMachine):
         if self.has_object():
             self.next_state_now("jiggle_stop")
 
+    @timed_state(duration=0.1, must_finish=True, next_state="jiggle_stop")
+    def deep_throat(self, initial_call):
+        self.pid.setReference(1.0, rev.CANSparkMax.ControlType.kDutyCycle)
+        if self.has_object():
+            self.next_state_now("jiggle_stop")
 
     @state(must_finish=True)
     def jiggle_stop(self):

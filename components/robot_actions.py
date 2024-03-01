@@ -7,7 +7,6 @@ import wpimath.units
 from magicbot import StateMachine, feedback, state, timed_state, tunable
 from magicbot.state_machine import StateRef
 from wpimath import controller, geometry
-import math
 
 import constants
 from common import arduino_light, tools
@@ -288,7 +287,7 @@ class ActionLowShootAuto(StateMachine):
     actionStow: ActionStow
     ARM_ANGLE = tunable(0)
     FUDGE_FACTOR = tunable(0.7)
-    THROW_OFFSET = tunable(58)
+    THROW_OFFSET = tunable(63)
 
     DISTANCE_POINTS = [1.21, 1.85, 2.85, 3.33, 3.85, 4.85, 5.85]
     ANGLE_POINTS = [96, 87, 79, 77, 73, 70.9, 70.9]
@@ -378,9 +377,7 @@ class ActionLowShootAuto(StateMachine):
         if enable_shooter:
             self.shooter.shoot_speaker()
 
-        speaker_position = self.field_layout.getSpeakerRelativePosition(
-            0.40
-        )
+        speaker_position = self.field_layout.getSpeakerRelativePosition(0.40)
         if speaker_position is None:
             return
 
@@ -392,7 +389,10 @@ class ActionLowShootAuto(StateMachine):
         )
 
         angle, rotation = tools.get_projectile_launch_angle_and_rotation(
-            speaker_position, projectile_velocity, self.drivetrain.get_chassis_speed(), self.drivetrain.getRotation2d()
+            speaker_position,
+            projectile_velocity,
+            self.drivetrain.get_chassis_speed(),
+            self.drivetrain.getRotation2d(),
         )
 
         self.drivetrain.snap_angle(
@@ -405,7 +405,6 @@ class ActionLowShootAuto(StateMachine):
         print(angle, rotation)
         self.drivetrain.set_tmp_speed_factor(factor_rotation=1)
         self.lobras_head.set_angle(angle)
-
 
     @timed_state(duration=10, next_state="finish")
     def prepare_to_fire_fancy(self):
@@ -430,7 +429,7 @@ class ActionLowShootAuto(StateMachine):
         self.aim()
         self.intake.feed()
         if not self.intake.has_object():
-            self.next_state_now("fire" )
+            self.next_state_now("fire")
 
     @state
     def finish(self):
@@ -455,7 +454,7 @@ class ActionHighShootAuto(ActionLowShootAuto):
     X_OFFSET = tunable(-0.4)
     THROW_VELOCITY = tunable(10.7)
     ARM_ANGLE = tunable(100)
-    THROW_OFFSET = tunable(147)
+    THROW_OFFSET = tunable(152)
 
     # TODO: NEED TO FILL THESE POINTS
     DISTANCE_POINTS = [1.21, 1.85, 2.85, 3.33, 3.85, 4.85, 5.85]
@@ -622,17 +621,13 @@ class ActionLowShootTune(StateMachine):
     THROW_OFFSET = tunable(58.5)
     FUDGE_FACTOR = tunable(0.85)
 
-
-
     def engage(
         self, initial_state: StateRef | None = None, force: bool = False
     ) -> None:
         return super().engage(initial_state, force)
 
     def get_aim(self):
-        speaker_position = self.field_layout.getSpeakerRelativePosition(
-            0.40
-        )
+        speaker_position = self.field_layout.getSpeakerRelativePosition(0.40)
         if speaker_position is None:
             return
 
@@ -644,7 +639,10 @@ class ActionLowShootTune(StateMachine):
         )
 
         angle, rotation = tools.get_projectile_launch_angle_and_rotation(
-            speaker_position, projectile_velocity, self.drivetrain.get_chassis_speed(), self.drivetrain.getRotation2d()
+            speaker_position,
+            projectile_velocity,
+            self.drivetrain.get_chassis_speed(),
+            self.drivetrain.getRotation2d(),
         )
 
         # self.drivetrain.snap_angle(
@@ -656,8 +654,6 @@ class ActionLowShootTune(StateMachine):
 
         # self.lobras_head.set_angle(math.degrees(angle) + self.THROW_OFFSET)
         return [math.degrees(rotation), math.degrees(angle) + self.THROW_OFFSET]
-
-
 
     @feedback
     def get_distance(self):
