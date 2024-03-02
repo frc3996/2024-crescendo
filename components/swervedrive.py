@@ -163,7 +163,7 @@ class SwerveDrive:
     def set_robot_relative_automove_value(self, forward, strafe):
         self.auto_chassis_speed = kinematics.ChassisSpeeds(forward, strafe, 0)
 
-    def set_tmp_speed_factor(self, factor_movement=1, factor_rotation=1):
+    def set_tmp_speed_factor(self, factor_movement=1.0, factor_rotation=1.0):
         self.tmp_speed_factor = (factor_movement, factor_rotation)
 
     def set_controller_values(self, forward, strafe, angle_stick_x, angle_stick_y):

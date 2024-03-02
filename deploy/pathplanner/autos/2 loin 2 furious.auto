@@ -1,0 +1,103 @@
+{
+  "version": 1.0,
+  "startingPose": {
+    "position": {
+      "x": 1.3755569132759884,
+      "y": 4.07136727786969
+    },
+    "rotation": -42.27368900609373
+  },
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "named",
+          "data": {
+            "name": "actionLowShootAuto"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "enable_look_only"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "start_to_3"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionGrabAuto"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "disable_look_only"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionLowShootAuto"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "shoot_to_m5"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionGrabAuto"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "m5_to_shoot"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionLowShootAuto"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "shoot_to_m4"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionGrabAuto"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "m4_to_shoot"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "actionLowShootAuto"
+          }
+        }
+      ]
+    }
+  },
+  "folder": null,
+  "choreoAuto": false
+}

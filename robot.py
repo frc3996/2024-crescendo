@@ -34,26 +34,25 @@ INDICATEUR LUMINEUX
 
 import ntcore
 import phoenix6
-import wpilib
-from magicbot import MagicRobot
-from magicbot import tunable
-from wpimath.geometry import Rotation2d
-from navx import AHRS
 import rev
+import wpilib
+from magicbot import MagicRobot, tunable
+from navx import AHRS
+from wpimath.geometry import Rotation2d
+
 import constants
 from autonomous.auto_modes import RunAuto
-from common import arduino_light, tools
+from common import tools
+from common.arduino_light import I2CArduinoLight, LedMode
 from components.field import FieldLayout
 from components.intake import Intake
 from components.limelight import LimeLightVision
 from components.lobra import LoBrasArm, LoBrasArmFollower, LoBrasHead
 from components.pixy import Pixy
-from components.robot_actions import (ActionGrabAuto,
-                                      ActionHighShootAuto, ActionLowShootAuto,
-                                      ActionLowShootTune, ActionPathTester,
-                                      ActionShootAmpAssisted,
-                                      ActionShootAmpAuto, ActionStow,
-                                      )
+from components.robot_actions import (ActionGrabAuto, ActionHighShootAuto,
+                                      ActionLowShootAuto, ActionLowShootTune,
+                                      ActionPathTester, ActionShootAmpAssisted,
+                                      ActionShootAmpAuto, ActionStow)
 from components.shooter import Shooter, ShooterFollower, ShooterMain
 from components.swervedrive import SwerveDrive, SwerveDriveConfig
 from components.swervemodule import SwerveModule, SwerveModuleConfig
@@ -125,7 +124,7 @@ class MyRobot(MagicRobot):
     # Networktables pour de la configuration et retour d'information
     nt: ntcore.NetworkTable
     is_sim: bool
-    fast_climb_arm_angle = tunable(125)
+    fast_climb_arm_angle = tunable(120)
 
     def createObjects(self):
         """
@@ -136,7 +135,7 @@ class MyRobot(MagicRobot):
         self.nt = ntcore.NetworkTableInstance.getDefault().getTable("robotpy")
         self.is_sim = self.isSimulation()
 
-        self.arduino_light = arduino_light.I2CArduinoLight(wpilib.I2C.Port.kMXP, 0x42)
+        self.arduino_light = I2CArduinoLight(wpilib.I2C.Port.kOnboard, 0x42)
 
         # OMFG. The fuck is wrong with you. What have we ever done yo you to deserve this
         # There is a place for such as you in hell. I wish you harm :)
@@ -237,15 +236,19 @@ class MyRobot(MagicRobot):
             rotation_zero=318,
         )
 
+    def disabledInit(self) -> None:
+        self.arduino_light.set_leds(LedMode.Solid, 0, 255, 0)
+
     def disabledPeriodic(self):
         """Mets à jours le dashboard, même quand le robot est désactivé"""
+        # self.limelight_vision.execute(()
         pass
-        # self.limelight_vision.execute()
 
     def autonomousInit(self):
         """Cette fonction est appelée une seule fois lorsque le robot entre en mode autonome."""
         self.actionStow.done()
         self.limelight_vision.light_off()
+        self.arduino_light.set_leds(LedMode.Solid, 0, 255, 0)
         pass
 
     def autonomous(self):
@@ -257,7 +260,7 @@ class MyRobot(MagicRobot):
         tre en mode téléopéré."""
         self.pdp.clearStickyFaults()
         self.limelight_vision.light_off()
-        self.arduino_light.set_RGB(0, 0, 0)
+        self.arduino_light.set_leds(LedMode.Solid, 0, 0, 255)
         self.actionStow.engage()
         self.drivetrain.permanent_snap = False
 
@@ -271,9 +274,16 @@ class MyRobot(MagicRobot):
             self.gamepad.getRightY(),
         )
 
-        speed_factor_when_arm_high = tools.map_value(self.lobras_arm.get_angle(), 0, 45, 1, 0.2)
-        speed_factor_when_arm_high = tools.fit_to_boundaries(speed_factor_when_arm_high, 0.4, 1)
-        self.drivetrain.set_tmp_speed_factor(factor_movement=speed_factor_when_arm_high, factor_rotation=speed_factor_when_arm_high)
+        speed_factor_when_arm_high = tools.map_value(
+            self.lobras_arm.get_angle(), 0, 45, 1, 0.2
+        )
+        speed_factor_when_arm_high = tools.fit_to_boundaries(
+            speed_factor_when_arm_high, 0.4, 1
+        )
+        self.drivetrain.set_tmp_speed_factor(
+            factor_movement=speed_factor_when_arm_high,
+            factor_rotation=speed_factor_when_arm_high,
+        )
 
         ## XXX: This is not needed as limelight is resetting zeo for us
         # # Reset navx zero
@@ -302,12 +312,15 @@ class MyRobot(MagicRobot):
             self.intake.disable()
             pass
         elif self.gamepad.getXButton():
-            self.actionPathTester.engage()
+            # self.actionPathTester.engage()
+            self.drivetrain.request_wheel_lock = True
             pass
         elif self.gamepad.getYButton():
+            self.arduino_light.set_leds(LedMode.BlinkSlow, 0, 128, 0)
             self.lobras_arm.set_angle(self.fast_climb_arm_angle)
             pass
         elif self.gamepad.getAButton():
+            self.arduino_light.set_leds(LedMode.Solid, 0, 255, 0)
             self.lobras_arm.set_angle(0)
             pass
         # else:
@@ -316,13 +329,25 @@ class MyRobot(MagicRobot):
 
         # Gamepad 2
         if self.gamepad2.getXButton():
-            angle = Rotation2d.fromDegrees(-60.69 + 180) if tools.is_red() else Rotation2d.fromDegrees(-60.69)
+            angle = (
+                Rotation2d.fromDegrees(-60.69 + 180)
+                if tools.is_red()
+                else Rotation2d.fromDegrees(-60.69)
+            )
             self.drivetrain.snap_angle(angle)
         elif self.gamepad2.getYButton():
-            angle = Rotation2d.fromDegrees(180 + 180) if tools.is_red() else Rotation2d.fromDegrees(180)
+            angle = (
+                Rotation2d.fromDegrees(180 + 180)
+                if tools.is_red()
+                else Rotation2d.fromDegrees(180)
+            )
             self.drivetrain.snap_angle(angle)
         elif self.gamepad2.getBButton():
-            angle = Rotation2d.fromDegrees(60.69 + 180) if tools.is_red() else Rotation2d.fromDegrees(60.69)
+            angle = (
+                Rotation2d.fromDegrees(60.69 + 180)
+                if tools.is_red()
+                else Rotation2d.fromDegrees(60.69)
+            )
             self.drivetrain.snap_angle(angle)
         elif self.gamepad2.getAButton():
-            self.intake.engage(initial_state="deep_throat")
+            self.intake.engage(initial_state="deep")

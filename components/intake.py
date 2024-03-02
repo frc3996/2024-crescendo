@@ -3,6 +3,7 @@ import wpilib
 from magicbot import StateMachine, feedback, state, timed_state, tunable
 
 import constants
+from common.arduino_light import I2CArduinoLight
 
 
 class Intake(StateMachine):
@@ -13,6 +14,7 @@ class Intake(StateMachine):
 
     # Injections
     is_sim: bool
+    arduino_light: I2CArduinoLight
 
     # Tunable
     intake_velocity = tunable(0.75)
@@ -108,8 +110,8 @@ class Intake(StateMachine):
         if self.has_object():
             self.next_state_now("jiggle_stop")
 
-    @timed_state(duration=0.1, must_finish=True, next_state="jiggle_stop")
-    def deep_throat(self, initial_call):
+    @timed_state(duration=0.3, must_finish=True, next_state="jiggle_stop")
+    def deep(self, initial_call):
         self.pid.setReference(1.0, rev.CANSparkMax.ControlType.kDutyCycle)
         if self.has_object():
             self.next_state_now("jiggle_stop")

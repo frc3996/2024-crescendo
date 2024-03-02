@@ -155,6 +155,11 @@ class taxi(RunAuto):
     PATH_NAME = "taxi"
 
 
+class furious(RunAuto):
+    MODE_NAME = "2 loin 2 furious"
+    PATH_NAME = "2 loin 2 furious"
+
+
 class Speaker4Fast(RunAuto):
     DEFAULT = True
     MODE_NAME = "4 speakers fast"

@@ -9,7 +9,8 @@ from magicbot.state_machine import StateRef
 from wpimath import controller, geometry
 
 import constants
-from common import arduino_light, tools
+from common import tools
+from common.arduino_light import I2CArduinoLight, LedMode
 from common.path_helper import PathHelper
 from components import intake, swervedrive
 from components.climber import Climber
@@ -34,7 +35,7 @@ class ActionStow(StateMachine):
     ) -> None:
         return super().engage(initial_state, force)
 
-    @state(first=True, must_finish=True)
+    @timed_state(first=True, must_finish=True, duration=2)
     def position_all(self):
         """Premier etat, position la tete, et on s'assure que plu rien tourne"""
         if self.is_sim:
@@ -56,7 +57,7 @@ class ActionStow(StateMachine):
         elif self.lobras_arm.get_angle() > 30:
             self.lobras_arm.set_angle(30)
 
-        if self.lobras_arm.is_ready() and self.lobras_head.is_ready():
+        if self.lobras_arm.is_ready(acceptable_error=29):
             self.done()
 
     def done(self):
@@ -67,7 +68,7 @@ class ActionGrabAuto(StateMachine):
     lobras_arm: LoBrasArm
     lobras_head: LoBrasHead
     intake: Intake
-    arduino_light: arduino_light.I2CArduinoLight
+    arduino_light: I2CArduinoLight
     drivetrain: SwerveDrive
     pixy: Pixy
     auto_intake_kp = tunable(0.001)  # For relative_rotate: 0.015
@@ -92,6 +93,8 @@ class ActionGrabAuto(StateMachine):
             self.next_state("finish")
             return
 
+        self.arduino_light.set_leds(LedMode.BlinkSlow, 0, 255, 0)
+
         self.auto_intake_pid.setPID(
             self.auto_intake_kp,
             self.auto_intake_ki,
@@ -114,6 +117,7 @@ class ActionGrabAuto(StateMachine):
             self.next_state("finish")
 
         if self.intake.has_object():
+            self.arduino_light.set_leds(LedMode.BlinkFast, 0, 255, 0)
             self.limelight_vision.light_blink()
             self.next_state("finish")
 
@@ -128,6 +132,8 @@ class ActionGrabAuto(StateMachine):
             error = self.auto_intake_pid.calculate(offset, 0)
         else:
             fwd = 0.35
+            if tools.is_autonomous():
+                fwd = 0.6
             error = 0
         self.drivetrain.set_robot_relative_automove_value(-fwd, -error)
 
@@ -142,6 +148,7 @@ class ActionGrabAuto(StateMachine):
             self.intake.jiggle()
 
     def done(self) -> None:
+        self.arduino_light.set_leds(LedMode.Solid, 0, 255, 0)
         self.limelight_vision.light_off()
         if not tools.is_autonomous():
             self.actionStow.engage()
@@ -163,7 +170,7 @@ class ActionShootAmpAssisted(StateMachine):
     head_shoot_angle = tunable(AMP_SHOOT_ANGLE)
     drivetrain: SwerveDrive
     ready_to_fire = False
-    arduino_light: arduino_light.I2CArduinoLight
+    arduino_light: I2CArduinoLight
     actionStow: ActionStow
 
     def engage(
@@ -178,6 +185,7 @@ class ActionShootAmpAssisted(StateMachine):
         self.drivetrain.snap_angle(
             geometry.Rotation2d.fromDegrees(-90)
         )  # We throw from behind
+        self.arduino_light.set_leds(LedMode.BlinkFast, 0, 255, 0)
 
         self.ready_to_fire = False
 
@@ -204,8 +212,8 @@ class ActionShootAmpAssisted(StateMachine):
         self.drivetrain.snap_angle(
             geometry.Rotation2d.fromDegrees(-90)
         )  # We throw from behind
+        self.arduino_light.set_leds(LedMode.Swipe, 255, 165, 0)
         self.ready_to_fire = True
-        self.arduino_light.set_RGB(255, 0, 0)
 
     @state(must_finish=True)
     def place_head(self):
@@ -225,6 +233,7 @@ class ActionShootAmpAssisted(StateMachine):
             self.ready_to_fire = False
             self.next_state("place_head")
         else:
+            self.arduino_light.set_leds(LedMode.Solid, 0, 128, 0)
             self.actionStow.engage()
             return super().done()
 
@@ -283,11 +292,11 @@ class ActionLowShootAuto(StateMachine):
     drivetrain: SwerveDrive
     field_layout: FieldLayout
     is_sim: bool
-    arduino_light: arduino_light.I2CArduinoLight
+    arduino_light: I2CArduinoLight
     actionStow: ActionStow
     ARM_ANGLE = tunable(0)
     FUDGE_FACTOR = tunable(0.7)
-    THROW_OFFSET = tunable(63)
+    THROW_OFFSET = tunable(59.5)
 
     DISTANCE_POINTS = [1.21, 1.85, 2.85, 3.33, 3.85, 4.85, 5.85]
     ANGLE_POINTS = [96, 87, 79, 77, 73, 70.9, 70.9]
@@ -311,6 +320,7 @@ class ActionLowShootAuto(StateMachine):
 
     @state(first=True)
     def jiggle(self, initial_call):
+        self.arduino_light.set_leds(LedMode.BlinkSlow, 0, 255, 0)
         if self.intake.is_executing:
             return
 
@@ -415,7 +425,7 @@ class ActionLowShootAuto(StateMachine):
         res4 = abs(self.drivetrain._chassis_speed.omega) < 0.0075
         res5 = self.set_arm()
         res = [res1, res2, res3, res4, res5]
-        print(res)
+        self.arduino_light.set_leds(LedMode.BlinkFast, 0, 255, 0)
         if all(res):
             self.next_state_now("fire_until_out")
 
@@ -428,6 +438,7 @@ class ActionLowShootAuto(StateMachine):
         # Keep on aiming
         self.aim()
         self.intake.feed()
+        self.arduino_light.set_leds(LedMode.Swipe, 255, 165, 0)
         if not self.intake.has_object():
             self.next_state_now("fire")
 
@@ -435,7 +446,6 @@ class ActionLowShootAuto(StateMachine):
     def finish(self):
         self.intake.disable()
         self.shooter.disable()
-        self.arduino_light.set_RGB(0, 255, 0)
         if wpilib.DriverStation.isAutonomous():
             self.done()
             return
@@ -444,6 +454,7 @@ class ActionLowShootAuto(StateMachine):
     def done(self) -> None:
         self.intake.disable()
         self.shooter.disable()
+        self.arduino_light.set_leds(LedMode.Solid, 0, 128, 0)
         if not wpilib.DriverStation.isAutonomous():
             self.actionStow.engage()
         return super().done()
