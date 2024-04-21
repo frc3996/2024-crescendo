@@ -122,10 +122,10 @@ class Shooter:
     shooter_follower: ShooterFollower
 
     # MAX SPEED IS 5676
-    main_speaker_velocity = magicbot.tunable(4200)
-    follower_speaker_velocity = magicbot.tunable(3200)
+    main_speaker_velocity = magicbot.tunable(4200 if constants.DEMO_MODE is False else 1000)
+    follower_speaker_velocity = magicbot.tunable(3200 if constants.DEMO_MODE is False else 1000)
 
-    amp_velocity = magicbot.tunable(3000)
+    amp_velocity = magicbot.tunable(3000 if constants.DEMO_MODE is False else 500)
 
     # Control methods
     def shoot_amp(self):
