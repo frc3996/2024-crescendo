@@ -51,14 +51,18 @@ class ActionStow(StateMachine):
 
         # If the head is extended more than 90 degrees, wait for
         # it and start moving then arm half-way
-        if self.lobras_head.get_angle() < 90:
-            self.lobras_arm.set_angle(0)
-        # Only move the arm half-way if the current angle was already > 30
-        elif self.lobras_arm.get_angle() > 30:
+        if self.lobras_arm.get_angle() > 30:
             self.lobras_arm.set_angle(30)
 
-        if self.lobras_arm.is_ready(acceptable_error=29):
+        if not self.lobras_head.get_angle() > 90:
+            self.lobras_arm.set_angle(0)
             self.done()
+        # Only move the arm half-way if the current angle was already > 30
+        # elif self.lobras_arm.get_angle() > 30:
+        #     self.lobras_arm.set_angle(30)
+
+        # if self.lobras_arm.is_ready(acceptable_error=25):
+        #     self.done()
 
     def done(self):
         super().done()
@@ -200,9 +204,9 @@ class ActionShootAmpAssisted(StateMachine):
         self.drivetrain.snap_angle(
             geometry.Rotation2d.fromDegrees(-90)
         )  # We throw from behind
-        if not self.lobras_arm.is_ready(acceptable_error=5):
+        if not self.lobras_arm.is_ready(acceptable_error=10):
             return
-        if not self.lobras_head.is_ready(acceptable_error=5):
+        if not self.lobras_head.is_ready(acceptable_error=10):
             return
         self.shooter.shoot_amp()
         self.next_state("wait_release")
@@ -295,8 +299,8 @@ class ActionLowShootAuto(StateMachine):
     arduino_light: I2CArduinoLight
     actionStow: ActionStow
     ARM_ANGLE = tunable(0)
-    FUDGE_FACTOR = tunable(0.7)
-    THROW_OFFSET = tunable(59.5)
+    FUDGE_FACTOR = tunable(0.9)
+    THROW_OFFSET = tunable(58)
 
     DISTANCE_POINTS = [1.21, 1.85, 2.85, 3.33, 3.85, 4.85, 5.85]
     ANGLE_POINTS = [96, 87, 79, 77, 73, 70.9, 70.9]
@@ -320,7 +324,6 @@ class ActionLowShootAuto(StateMachine):
 
     @state(first=True)
     def jiggle(self, initial_call):
-        self.arduino_light.set_leds(LedMode.BlinkSlow, 0, 255, 0)
         if self.intake.is_executing:
             return
 
@@ -389,6 +392,7 @@ class ActionLowShootAuto(StateMachine):
 
         speaker_position = self.field_layout.getSpeakerRelativePosition(0.40)
         if speaker_position is None:
+            self.arduino_light.set_leds(LedMode.BlinkSlow, 255, 255, 0)
             return
 
         projectile_velocity = (
@@ -410,9 +414,12 @@ class ActionLowShootAuto(StateMachine):
         )  # We throw from behind
 
         if angle is None:
+            self.arduino_light.set_leds(LedMode.BlinkSlow, 255, 255, 0)
             return
         angle = math.degrees(angle) + self.THROW_OFFSET
         print(angle, rotation)
+
+        self.arduino_light.set_leds(LedMode.BlinkFast, 0, 255, 0)
         self.drivetrain.set_tmp_speed_factor(factor_rotation=1)
         self.lobras_head.set_angle(angle)
 
@@ -425,7 +432,6 @@ class ActionLowShootAuto(StateMachine):
         res4 = abs(self.drivetrain._chassis_speed.omega) < 0.0075
         res5 = self.set_arm()
         res = [res1, res2, res3, res4, res5]
-        self.arduino_light.set_leds(LedMode.BlinkFast, 0, 255, 0)
         if all(res):
             self.next_state_now("fire_until_out")
 
@@ -461,11 +467,8 @@ class ActionLowShootAuto(StateMachine):
 
 
 class ActionHighShootAuto(ActionLowShootAuto):
-    Z_OFFSET = tunable(1.03)
-    X_OFFSET = tunable(-0.4)
-    THROW_VELOCITY = tunable(10.7)
     ARM_ANGLE = tunable(100)
-    THROW_OFFSET = tunable(152)
+    THROW_OFFSET = tunable(143)
 
     # TODO: NEED TO FILL THESE POINTS
     DISTANCE_POINTS = [1.21, 1.85, 2.85, 3.33, 3.85, 4.85, 5.85]
@@ -620,108 +623,108 @@ class ActionPathTester(StateMachine):
         super().done()
 
 
-class ActionLowShootTune(StateMachine):
-    lobras_arm: LoBrasArm
-    lobras_head: LoBrasHead
-    shooter: Shooter
-    intake: Intake
-    drivetrain: SwerveDrive
-    shoot_angle = tunable(79)
-    actionStow: ActionStow
-    field_layout: FieldLayout
-    THROW_OFFSET = tunable(58.5)
-    FUDGE_FACTOR = tunable(0.85)
-
-    def engage(
-        self, initial_state: StateRef | None = None, force: bool = False
-    ) -> None:
-        return super().engage(initial_state, force)
-
-    def get_aim(self):
-        speaker_position = self.field_layout.getSpeakerRelativePosition(0.40)
-        if speaker_position is None:
-            return
-
-        projectile_velocity = (
-            math.pi
-            * (constants.SHOOTER_WHEEL_DIAMETER)
-            * (self.shooter.get_velocity() / 60)
-            * self.FUDGE_FACTOR
-        )
-
-        angle, rotation = tools.get_projectile_launch_angle_and_rotation(
-            speaker_position,
-            projectile_velocity,
-            self.drivetrain.get_chassis_speed(),
-            self.drivetrain.getRotation2d(),
-        )
-
-        # self.drivetrain.snap_angle(
-        #     geometry.Rotation2d.fromDegrees(math.degrees(rotation))
-        # )  # We throw from behind
-
-        if angle is None:
-            return
-
-        # self.lobras_head.set_angle(math.degrees(angle) + self.THROW_OFFSET)
-        return [math.degrees(rotation), math.degrees(angle) + self.THROW_OFFSET]
-
-    @feedback
-    def get_distance(self):
-        speaker_position = self.field_layout.getSpeakerRelativePosition()
-        if speaker_position is None:
-            return -1
-        distance = math.sqrt(speaker_position.x**2 + speaker_position.y**2)
-        return distance
-
-    @state(first=True)
-    def insert_note(self):
-        if not self.intake.has_object():
-            self.intake.intake()
-        else:
-            self.intake.jiggle()
-            self.next_state("position_arm")
-
-    @state
-    def position_arm(self):
-        self.lobras_arm.set_angle(100)  # 100 for highshoot, else 0
-        if self.lobras_arm.is_ready(acceptable_error=2):
-            self.next_state("position_head")
-
-    @state
-    def position_head(self):
-        """Premier etat, position la tete"""
-        self.lobras_head.set_angle(self.shoot_angle)
-
-        if self.lobras_head.is_ready(acceptable_error=2):
-            self.next_state("prepare_to_fire1")
-
-    @state
-    def prepare_to_fire1(self):
-        self.shooter.shoot_speaker()
-        self.intake.intake()
-        if self.intake.has_object():
-            self.next_state("prepare_to_fire2")
-
-    @timed_state(duration=1, next_state="prepare_to_fire")
-    def prepare_to_fire2(self):
-        self.intake.disable()
-        pass
-
-    @state
-    def prepare_to_fire(self):
-        """First state -- waits until shooter is ready before going to the
-        next action in the sequence"""
-        self.shooter.shoot_speaker()
-
-        if self.shooter.is_ready():
-            self.next_state("feed_start")
-
-    @timed_state(duration=1.5)
-    def feed_start(self, initial_call):
-        if initial_call:
-            self.intake.feed()
-
-    def done(self) -> None:
-        self.actionStow.engage()
-        return super().done()
+# class ActionLowShootTune(StateMachine):
+#     lobras_arm: LoBrasArm
+#     lobras_head: LoBrasHead
+#     shooter: Shooter
+#     intake: Intake
+#     drivetrain: SwerveDrive
+#     shoot_angle = tunable(79)
+#     actionStow: ActionStow
+#     field_layout: FieldLayout
+#     THROW_OFFSET = tunable(58.5)
+#     FUDGE_FACTOR = tunable(0.9)
+#
+#     def engage(
+#         self, initial_state: StateRef | None = None, force: bool = False
+#     ) -> None:
+#         return super().engage(initial_state, force)
+#
+#     def get_aim(self):
+#         speaker_position = self.field_layout.getSpeakerRelativePosition(0.40)
+#         if speaker_position is None:
+#             return
+#
+#         projectile_velocity = (
+#             math.pi
+#             * (constants.SHOOTER_WHEEL_DIAMETER)
+#             * (self.shooter.get_velocity() / 60)
+#             * self.FUDGE_FACTOR
+#         )
+#
+#         angle, rotation = tools.get_projectile_launch_angle_and_rotation(
+#             speaker_position,
+#             projectile_velocity,
+#             self.drivetrain.get_chassis_speed(),
+#             self.drivetrain.getRotation2d(),
+#         )
+#
+#         # self.drivetrain.snap_angle(
+#         #     geometry.Rotation2d.fromDegrees(math.degrees(rotation))
+#         # )  # We throw from behind
+#
+#         if angle is None:
+#             return
+#
+#         # self.lobras_head.set_angle(math.degrees(angle) + self.THROW_OFFSET)
+#         return [math.degrees(rotation), math.degrees(angle) + self.THROW_OFFSET]
+#
+#     @feedback
+#     def get_distance(self):
+#         speaker_position = self.field_layout.getSpeakerRelativePosition()
+#         if speaker_position is None:
+#             return -1
+#         distance = math.sqrt(speaker_position.x**2 + speaker_position.y**2)
+#         return distance
+#
+#     @state(first=True)
+#     def insert_note(self):
+#         if not self.intake.has_object():
+#             self.intake.intake()
+#         else:
+#             self.intake.jiggle()
+#             self.next_state("position_arm")
+#
+#     @state
+#     def position_arm(self):
+#         self.lobras_arm.set_angle(100)  # 100 for highshoot, else 0
+#         if self.lobras_arm.is_ready(acceptable_error=2):
+#             self.next_state("position_head")
+#
+#     @state
+#     def position_head(self):
+#         """Premier etat, position la tete"""
+#         self.lobras_head.set_angle(self.shoot_angle)
+#
+#         if self.lobras_head.is_ready(acceptable_error=2):
+#             self.next_state("prepare_to_fire1")
+#
+#     @state
+#     def prepare_to_fire1(self):
+#         self.shooter.shoot_speaker()
+#         self.intake.intake()
+#         if self.intake.has_object():
+#             self.next_state("prepare_to_fire2")
+#
+#     @timed_state(duration=1, next_state="prepare_to_fire")
+#     def prepare_to_fire2(self):
+#         self.intake.disable()
+#         pass
+#
+#     @state
+#     def prepare_to_fire(self):
+#         """First state -- waits until shooter is ready before going to the
+#         next action in the sequence"""
+#         self.shooter.shoot_speaker()
+#
+#         if self.shooter.is_ready():
+#             self.next_state("feed_start")
+#
+#     @timed_state(duration=1.5)
+#     def feed_start(self, initial_call):
+#         if initial_call:
+#             self.intake.feed()
+#
+#     def done(self) -> None:
+#         self.actionStow.engage()
+#         return super().done()

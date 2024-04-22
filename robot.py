@@ -50,8 +50,8 @@ from components.limelight import LimeLightVision
 from components.lobra import LoBrasArm, LoBrasArmFollower, LoBrasHead
 from components.pixy import Pixy
 from components.robot_actions import (ActionGrabAuto, ActionHighShootAuto,
-                                      ActionLowShootAuto, ActionLowShootTune,
-                                      ActionPathTester, ActionShootAmpAssisted,
+                                      ActionLowShootAuto, ActionPathTester,
+                                      ActionShootAmpAssisted,
                                       ActionShootAmpAuto, ActionStow)
 from components.shooter import Shooter, ShooterFollower, ShooterMain
 from components.swervedrive import SwerveDrive, SwerveDriveConfig
@@ -85,7 +85,6 @@ class MyRobot(MagicRobot):
     actionShootAmpAssisted: ActionShootAmpAssisted
     actionShootAmpAuto: ActionShootAmpAuto
     actionPathTester: ActionPathTester
-    actionLowShootTune: ActionLowShootTune
 
     # LOW Level components after
 
